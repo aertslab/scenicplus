@@ -1,5 +1,3 @@
-#TODO: Add axtra binarization tools (otsu, ...)
-
 import pandas as pd
 import numpy  as np
 import ray
@@ -549,6 +547,67 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
             return region_to_gene
         else:
             return
+    
+    if method == 'otsu':
+        from pycisTopic.topic_binarization import threshold_otsu
+        if ray_n_cpu is None:
+            region_to_gene['selected'] = region_to_gene.groupby('target')['importance'].apply(lambda x: x > threshold_otsu(x))
+            if return_copy:
+                return region_to_gene
+            else:
+                return
+        else:
+            @ray.remote
+            def _ray_threshold_otsu(x):
+                return x > threshold_otsu(x)
+            
+            ray.init(num_cpus=ray_n_cpu, **kwargs)
+            try:
+                #do binarization in parallel
+                binarized_results = ray.get([ _ray_threshold_otsu.remote(region_to_gene.loc[region_to_gene['target'] == target, 'importance'].to_numpy()) 
+                                             for target in set(region_to_gene['target']) ])
+            except Exception as e:
+                print(e)
+            finally:
+                ray.shutdown()
+            #put binarized results in dataframe
+            for target, binarized_result in zip(set(region_to_gene['target']), binarized_results):
+                region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = binarized_result
+            region_to_gene['selected'] = region_to_gene['selected'] == 1
+            if return_copy:
+                return region_to_gene
+            else:
+                return
+    if method == 'yen':
+        from pycisTopic.topic_binarization import threshold_yen
+        if ray_n_cpu is None:
+            region_to_gene['selected'] = region_to_gene.groupby('target')['importance'].apply(lambda x: x > threshold_yen(x))
+            if return_copy:
+                return region_to_gene
+            else:
+                return
+        else:
+            @ray.remote
+            def _ray_threshold_yen(x):
+                return x > threshold_yen(x)
+            
+            ray.init(num_cpus=ray_n_cpu, **kwargs)
+            try:
+                #do binarization in parallel
+                binarized_results = ray.get([ _ray_threshold_yen.remote(region_to_gene.loc[region_to_gene['target'] == target, 'importance'].to_numpy()) 
+                                             for target in set(region_to_gene['target']) ])
+            except Exception as e:
+                print(e)
+            finally:
+                ray.shutdown()
+            #put binarized results in dataframe
+            for target, binarized_result in zip(set(region_to_gene['target']), binarized_results):
+                region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = binarized_result
+            region_to_gene['selected'] = region_to_gene['selected'] == 1
+            if return_copy:
+                return region_to_gene
+            else:
+                return
 
 def export_to_UCSC_interact(region_to_gene_df, 
                             species,  
