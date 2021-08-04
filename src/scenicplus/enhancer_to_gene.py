@@ -365,9 +365,9 @@ def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame,
                            search_space,
                            mask_expr_dropout = False,
                            genes = None, 
-                           regressor_type = 'GBM',
+                           regressor_type = 'RF',
                            ray_n_cpu = None,
-                           regressor_kwargs = GBM_KWARGS,
+                           regressor_kwargs = RF_KWARGS,
                            **kwargs) -> dict:
     """
     Wrapper function for score_regions_to_single_gene and score_regions_to_single_gene_ray.
@@ -434,8 +434,8 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                                              search_space :pd.DataFrame, 
                                              mask_expr_dropout = False,
                                              genes = None,
-                                             importance_scoring_method = 'GBM', 
-                                             importance_scoring_kwargs = GBM_KWARGS,
+                                             importance_scoring_method = 'RF', 
+                                             importance_scoring_kwargs = RF_KWARGS,
                                              correlation_scoring_method = 'SR',
                                              ray_n_cpu = None,
                                              **kwargs) -> pd.DataFrame:
