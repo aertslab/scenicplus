@@ -1,4 +1,5 @@
 #TODO: Add axtra binarization tools (otsu, ...)
+#TODO: Parallelize binarization
 
 import pandas as pd
 import numpy  as np
@@ -275,11 +276,10 @@ def get_search_space(pr_regions,
         # Extend to search space
         log.info(
             """Extending search space to: 
-            \t\tA minimum of {} bp downstream of the start of the gene.
-            \t\tA minimum of {} bp upstream of the end of the gene.
-            \t\tA maximum of {} bp downstream or the promoter of the nearest downstream gene.
-            \t\tA maximum of {} bp upstream of the end of the gene or the promoter of the nearest upstream gene
-            """.format(str(downstream[0]), str(upstream[0]), str(downstream[1]), str(upstream[1])))
+            \t\t\t\t\t\tA minimum of {} bp downstream of the start of the gene.
+            \t\t\t\t\t\tA minimum of {} bp upstream of the end of the gene.
+            \t\t\t\t\t\tA maximum of {} bp downstream or the promoter of the nearest downstream gene.
+            \t\t\t\t\t\tA maximum of {} bp upstream of the end of the gene or the promoter of the nearest upstream gene""".format(str(downstream[0]), str(upstream[0]), str(downstream[1]), str(upstream[1])))
 
         extended_annot = extend_pyranges_with_limits(annot_nodup)
         extended_annot = extended_annot[['Chromosome',
@@ -293,9 +293,8 @@ def get_search_space(pr_regions,
     else:
         log.info(
             """Extending search space to:
-            \t\t{} bp downstream of the start of the gene.
-            \t\t{} bp upstream of the start of the gene.
-            """.format(str(downstream[1]), str(upstream[1])))
+            \t\t\t\t\t\t{} bp downstream of the start of the gene.
+            \t\t\t\t\t\t{} bp upstream of the start of the gene.""".format(str(downstream[1]), str(upstream[1])))
         extended_annot = extend_pyranges(annot, upstream[1], downstream[1])
         extended_annot = extended_annot[['Chromosome', 'Start', 'End', 'Strand', 'Gene', 'Gene_width', 'Gene_size_weight']]
     
@@ -501,6 +500,8 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                                 ]
                             )
     return result_df
+
+
 
 def binarize_region_to_gene_relationships(region_to_gene: pd.DataFrame, method):
     region_to_gene = region_to_gene.copy()
