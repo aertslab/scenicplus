@@ -1,5 +1,4 @@
 #TODO: Add axtra binarization tools (otsu, ...)
-#TODO: Parallelize binarization
 
 import pandas as pd
 import numpy  as np
@@ -502,16 +501,43 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
     return result_df
 
 
-
-def binarize_region_to_gene_relationships(region_to_gene: pd.DataFrame, method):
-    region_to_gene = region_to_gene.copy()
+def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ray_n_cpu = None, return_copy = True, **kwargs):
+    if return_copy:
+        region_to_gene = region_to_gene.copy()
     if method == 'BASC':
         from .BASCA import binarize
-        res = region_to_gene.groupby('target')['importance'].apply(lambda x: binarize(vect = x, tau = 0.01, n_samples = 999).binarizedMeasurements)
-        for idx, target in enumerate(res.index):
-            region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = res[idx]
-        region_to_gene['selected'] = region_to_gene['selected'] == 1
-        return region_to_gene
+        if ray_n_cpu is None:
+            res = region_to_gene.groupby('target')['importance'].apply(lambda x: binarize(vect = x, tau = 0.01, n_samples = 999).binarizedMeasurements)
+            for idx, target in enumerate(res.index):
+                region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = res[idx]
+            region_to_gene['selected'] = region_to_gene['selected'] == 1
+            if return_copy:
+                return region_to_gene
+            else:
+                return
+        else:
+            @ray.remote
+            def _ray_binarize(vect, tau, n_samples):
+                return binarize(vect, tau, n_samples).binarizedMeasurements
+
+            ray.init(num_cpus=ray_n_cpu, **kwargs)
+            try:
+                #do binarization in parallel
+                binarized_results = ray.get([ _ray_binarize.remote(vect = region_to_gene.loc[region_to_gene['target'] == target, 'importance'].to_numpy(), tau = 0.01, n_samples = 999) 
+                                            for target in set(region_to_gene['target']) ])
+            except Exception as e:
+                print(e)
+            finally:
+                ray.shutdown()
+            #put binarized results in dataframe
+            for target, binarized_result in zip(set(region_to_gene['target']), binarized_results):
+                region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = binarized_result
+            region_to_gene['selected'] = region_to_gene['selected'] == 1
+            if return_copy:
+                return region_to_gene
+            else:
+                return
+            
     if method == 'mean':
         def _gt_mean(vect):
             u = np.mean(vect)
@@ -519,7 +545,10 @@ def binarize_region_to_gene_relationships(region_to_gene: pd.DataFrame, method):
         res = region_to_gene.groupby('target')['importance'].apply(lambda x: _gt_mean(x))
         for idx, target in enumerate(res.index):
             region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = res[idx]
-        return region_to_gene
+        if return_copy:
+            return region_to_gene
+        else:
+            return
 
 def export_to_UCSC_interact(region_to_gene_df, 
                             species,  
