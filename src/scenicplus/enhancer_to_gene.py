@@ -9,7 +9,7 @@ import os
 import subprocess
 import pyranges as pr
 from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b, calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
-from .utils import coord_to_region_names, message_join_vector
+from .utils import coord_to_region_names, message_join_vector, region_names_to_coordinates
 
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
 from scipy.stats import pearsonr, spearmanr
@@ -686,14 +686,16 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
 def export_to_UCSC_interact(region_to_gene_df, 
                             species,  
                             outfile, 
+                            aggr_rank_score_thr = 600,
                             bigbed_outfile = None, 
                             path_bedToBigBed = None, 
                             assembly = None, 
                             ucsc_track_name = 'region_to_gene', 
                             ucsc_description = 'interaction file for region to gene', 
-                            scale_per_gene = True, 
                             cmap_neg = 'Reds', 
-                            cmap_pos = 'Blues'):
+                            cmap_pos = 'Blues',
+                            vmin = 0,
+                            vmax = 1000):
     """
     Exports interaction dataframe to UCSC interaction file and (optionally) UCSC bigInteract file.
     :param region_to_gene_df: interaction dataframe obtained from calculate_regions_to_genes_relationships function.
@@ -716,8 +718,15 @@ def export_to_UCSC_interact(region_to_gene_df,
     logging.basicConfig(level = level, format = format, handlers = handlers)
     log = logging.getLogger('R2G')
     region_to_gene_df = region_to_gene_df.copy()
-    region_to_gene_df.columns = ['Gene', 'Region', 'ImportanceScore', 'CorrelationCoef', 'Selected']
+
+    #Rename columns to be in line with biomart annotation
+    region_to_gene_df.rename(columns = {'target': 'Gene'}, inplace = True)
+
+    #threshold
+    region_to_gene_df = region_to_gene_df.loc[region_to_gene_df['aggr_rank_score'] > aggr_rank_score_thr]
+
     # Get TSS annotation (end-point for links)
+    log.info('Downloading gene annotation from biomart, using dataset: {}'.format(species+'_gene_ensembl'))
     import pybiomart as pbm
     dataset = pbm.Dataset(name=species+'_gene_ensembl',  host='http://www.ensembl.org')
     annot = dataset.query(attributes=['chromosome_name', 'start_position', 'end_position', 'strand', 'external_gene_name', 'transcription_start_site', 'transcript_biotype'])
@@ -727,7 +736,7 @@ def export_to_UCSC_interact(region_to_gene_df,
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
 
-    
+    log.info('Formatting data ...')
     #get gene to tss mapping, take the one equal to the gene start/end location if possible otherwise take the first one
     annot['TSSeqStartEnd'] = np.logical_or(annot['Transcription_Start_Site'] == annot['Start'], annot['Transcription_Start_Site'] == annot['End'])
     gene_to_tss = annot[['Gene', 'Transcription_Start_Site']].groupby('Gene').agg(lambda x: list(map(str, x)))
@@ -749,24 +758,13 @@ def export_to_UCSC_interact(region_to_gene_df,
 
     #add chromosome for each gene to region_to_gene_df
     region_to_gene_df = region_to_gene_df.join(gene_to_chrom, on = 'Gene')
-
-    score_key = 'ImportanceScore'
-    if scale_per_gene:
-        #scale and center scores per gene
-        groups = region_to_gene_df[['Gene', 'ImportanceScore']].groupby('Gene')
-        mean = groups.transform(np.mean)
-        std = groups.transform(np.std)
-        normalized_score = [((score - mn)/sd)[0] for score, mn, sd in zip(region_to_gene_df['ImportanceScore'].values, mean.values, std.values)]
-        region_to_gene_df['ImportanceScoreScaled'] = normalized_score
-        score_key = 'ImportanceScoreScaled'
     
     #get chrom, chromStart, chromEnd
-    chrom_split               = np.array([name.split(':') for name in region_to_gene_df['Region'].values])
-    chrom                     = chrom_split[:, 0]
-    chromStart_chromEnd       = chrom_split[:, 1]
-    chromStart_chromEnd_split = np.array([name.split('-') for name in chromStart_chromEnd])
-    chromStart                = np.array(list(map(int, chromStart_chromEnd_split[:, 0])))
-    chromEnd                  = np.array(list(map(int, chromStart_chromEnd_split[:, 1])))
+    arr = region_names_to_coordinates(region_to_gene_df['region']).to_numpy()
+    chrom, chromStart, chromEnd = np.split(arr, 3, 1)
+    chrom = chrom[:, 0]
+    chromStart = chromStart[:, 0]
+    chromEnd = chromEnd[:, 0]
 
     #get source chrom, chromStart, chromEnd (i.e. middle of regions)
     sourceChrom = chrom
@@ -781,15 +779,19 @@ def export_to_UCSC_interact(region_to_gene_df,
 
     #get color
     from matplotlib import cm
+    from matplotlib.colors import Normalize
+    norm = Normalize(vmin = vmin, vmax = vmax)
     # map postive correlation values to color
-    region_to_gene_df.loc[region_to_gene_df['CorrelationCoef'] >= 0 , 'color'] = [','.join(map(str, color_list)) 
+    region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = [','.join(map(str, color_list)) 
                                                                                  for color_list 
-                                                                                 in getattr(cm, cmap_pos)(region_to_gene_df.loc[region_to_gene_df['CorrelationCoef'] >= 0, score_key], bytes = True)[:,0:3]]
+                                                                                 in getattr(cm, cmap_pos)(
+                                                                                     norm(region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'aggr_rank_score']), bytes = True)[:,0:3]]
     
     # map negative correlation values to color
-    region_to_gene_df.loc[region_to_gene_df['CorrelationCoef'] < 0, 'color'] = [','.join(map(str, color_list)) 
+    region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'color'] = [','.join(map(str, color_list)) 
                                                                                 for color_list 
-                                                                                in getattr(cm, cmap_neg)(region_to_gene_df.loc[region_to_gene_df['CorrelationCoef'] < 0, score_key], bytes = True)[:,0:3]]
+                                                                                in getattr(cm, cmap_neg)(
+                                                                                    norm(region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'aggr_rank_score']), bytes = True)[:,0:3]]
     #set color to gray where correlation coef equals nan
     region_to_gene_df['color'] = region_to_gene_df['color'].fillna('55,55,55')
     #get name for regions (add incremental number to gene in range of regions linked to gene)
@@ -812,7 +814,7 @@ def export_to_UCSC_interact(region_to_gene_df,
                                     'chromEnd':     chromEnd,
                                     'name':         names,
                                     'score':        np.repeat(0, len(region_to_gene_df)),
-                                    'value':        region_to_gene_df['ImportanceScore'].values,
+                                    'value':        region_to_gene_df['aggr_rank_score'].values,
                                     'exp':          np.repeat('.', len(region_to_gene_df)),
                                     'color':        region_to_gene_df['color'].values,
                                     'sourceChrom':  sourceChrom,
@@ -830,12 +832,14 @@ def export_to_UCSC_interact(region_to_gene_df,
     #sort dataframe
     df_interact = df_interact.sort_values(by = ['chrom', 'chromStart'])
     #Write interact file
+    log.info('Writing data to: {}'.format(outfile))
     with open(outfile, 'w') as f:
         f.write('track type=interact name="{}" description="{}" useScore=0 maxHeightPixels=200:100:50 visibility=full\n'.format(ucsc_track_name, ucsc_description))
         df_interact.to_csv(f, header=False, index = False, sep = '\t')
-
+    
     #write bigInteract file
     if bigbed_outfile != None:
+        log.info('Writing data to: {}'.format(bigbed_outfile))
         outfolder = bigbed_outfile.rsplit('/', 1)[0]
         #write bed file without header to tmp file
         df_interact.to_csv(os.path.join(outfolder, 'interact.bed.tmp'), header=False, index = False, sep = '\t')
