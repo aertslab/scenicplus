@@ -1,6 +1,3 @@
-#TODO: add code for rank aggregation
-
-import re
 import pandas as pd
 import numpy  as np
 import ray
@@ -309,7 +306,7 @@ def get_search_space(pr_regions,
     regions_per_gene.Start = round(regions_per_gene.Start + regions_per_gene.Width / 2).astype(np.int32)
     regions_per_gene.End = (regions_per_gene.Start + 1).astype(np.int32)
     # Calculate distance
-    log.info('Calculating distances from region to promoter of gene')
+    log.info('Calculating distances from region to gene')
     if use_gene_boundaries:
         regions_per_gene = reduce_pyranges_with_limits_b(regions_per_gene)
         regions_per_gene = calculate_distance_with_limits_join(regions_per_gene)
@@ -501,6 +498,8 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                                     for gene in region_to_gene_importances.keys()
                                 ]
                             )
+    result_df.reset_index()
+    result_df = result_df.drop('index', axis = 1)
     return result_df
 
 def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ray_n_cpu = None, return_copy = True, **kwargs):
