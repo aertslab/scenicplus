@@ -1,3 +1,6 @@
+#TODO: add code for rank aggregation
+
+import re
 import pandas as pd
 import numpy  as np
 import ray
@@ -9,10 +12,12 @@ import os
 import subprocess
 import pyranges as pr
 from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b, calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
-from .utils import coord_to_region_names
+from .utils import coord_to_region_names, message_join_vector
 
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
 from scipy.stats import pearsonr, spearmanr
+
+import ranky as rk
 
 RANDOM_SEED = 666
 
@@ -498,7 +503,6 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                             )
     return result_df
 
-
 def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ray_n_cpu = None, return_copy = True, **kwargs):
     if return_copy:
         region_to_gene = region_to_gene.copy()
@@ -608,6 +612,77 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
                 return region_to_gene
             else:
                 return
+
+def rank_aggregation(region_to_gene: pd.DataFrame, 
+                     imputed_acc_mtx: pd.DataFrame, 
+                     grouping_vector: pd.Series, 
+                     method = 'euclidean', 
+                     ray_n_cpu = None, 
+                     return_copy = True,
+                     scale_ceil = 1000,
+                    **kwargs):
+    # Create logger
+    level    = logging.INFO
+    format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    handlers = [logging.StreamHandler(stream=sys.stdout)]
+    logging.basicConfig(level = level, format = format, handlers = handlers)
+    log = logging.getLogger('R2G')
+    
+    if return_copy:
+        region_to_gene = region_to_gene.copy()
+    
+    #calculate mean accessibility per group in grouping vector
+    log.info("Calculating max mean accessibility per group in grouping vector, groups: {}" .format(message_join_vector(grouping_vector)))
+    imputed_acc_mtx_subset = imputed_acc_mtx.loc[ grouping_vector.index, region_to_gene['region'] ].copy()
+    mean_imputed_acc_mtx = imputed_acc_mtx_subset.groupby( grouping_vector ).mean().T
+    max_mean = mean_imputed_acc_mtx.max(axis = 1)
+    
+    #rank by importance score, absolute value of correlation coef. and max of mean accessibility
+    log.info("Ranking importance score, |correlation coef.| and max mean accessbility.")
+    
+    region_to_gene['max_mean'] = max_mean.loc[region_to_gene['region']].to_numpy()
+    region_to_gene['abs_rho'] = abs(region_to_gene['rho'])
+
+    region_to_gene[['rank_importance', 'rank_rho', 'rank_acc']] = region_to_gene.groupby('target')[['importance', 'abs_rho', 'max_mean']].rank(method = 'first', ascending = True) - 1
+    
+    #create aggregated ranking
+    log.info("Calculating aggregated ranking.")
+    start_time = time.time()
+    if ray_n_cpu is None:
+        #use pd.DataFrame otherwise: TypeError: Series.name must be a hashable type
+        region_to_gene['aggr_rank_score'] = region_to_gene.groupby('target')[['rank_importance', 'rank_rho', 'rank_acc']].apply(
+            lambda x: pd.DataFrame(rk.center(x, method = method, axis = 1, verbose = False)))
+    else:
+        @ray.remote
+        def _ray_rk_center(x, method, axis):
+            return rk.center(x, method = method, axis = axis, verbose = False)
+        #aggregate rankings in parallel
+        ray.init(num_cpus = 9,  _temp_dir = '/scratch/leuven/330/vsc33053/ray_spill')
+        try:
+            aggr_rank_scores = ray.get(
+                [_ray_rk_center.remote(
+                        x = region_to_gene.loc[ region_to_gene['target'] == target, ['rank_importance', 'rank_rho', 'rank_acc'] ],
+                        method = method,
+                        axis = 1)
+                for target in set(region_to_gene['target'])]
+            )
+        except Exception as e:
+            print(e)
+        finally:
+            ray.shutdown()
+        #put results in dataframe
+        for target, scores in zip(set(region_to_gene['target']), aggr_rank_scores):
+            region_to_gene.loc[region_to_gene['target'] == target, 'aggr_rank_score'] = scores
+    log.info('Took {} seconds'.format(time.time() - start_time))
+
+    if scale_ceil is not None:
+        region_to_gene['aggr_rank_score'] = region_to_gene.groupby('target')['aggr_rank_score'].apply(
+            lambda x: (x / x.max()) * scale_ceil )
+    
+    if return_copy:
+        return region_to_gene
+    else:
+        return
 
 def export_to_UCSC_interact(region_to_gene_df, 
                             species,  

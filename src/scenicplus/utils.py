@@ -156,3 +156,11 @@ def coord_to_region_names(coord):
     if isinstance(coord, pr.PyRanges):
         coord = coord.as_df()
         return list(coord['Chromosome'].astype(str) + ':' + coord['Start'].astype(str) + '-' + coord['End'].astype(str))
+
+def message_join_vector(v, sep = ', ', max_len = 4):
+    uniq_v = list(set(v))
+    if len(uniq_v) > max_len:
+        msg = sep.join(uniq_v[0:max_len -1]) + ' ... ' + uniq_v[-1]
+    else:
+        msg = sep.join(uniq_v)
+    return msg
