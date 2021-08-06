@@ -387,10 +387,10 @@ def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame,
              as values for resp. regression based and correlation based calculations.
     """
     if genes == None:
-        warnings.warn("Using all genes for which a search space and gene expression is avaible")
+        #warnings.warn("Using all genes for which a search space and gene expression is avaible")
         genes_to_use = list(set.intersection(set(search_space['Gene']), set(expr_mtx.columns)))
     elif not all(np.isin(genes, list(search_space['Gene']))):
-        warnings.warn("Not all provided genes are in search space, excluding following genes: {}".format(np.array(genes)[~np.isin(genes, list(search_space['Gene']))]))
+        #warnings.warn("Not all provided genes are in search space, excluding following genes: {}".format(np.array(genes)[~np.isin(genes, list(search_space['Gene']))]))
         genes_to_use = list(set.intersection(set(search_space['Gene']), set(genes)))
     else:
         genes_to_use = genes
