@@ -498,7 +498,7 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                                     for gene in region_to_gene_importances.keys()
                                 ]
                             )
-    result_df.reset_index()
+    result_df = result_df.reset_index()
     result_df = result_df.drop('index', axis = 1)
     return result_df
 
