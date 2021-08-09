@@ -632,7 +632,7 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
     
     #calculate mean accessibility per group in grouping vector
     log.info("Calculating max mean accessibility per group in grouping vector, groups: {}" .format(message_join_vector(grouping_vector)))
-    imputed_acc_mtx_subset = imputed_acc_mtx.loc[ grouping_vector.index, region_to_gene['region'] ].copy()
+    imputed_acc_mtx_subset = imputed_acc_mtx.loc[ grouping_vector.index, set(region_to_gene['region']) ].copy()
     mean_imputed_acc_mtx = imputed_acc_mtx_subset.groupby( grouping_vector ).mean().T
     max_mean = mean_imputed_acc_mtx.max(axis = 1)
     
