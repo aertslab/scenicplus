@@ -656,7 +656,7 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
         def _ray_rk_center(x, method, axis):
             return rk.center(x, method = method, axis = axis, verbose = False)
         #aggregate rankings in parallel
-        ray.init(num_cpus = 9,  _temp_dir = '/scratch/leuven/330/vsc33053/ray_spill')
+        ray.init(num_cpus = ray_n_cpu, **kwargs)
         try:
             aggr_rank_scores = ray.get(
                 [_ray_rk_center.remote(
