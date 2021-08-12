@@ -1,6 +1,7 @@
 import pandas as pd
 import pyranges as pr
 import numpy as np
+import networkx as nx
 
 def extend_pyranges(pr_obj: pr.PyRanges,
                     upstream: int,
@@ -174,3 +175,11 @@ def message_join_vector(v, sep = ', ', max_len = 4):
     else:
         msg = sep.join(uniq_v)
     return msg
+
+def eRegulons_tbl_to_nx(df_eRegulons, TF_only = False):
+    #create adjecency matrix: https://stackoverflow.com/questions/42806398/create-adjacency-matrix-for-two-columns-in-pandas-dataframe
+    A = (pd.crosstab(df_eRegulons['TF'], df_eRegulons['gene']) != 0) * 1
+    idx = A.columns.intersection(A.index) if TF_only else A.columns.union(A.index)
+    A = A.reindex(index = idx, columns=idx, fill_value=0)
+    return nx.from_pandas_adjacency(A)
+
