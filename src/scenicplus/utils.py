@@ -181,5 +181,5 @@ def eRegulons_tbl_to_nx(df_eRegulons, TF_only = False):
     A = (pd.crosstab(df_eRegulons['TF'], df_eRegulons['gene']) != 0) * 1
     idx = A.columns.intersection(A.index) if TF_only else A.columns.union(A.index)
     A = A.reindex(index = idx, columns=idx, fill_value=0)
-    return nx.from_pandas_adjacency(A)
+    return nx.from_pandas_adjacency(A, create_using = nx.DiGraph)
 
