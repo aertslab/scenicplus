@@ -64,9 +64,20 @@ def assemble_e_regulons(
 
     log.info('Subsetting for leading edge genes and generating final eRegulon dataframe.')
     eRegulons = df_sign_results.merge(df_cistrome_to_gene, on = ['TF', 'group', 'gene'], suffixes = ['_TF2G', '_R2G'])
-    #drop columns
-    eRegulons.drop(['gsea_NES', 'gsea_pval'], axis = 1, inplace = True)
-    #drop duplicates (coming from different module contexts)
-    eRegulons = eRegulons.drop_duplicates()
+    
+    #regenerate adjecencies matrix from modules to be able to add tf to region importances
+    adj = pd.DataFrame([(np.repeat(module.transcription_factor, len(module)), 
+                         pd.Series(module.gene2weight).index, 
+                         pd.Series(module.gene2weight).to_numpy()) for module in modules], 
+                         columns = ['TF', 'gene', 'importance']).apply(pd.Series.explode)
+    adj.drop_duplicates(inplace = True)
+
+    eRegulons = eRegulons.merge(adj, on = ['TF', 'gene'], suffixes = ['_R2G', '_TF2G'])
+
+    #multiple NES en pvals for single TF to gene, coming from several modules. Take the highest nes and lowest pval
+    cols = list(eRegulons.columns)
+    cols.remove('gsea_NES')
+    cols.remove('gsea_pval')
+    eRegulons = eRegulons.groupby(cols, as_index = False)['gsea_NES', 'gsea_pval'].agg({'gsea_NES': max, 'gsea_pval': min})
     log.info('Done!')
     return eRegulons
