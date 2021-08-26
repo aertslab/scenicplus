@@ -92,8 +92,9 @@ def get_search_space(pr_regions,
                      use_gene_boundaries = False, 
                      upstream = [1000, 100000], 
                      downstream = [1000, 100000],
-                     extend_tss=[10, 10],
-                     remove_promoters = False):
+                     extend_tss = [10, 10],
+                     remove_promoters = False,
+                     biomart_host = 'http://www.ensembl.org'):
     """
     Get search space surrounding genes to calculate enhancer to gene links
 
@@ -159,7 +160,7 @@ def get_search_space(pr_regions,
         #1. Download gene annotation from biomart
         import pybiomart as pbm
         dataset_name = '{}_gene_ensembl'.format(species)
-        server = pbm.Server(host = 'http://www.ensembl.org', use_cache = False)
+        server = pbm.Server(host = biomart_host, use_cache = False)
         mart = server['ENSEMBL_MART_ENSEMBL']
         #check wether dataset can be accessed.
         if dataset_name not in mart.list_datasets()['name'].to_numpy():
