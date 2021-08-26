@@ -441,8 +441,8 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                                              importance_scoring_kwargs = RF_KWARGS,
                                              correlation_scoring_method = 'SR',
                                              ray_n_cpu = None,
+                                             add_distance = True,
                                              **kwargs) -> pd.DataFrame:
-    #TODO: add region to gene distance
     """
     Wrapper function for score_regions_to_genes.
     Calculates region to gene relationships using regression machine learning and correlation
@@ -502,6 +502,11 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                             )
     result_df = result_df.reset_index()
     result_df = result_df.drop('index', axis = 1)
+
+    if add_distance:
+        #TODO: use consistent column names
+        search_space_rn = search_space.rename({'name': 'region', 'Gene': 'target'}, axis = 1).copy()
+        result_df = result_df.merge(search_space_rn, on = ['region', 'target'])
     return result_df
 
 def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ray_n_cpu = None, return_copy = True, **kwargs):
