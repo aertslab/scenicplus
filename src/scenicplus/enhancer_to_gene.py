@@ -442,6 +442,7 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
                                              correlation_scoring_method = 'SR',
                                              ray_n_cpu = None,
                                              **kwargs) -> pd.DataFrame:
+    #TODO: add region to gene distance
     """
     Wrapper function for score_regions_to_genes.
     Calculates region to gene relationships using regression machine learning and correlation
@@ -613,13 +614,39 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
             else:
                 return
 
+def add_max_mean_acc(region_to_gene: pd.DataFrame, 
+                     imputed_acc_mtx: pd.DataFrame,
+                     grouping_vector: pd.Series,
+                     return_copy = True):
+    # Create logger
+    level    = logging.INFO
+    format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    handlers = [logging.StreamHandler(stream=sys.stdout)]
+    logging.basicConfig(level = level, format = format, handlers = handlers)
+    log = logging.getLogger('R2G')
+
+    if return_copy:
+        region_to_gene = region_to_gene.copy()
+    
+    #calculate mean accessibility per group in grouping vector
+    log.info("Calculating max mean accessibility per group in grouping vector, groups: {}" .format(message_join_vector(grouping_vector)))
+    imputed_acc_mtx_subset = imputed_acc_mtx.loc[ grouping_vector.index, set(region_to_gene['region']) ].copy()
+    mean_imputed_acc_mtx = imputed_acc_mtx_subset.groupby( grouping_vector ).mean().T
+    max_mean = mean_imputed_acc_mtx.max(axis = 1)
+
+    region_to_gene['max_mean_acc'] = max_mean.loc[region_to_gene['region']].to_numpy()
+
+    if return_copy:
+        return region_to_gene
+    else:
+        return
+
 def rank_aggregation(region_to_gene: pd.DataFrame, 
-                     imputed_acc_mtx: pd.DataFrame, 
-                     grouping_vector: pd.Series, 
                      method = 'euclidean', 
                      ray_n_cpu = None, 
                      return_copy = True,
                      scale_ceil = 1000,
+                     on = ['importance', 'abs_rho', 'max_mean_acc'],
                     **kwargs):
     # Create logger
     level    = logging.INFO
@@ -631,26 +658,27 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
     if return_copy:
         region_to_gene = region_to_gene.copy()
     
-    #calculate mean accessibility per group in grouping vector
-    log.info("Calculating max mean accessibility per group in grouping vector, groups: {}" .format(message_join_vector(grouping_vector)))
-    imputed_acc_mtx_subset = imputed_acc_mtx.loc[ grouping_vector.index, set(region_to_gene['region']) ].copy()
-    mean_imputed_acc_mtx = imputed_acc_mtx_subset.groupby( grouping_vector ).mean().T
-    max_mean = mean_imputed_acc_mtx.max(axis = 1)
-    
-    #rank by importance score, absolute value of correlation coef. and max of mean accessibility
-    log.info("Ranking importance score, |correlation coef.| and max mean accessbility.")
-    
-    region_to_gene['max_mean'] = max_mean.loc[region_to_gene['region']].to_numpy()
-    region_to_gene['abs_rho'] = abs(region_to_gene['rho'])
+    #check that all keys in on are in the dataframe
+    for key in on:
+        if key not in region_to_gene.columns:
+            raise Exception('Key "{}" not found in region_to_gene columns!'.format(key))
 
-    region_to_gene[['rank_importance', 'rank_rho', 'rank_acc']] = region_to_gene.groupby('target')[['importance', 'abs_rho', 'max_mean']].rank(method = 'first', ascending = True) - 1
+    #check for NaN values
+    if not region_to_gene[on].isnull().values.any():
+        raise Exception("Region_to_gene dataframe contains NaNs, please check input!")
     
+    #rank by provided column values
+    log.info("Ranking on: {}".format(message_join_vector(on, max_len = len(on) + 1)))
+    
+    rank_columns = ['rank_'+key for key in on]
+    region_to_gene[rank_columns] = region_to_gene.groupby('target')[on].rank(method = 'first', ascending = True) - 1
+
     #create aggregated ranking
     log.info("Calculating aggregated ranking.")
     start_time = time.time()
     if ray_n_cpu is None:
         #use pd.DataFrame otherwise: TypeError: Series.name must be a hashable type
-        region_to_gene['aggr_rank_score'] = region_to_gene.groupby('target')[['rank_importance', 'rank_rho', 'rank_acc']].apply(
+        region_to_gene['aggr_rank_score'] = region_to_gene.groupby('target')[rank_columns].apply(
             lambda x: pd.DataFrame(rk.center(x, method = method, axis = 1, verbose = False)))
     else:
         @ray.remote
@@ -661,7 +689,7 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
         try:
             aggr_rank_scores = ray.get(
                 [_ray_rk_center.remote(
-                        x = region_to_gene.loc[ region_to_gene['target'] == target, ['rank_importance', 'rank_rho', 'rank_acc'] ],
+                        x = region_to_gene.loc[ region_to_gene['target'] == target, rank_columns ],
                         method = method,
                         axis = 1)
                 for target in set(region_to_gene['target'])]
