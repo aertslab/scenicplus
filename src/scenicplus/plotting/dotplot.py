@@ -130,14 +130,21 @@ def dotplot_given_ax(expr_mat: pd.DataFrame,
     ax.set_yticks( np.arange(n_TF) )
     ax.set_yticklabels(dotsizes.columns, fontdict = {'fontsize': fontsize})
 
-    # TODO: plot legend
+    
     #draw colorbar
-    #cbar = plt.colorbar(mappable = ScalarMappable(norm = norm, cmap = cmap), 
-    #             ax = ax, location = 'bottom', orientation = 'horizontal', 
-    #             aspect = 10, shrink = 0.4, pad = 0.10, anchor = (0, 0))
-    #cbar_label = 'Z-score mean expression' if z_score_expr else 'Mean expression'
-    #cbar.set_label(cbar_label)
-    #
-    #plt.legend(*scat.legend_elements("sizes", num=3), 
-    #           loc = 'lower right', bbox_to_anchor = (0.8, -0.2), frameon = False, title = 'max nes', ncol = 1, mode = None)
+    cbar = plt.colorbar(mappable = ScalarMappable(norm = norm, cmap = cmap), 
+                 ax = ax, location = 'bottom', orientation = 'horizontal', 
+                 aspect = 10, shrink = 0.4, pad = 0.10, anchor = (0, 0))
+    cbar_label = 'Z-score mean expression' if z_score_expr else 'Mean expression'
+    cbar.set_label(cbar_label)
+    
+    L = plt.legend(*scat.legend_elements("sizes", num=3), 
+               loc = 'lower right', bbox_to_anchor = (0.8, -0.2), frameon = False, title = 'max nes', ncol = 1, mode = None)
+    #recalculate original scale
+    to_int = lambda x: int(''.join(i for i in x if i.isdigit()))
+    labels = np.array([to_int(t.get_text()) for t in L.get_texts()])
+    re_scale = lambda x: (x - min_point_size) * ((s_max - s_min) / (max_point_size - min_point_size)) + s_min
+    rescaled = re_scale(labels).round(2)
+    for new, text in zip(rescaled, L.get_texts()):
+        text.set_text(new)
     return ax
