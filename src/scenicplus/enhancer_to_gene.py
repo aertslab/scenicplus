@@ -412,6 +412,9 @@ def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame,
                 else:
                     expr = expr_mtx[gene].to_numpy()
                     acc = imputed_acc_mtx[search_space.loc[search_space['Gene'] == gene, 'Name'].values].to_numpy()
+                # Check-up for genes with 1 region only, related to issue 2
+                if acc.ndim == 1:
+                    acc = acc.reshape(-1,1)
                 jobs.append(score_regions_to_single_gene_ray.remote(X = acc, y = expr, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs))
 
             regions_to_genes = ray.get(jobs)
