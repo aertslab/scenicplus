@@ -14,6 +14,8 @@ def region_to_gene_command(args):
     output = args.output
     n_cpu = args.n_cpu
     temp_dir = args.temp_dir
+    object_store_memory = args.object_store_memory
+    memory = args.memory
 
     #Imports
     import sys
@@ -77,7 +79,9 @@ def region_to_gene_command(args):
         correlation_scoring_method= correlation_scoring_method,
         importance_scoring_kwargs=KWARGS_dict[importance_scoring_method],
         ray_n_cpu=n_cpu,
-        _temp_dir = temp_dir
+        _temp_dir = temp_dir,
+        object_store_memory = object_store_memory,
+        _memory = memory
     )
     log.info('Writing to file: {}'.format(output))
     region_to_gene.to_csv(output, header = True, index = False, sep = '\t')
@@ -151,6 +155,20 @@ def create_argument_parser():
         '--temp_dir',
         type = str,
         help = 'temp directory for ray.'
+    )
+    
+    parser_r2g.add_argument(
+        '--object_store_memory',
+        type = int,
+        default = 12e+10,
+        help = 'object store memory for ray.'
+    )
+    
+    parser_r2g.add_argument(
+        '--memory',
+        type = int,
+        default = 18e+10,
+        help = 'memory for ray.'
     )
     parser_r2g.set_defaults(func=region_to_gene_command)
     return parser
