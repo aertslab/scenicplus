@@ -387,6 +387,9 @@ def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame,
     :returns dictionary with genes as keys and importance score or correlation coefficient 
              as values for resp. regression based and correlation based calculations.
     """
+    #Check overlaps with search space (Issue #1)
+    search_space=search_space[search_space['Name'].isin(imputed_acc_mtx.columns)]
+    
     if genes == None:
         #warnings.warn("Using all genes for which a search space and gene expression is avaible")
         genes_to_use = list(set.intersection(set(search_space['Gene']), set(expr_mtx.columns)))
