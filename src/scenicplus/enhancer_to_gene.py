@@ -505,7 +505,7 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
 
     if add_distance:
         #TODO: use consistent column names
-        search_space_rn = search_space.rename({'name': 'region', 'Gene': 'target'}, axis = 1).copy()
+        search_space_rn = search_space.rename({'Name': 'region', 'Gene': 'target'}, axis = 1).copy()
         result_df = result_df.merge(search_space_rn, on = ['region', 'target'])
     return result_df
 
