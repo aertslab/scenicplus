@@ -51,8 +51,7 @@ def run_gsea(ranked_gene_list: np.array,
         nperm = n_perm,
         rs = seed,
         single = False,
-        scale = False)
-    
+        scale = True)
     # estimate p value
     
     # see: North BV, Curtis D, Sham PC. A note on the calculation of empirical P values from Monte Carlo procedures. Am J Hum Genet. 2002;71(2):439-441. doi:10.1086/341527
@@ -68,7 +67,7 @@ def run_gsea(ranked_gene_list: np.array,
     esnull_mean_pos = (esnull[esnull >= 0]).mean()
     esnull_mean_neg = (esnull[esnull <  0]).mean()
     denom = esnull_mean_pos if es >= 0 else esnull_mean_neg
-    NES = es / denom
+    NES = es / abs(denom)
 
     # get genes in leading edge
     rank_at_max = np.argmax(res)
