@@ -341,17 +341,17 @@ def score_regions_to_single_gene(X, y, regressor_type, regressor_kwargs) -> list
     :returns feature_importance for regression methods and correlation_coef for correlation methods
     """
     if regressor_type in SKLEARN_REGRESSOR_FACTORY.keys():
-            from arboreto import core as arboreto_core
-            #fit model
-            fitted_model = arboreto_core.fit_model( regressor_type = regressor_type, 
+        from arboreto import core as arboreto_core
+        #fit model
+        fitted_model = arboreto_core.fit_model( regressor_type = regressor_type, 
                                                     regressor_kwargs = regressor_kwargs, 
                                                     tf_matrix = X, 
                                                     target_gene_expression = y)
-            #get importance scores for each feature
-            feature_importance = arboreto_core.to_feature_importances(  regressor_type = regressor_type, 
+        #get importance scores for each feature
+        feature_importance = arboreto_core.to_feature_importances(  regressor_type = regressor_type, 
                                                                         regressor_kwargs = regressor_kwargs, 
                                                                         trained_regressor = fitted_model)
-            return feature_importance
+        return feature_importance
 
     if regressor_type in SCIPY_CORRELATION_FACTORY.keys():
         #define correlation method
@@ -470,6 +470,9 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
     handlers = [logging.StreamHandler(stream=sys.stdout)]
     logging.basicConfig(level = level, format = format, handlers = handlers)
     log = logging.getLogger('R2G')
+    
+    #Check overlaps with search space (Issue #1)
+    search_space=search_space[search_space['Name'].isin(imputed_acc_mtx.columns)]
 
     #calulcate region to gene importance
     log.info('Calculating region to gene importances')
