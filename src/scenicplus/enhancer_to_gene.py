@@ -729,6 +729,7 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
 def export_to_UCSC_interact(region_to_gene_df, 
                             species,  
                             outfile, 
+                            pbm_host = 'http://www.ensembl.org',
                             aggr_rank_score_thr = 600,
                             bigbed_outfile = None, 
                             path_bedToBigBed = None, 
@@ -744,6 +745,7 @@ def export_to_UCSC_interact(region_to_gene_df,
     :param region_to_gene_df: interaction dataframe obtained from calculate_regions_to_genes_relationships function.
     :param species: e.g. "hsapiens", used to get gene annotation from ensembl.
     :param outfile: path to file to which to write the UCSC interaction (flat text file).
+    :param pbm_host: Path to biomart host to retrieve annotation from
     :param bigbed_outfile (optional): path to file to which to write the UCSC bigInteract file (binary file).
     :param path_bedToBigBed: path to the bedToBigBed program.
     :param assembly: genomic assembly (e.g. hg38) used to get chromosome sizes to convert to bigBed.
@@ -771,7 +773,7 @@ def export_to_UCSC_interact(region_to_gene_df,
     # Get TSS annotation (end-point for links)
     log.info('Downloading gene annotation from biomart, using dataset: {}'.format(species+'_gene_ensembl'))
     import pybiomart as pbm
-    dataset = pbm.Dataset(name=species+'_gene_ensembl',  host='http://www.ensembl.org')
+    dataset = pbm.Dataset(name=species+'_gene_ensembl',  host=pbm_host)
     annot = dataset.query(attributes=['chromosome_name', 'start_position', 'end_position', 'strand', 'external_gene_name', 'transcription_start_site', 'transcript_biotype'])
     annot['Chromosome/scaffold name'] = 'chr' + annot['Chromosome/scaffold name'].astype(str)
     annot.columns=['Chromosome', 'Start', 'End', 'Strand', 'Gene','Transcription_Start_Site', 'Transcript_type']
