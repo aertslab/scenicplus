@@ -110,10 +110,13 @@ def dotplot_given_ax(expr_mat: pd.DataFrame,
     c = dotcolors.to_numpy().flatten('F')
 
     # Get edges for eRegulons
-    TFs = dotsizes.columns
-    groups = dotsizes.index
-    linewidths = [eRegulon_lw if (TF, celltype) in eRegulons else 0 for 
-                    TF, celltype in zip(np.repeat(TFs, n_group), np.tile(groups, n_TF))]
+    if eRegulons is not None:
+        TFs = dotsizes.columns
+        groups = dotsizes.index
+        linewidths = [eRegulon_lw if (TF, celltype) in eRegulons else 0 for 
+                        TF, celltype in zip(np.repeat(TFs, n_group), np.tile(groups, n_TF))]
+    else:
+        linewidths = None
 
     if vmax is None:
         vmax = c.max()
