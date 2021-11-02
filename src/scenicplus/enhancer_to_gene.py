@@ -678,7 +678,7 @@ def rank_aggregation(region_to_gene: pd.DataFrame,
             raise Exception('Key "{}" not found in region_to_gene columns!'.format(key))
 
     #check for NaN values
-    if not region_to_gene[on].isnull().values.any():
+    if region_to_gene[on].isnull().values.any():
         raise Exception("Region_to_gene dataframe contains NaNs, please check input!")
     
     #rank by provided column values
