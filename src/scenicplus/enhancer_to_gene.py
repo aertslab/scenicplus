@@ -14,6 +14,8 @@ from .utils import coord_to_region_names, message_join_vector, region_names_to_c
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
 from scipy.stats import pearsonr, spearmanr
 
+from scenicplus_class import SCENICPLUS
+
 import ranky as rk
 
 RANDOM_SEED = 666
@@ -363,20 +365,18 @@ def score_regions_to_single_gene(X, y, regressor_type, regressor_kwargs) -> list
         
         return correlation_coef#, correlation_adj_pval
 
-def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame, 
-                           expr_mtx: pd.DataFrame, 
-                           search_space,
+def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
+                           search_space: pd.DataFrame,
                            mask_expr_dropout = False,
-                           genes = None, 
-                           regressor_type = 'RF',
+                           genes = None,
+                           regressor_type = 'GBM',
                            ray_n_cpu = None,
-                           regressor_kwargs = RF_KWARGS,
+                           regressor_kwargs = GBM_KWARGS,
                            **kwargs) -> dict:
     """
     Wrapper function for score_regions_to_single_gene and score_regions_to_single_gene_ray.
     Calculates region to gene importances or region to gene correlations for multiple genes
-    :param imputed_acc_mtx: pandas data frame containing imputed accessibility data, regions as columns and cells as rows
-    :param expr_mtx: pandas data frame containing expression data, genes as columns and cells as rows
+    :param SCENICPLUS_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data
     :param search space: pandas data frame containing regions (stored in column 'Name') in the search space for each gene (stored in column 'Gene')
     :param genes: list of genes for which to calculate region gene scores. Uses all genes if set to None
     :param regressor_type: type of regression/correlation analysis. 
@@ -388,30 +388,31 @@ def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame,
              as values for resp. regression based and correlation based calculations.
     """
     #Check overlaps with search space (Issue #1)
-    search_space=search_space[search_space['Name'].isin(imputed_acc_mtx.columns)]
-    
+    search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
+
     if genes == None:
-        #warnings.warn("Using all genes for which a search space and gene expression is avaible")
-        genes_to_use = list(set.intersection(set(search_space['Gene']), set(expr_mtx.columns)))
-    elif not all(np.isin(genes, list(search_space['Gene']))):
-        #warnings.warn("Not all provided genes are in search space, excluding following genes: {}".format(np.array(genes)[~np.isin(genes, list(search_space['Gene']))]))
+        genes_to_use = list( set.intersection(set(search_space['Gene']), set(SCENICPLUS_obj.gene_names)) )
+    elif not all( np.isin(genes, list(search_space['Gene'])) ):
         genes_to_use = list(set.intersection(set(search_space['Gene']), set(genes)))
     else:
         genes_to_use = genes
-
+    
     if ray_n_cpu != None:
-        ray.init(num_cpus=ray_n_cpu, **kwargs)
+        ray.init(num_cpus = ray_n_cpu, **kwargs)
         try:
             jobs = []
             for gene in genes_to_use:
                 if mask_expr_dropout:
-                    expr = expr_mtx[gene]
+                    expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene]
                     cell_non_zero = expr.index[expr != 0]
                     expr = expr.loc[cell_non_zero].to_numpy()
-                    acc = imputed_acc_mtx.loc[cell_non_zero, search_space.loc[search_space['Gene'] == gene, 'Name'].values].to_numpy()
+                    acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                                search_space.loc[search_space['Gene'] == gene, 'Name'].values,
+                                cell_non_zero].T.to_numpy()
                 else:
-                    expr = expr_mtx[gene].to_numpy()
-                    acc = imputed_acc_mtx[search_space.loc[search_space['Gene'] == gene, 'Name'].values].to_numpy()
+                    expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene].to_numpy()
+                    acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                                search_space.loc[search_space['Gene'] == gene, 'Name'].values].T.to_numpy()
                 # Check-up for genes with 1 region only, related to issue 2
                 if acc.ndim == 1:
                     acc = acc.reshape(-1,1)
@@ -427,19 +428,24 @@ def score_regions_to_genes(imputed_acc_mtx: pd.DataFrame,
         regions_to_genes = {}
         for gene in genes_to_use:
             if mask_expr_dropout:
-                expr = expr_mtx[gene]
+                expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene]
                 cell_non_zero = expr.index[expr != 0]
                 expr = expr.loc[cell_non_zero].to_numpy()
-                acc = imputed_acc_mtx.loc[cell_non_zero, search_space.loc[search_space['Gene'] == gene, 'Name'].values].to_numpy()
+                acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                                search_space.loc[search_space['Gene'] == gene, 'Name'].values,
+                                cell_non_zero].T.to_numpy()
             else:
-                expr = expr_mtx[gene].to_numpy()
-                acc = imputed_acc_mtx[search_space.loc[search_space['Gene'] == gene, 'Name'].values].to_numpy()
+                expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene].to_numpy()
+                acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                                search_space.loc[search_space['Gene'] == gene, 'Name'].values].T.to_numpy()
+                                # Check-up for genes with 1 region only, related to issue 2
+            if acc.ndim == 1:
+                acc = acc.reshape(-1,1)
             regions_to_genes[gene] = score_regions_to_single_gene(X = acc, y = expr, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs)
-        
+    
     return regions_to_genes
 
-def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame, 
-                                             expr_mtx:pd.DataFrame, 
+def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS, 
                                              search_space :pd.DataFrame, 
                                              mask_expr_dropout = False,
                                              genes = None,
@@ -452,8 +458,7 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
     """
     Wrapper function for score_regions_to_genes.
     Calculates region to gene relationships using regression machine learning and correlation
-    :param imputed_acc_mtx: pandas data frame containing imputed accessibility data, regions as columns and cells as rows
-    :param expr_mtx: pandas data frame containing expression data, genes as columns and cells as rows
+    :param SCENICPLUS_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data
     :param search space: pandas data frame containing regions (stored in column 'Name') in the search space for each gene (stored in column 'Gene')
     :param genes: list of genes for which to calculate region gene scores
     :param importance_scoring_method: method used to score region to gene importances.
@@ -472,13 +477,12 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
     log = logging.getLogger('R2G')
     
     #Check overlaps with search space (Issue #1)
-    search_space=search_space[search_space['Name'].isin(imputed_acc_mtx.columns)]
+    search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
 
     #calulcate region to gene importance
     log.info('Calculating region to gene importances')
     start_time = time.time()
-    region_to_gene_importances = score_regions_to_genes(imputed_acc_mtx = imputed_acc_mtx,
-                                                        expr_mtx = expr_mtx,
+    region_to_gene_importances = score_regions_to_genes(SCENICPLUS_obj,
                                                         search_space = search_space,
                                                         mask_expr_dropout = mask_expr_dropout,
                                                         genes = genes,
@@ -491,8 +495,7 @@ def calculate_regions_to_genes_relationships(imputed_acc_mtx: pd.DataFrame,
     #calculate region to gene correlation
     log.info('Calculating region to gene correlation')
     start_time = time.time()
-    region_to_gene_correlation = score_regions_to_genes(imputed_acc_mtx = imputed_acc_mtx,
-                                                        expr_mtx = expr_mtx,
+    region_to_gene_correlation = score_regions_to_genes(SCENICPLUS_obj,
                                                         search_space = search_space,
                                                         mask_expr_dropout = mask_expr_dropout,
                                                         genes = genes,
