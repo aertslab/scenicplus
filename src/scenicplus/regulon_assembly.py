@@ -10,7 +10,7 @@ def assemble_e_regulons(
     modules: list,
     df_cistromes: pd.DataFrame,
     df_region_to_gene: pd.DataFrame,
-    n_perm: int = 5000,
+    n_perm: int = 1000,
     GSEA_NES_thr: float = 0.0,
     GSEA_PVal_thr: float = 0.01):
     # Create logger
@@ -52,7 +52,7 @@ def assemble_e_regulons(
             TF_cistrome_group = TF_cistrome.loc[ TF_cistrome['group']  == group]
             gene_set = list( set( TF_cistrome_group['gene'] ) )
             NES, pval, LE_genes = run_gsea(
-                ranked_gene_list = rnk.index.to_numpy(),
+                ranked_gene_list = rnk,
                 gene_set = gene_set,
                 n_perm = n_perm)
             results.append( (TF, group, NES, pval, LE_genes, regulation) )
