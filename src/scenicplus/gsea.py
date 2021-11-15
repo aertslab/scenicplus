@@ -37,7 +37,7 @@ def run_gsea(ranked_gene_list: pd.Series,
     # run gsea prerank with default option
     gmt={name:list(gene_set)}
     gsea_results, ind, rank_ES, gs = gsea_compute(data=ranked_gene_list, n=n_perm, gmt=gmt,
-                weighted_score_type=0, permutation_type='gene_set', method=None,
+                weighted_score_type=1, permutation_type='gene_set', method=None,
                 pheno_pos='Pos', pheno_neg='Neg',classes=None, ascending=ascending)
 
     # extract enrichment scores
