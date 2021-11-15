@@ -12,6 +12,7 @@ def assemble_e_regulons(
     df_region_to_gene: pd.DataFrame,
     n_perm: int = 1000,
     min_set_size = 10,
+    keep_negative: bool = True,
     GSEA_NES_thr: float = 0.0,
     GSEA_PVal_thr: float = 0.01):
     # Create logger
@@ -61,8 +62,13 @@ def assemble_e_regulons(
             else:
                log.info('Skipping group {} for TF {}, gene set is too small'.format(group, TF))
     df_results = pd.DataFrame(results, columns = ['TF', 'group', 'gsea_NES', 'gsea_pval', 'LE_genes', 'regulation'])
-    df_sign_results = df_results.loc[np.logical_and(df_results['gsea_pval'] <= GSEA_PVal_thr,  
-                                                    df_results['gsea_NES']  >= GSEA_NES_thr)]
+    # Filter on NES score if negative NES are removed, else filter on absolute NES score
+    if keep_negative:
+        df_sign_results = df_results.loc[np.logical_and(df_results['gsea_pval'] <= GSEA_PVal_thr,
+                                                        abs(df_results['gsea_NES']) >= GSEA_NES_thr)]
+    else:
+        df_sign_results = df_results.loc[np.logical_and(df_results['gsea_pval'] <= GSEA_PVal_thr,
+                                                        df_results['gsea_NES'] >= GSEA_NES_thr)]
     df_sign_results = df_sign_results.explode('LE_genes')
     df_sign_results.rename({'LE_genes': 'gene'}, inplace = True, axis = 1)
 
@@ -82,6 +88,6 @@ def assemble_e_regulons(
     cols = list(eRegulons.columns)
     cols.remove('gsea_NES')
     cols.remove('gsea_pval')
-    eRegulons = eRegulons.groupby(cols, as_index = False)['gsea_NES', 'gsea_pval'].agg({'gsea_NES': max, 'gsea_pval': min})
+    eRegulons = eRegulons.groupby(cols, as_index = False)['gsea_NES', 'gsea_pval'].agg({'gsea_NES': lambda x : max(x, key=abs), 'gsea_pval': min})
     log.info('Done!')
     return eRegulons
