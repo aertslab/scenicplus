@@ -11,6 +11,7 @@ def assemble_e_regulons(
     df_cistromes: pd.DataFrame,
     df_region_to_gene: pd.DataFrame,
     n_perm: int = 1000,
+    min_set_size = 10,
     GSEA_NES_thr: float = 0.0,
     GSEA_PVal_thr: float = 0.01):
     # Create logger
@@ -51,11 +52,14 @@ def assemble_e_regulons(
         for group in set( TF_cistrome['group'] ):
             TF_cistrome_group = TF_cistrome.loc[ TF_cistrome['group']  == group]
             gene_set = list( set( TF_cistrome_group['gene'] ) )
-            NES, pval, LE_genes = run_gsea(
-                ranked_gene_list = rnk,
-                gene_set = gene_set,
-                n_perm = n_perm)
-            results.append( (TF, group, NES, pval, LE_genes, regulation) )
+            if len(gene_set) >= min_set_size:
+                NES, pval, LE_genes = run_gsea(
+                    ranked_gene_list = rnk,
+                    gene_set = gene_set,
+                    n_perm = n_perm)
+                results.append( (TF, group, NES, pval, LE_genes, regulation) )
+            else:
+               log.info('Skipping group {} for TF {}, gene set is too small'.format(group, TF))
     df_results = pd.DataFrame(results, columns = ['TF', 'group', 'gsea_NES', 'gsea_pval', 'LE_genes', 'regulation'])
     df_sign_results = df_results.loc[np.logical_and(df_results['gsea_pval'] <= GSEA_PVal_thr,  
                                                     df_results['gsea_NES']  >= GSEA_NES_thr)]
