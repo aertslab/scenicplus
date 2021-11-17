@@ -4,7 +4,7 @@ import scipy.sparse as sparse
 import pandas as pd
 import numpy as np
 from typing import Union, List, Mapping, Any, Callable
-from pycisTopic.diff_features import CistopicImputedFeatures, impute_accessibility
+from pycisTopic.diff_features import CistopicImputedFeatures, impute_accessibility, normalize_scores
 from pycisTopic.cistopic_class import CistopicObject
 from scanpy import AnnData
 import warnings
@@ -349,13 +349,14 @@ def create_SCENICPLUS_object(
     menr: Mapping[str, Mapping[str, Any]],
     imputed_acc_obj: CistopicImputedFeatures = None,
     imputed_acc_kwargs: Mapping[str, Any] = {'scale_factor': 10**6},
+    normalize_imputed_acc: bool = False,
+    normalize_imputed_acc_kwargs: Mapping[str, Any] = {'scale_factor': 10 ** 4},
     cell_metadata: pd.DataFrame = None,
     region_metadata: pd.DataFrame = None,
     gene_metadata: pd.DataFrame = None,
     bc_transform_func: Callable = lambda x: x.replace('-1___', '-1-').rsplit('__', 1)[0],
     ACC_prefix: str = 'ACC_',
-    GEX_prefix: str = 'GEX_'
-    ) -> SCENICPLUS:
+    GEX_prefix: str = 'GEX_') -> SCENICPLUS:
     GEX_cell_metadata = GEX_anndata.obs.copy(deep = True)
     GEX_gene_metadata = GEX_anndata.var.copy(deep = True)
     GEX_cell_names = GEX_anndata.obs_names.copy(deep = True)
@@ -382,6 +383,9 @@ def create_SCENICPLUS_object(
         imputed_acc_obj = impute_accessibility(cisTopic_obj, selected_cells = common_cells, **imputed_acc_kwargs)
     else:
         imputed_acc_obj.subset(cells = common_cells)
+    
+    if normalize_imputed_acc:
+        imputed_acc_obj = normalize_scores(imputed_acc_obj, **normalize_imputed_acc_kwargs)
 
     #subset gene expression data and metadata
     ACC_region_metadata_subset = ACC_region_metadata.loc[imputed_acc_obj.feature_names]
