@@ -7,6 +7,7 @@ from typing import Union, List, Mapping, Any, Callable
 from pycisTopic.diff_features import CistopicImputedFeatures, impute_accessibility
 from pycisTopic.cistopic_class import CistopicObject
 from scanpy import AnnData
+import warnings
 
 #hardcoded variables
 TOPIC_FACTOR_NAME = 'topic'
@@ -129,7 +130,7 @@ class SCENICPLUS():
         #check wether for each key, except topic, of the motif enrichment dictionary its keys are levels in the metadata_cell dataframe
         if not all([set(value[s].keys()) <= set(self.metadata_cell[s]) for s in set(value.keys()) - set([TOPIC_FACTOR_NAME])]):
             raise ValueError(
-                "For each key (except {TOPIC_FACTOR_NAME}) of `menr` its keys should be levels in `metadata_cell` under the same key.")
+                f"For each key (except {TOPIC_FACTOR_NAME}) of `menr` its keys should be levels in `metadata_cell` under the same key.")
 
     @dr_cell.validator
     def check_cell_dimmensions(self, attribute, value):
@@ -295,22 +296,29 @@ def create_SCENICPLUS_object(
     ACC_dr_cell = cisTopic_obj.projections['cell'].copy()
     ACC_dr_region = cisTopic_obj.projections['region'].copy()
 
-    #impute accessbility if not given as parameter
-    imputed_acc_obj = impute_accessibility(cisTopic_obj, **imputed_acc_kwargs) if imputed_acc_obj is None else imputed_acc_obj
-    ACC_region_metadata_subset = ACC_region_metadata.loc[imputed_acc_obj.feature_names]
-    #subset for cells present in both assays
+    #get cells with high quality (HQ cells) chromatin accessbility AND gene expression profile
     common_cells = list( set(GEX_cell_names) & set(ACC_cell_names) )
 
     if len(common_cells) == 0:
         raise ValueError("No cells found which are present in both assays, check input and consider using `bc_transform_func`!")
     
+    #impute accessbility if not given as parameter and subset for HQ cells
+    if imputed_acc_obj is None:
+        imputed_acc_obj = impute_accessibility(cisTopic_obj, selected_cells = common_cells, **imputed_acc_kwargs)
+    else:
+        imputed_acc_obj.subset(cells = common_cells)
+
+    #subset gene expression data and metadata
+    ACC_region_metadata_subset = ACC_region_metadata.loc[imputed_acc_obj.feature_names]
+
     GEX_cell_metadata_subset = GEX_cell_metadata.loc[common_cells]
     GEX_dr_cell_subset = {k: GEX_dr_cell[k].loc[common_cells] for k in GEX_dr_cell.keys()}
-    X_EXP_subset = GEX_anndata[[bc in common_cells for bc in GEX_cell_names], :].X.copy()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        X_EXP_subset = GEX_anndata[[bc in common_cells for bc in GEX_cell_names], :].X.copy()
 
     ACC_cell_metadata_subset = ACC_cell_metadata.loc[common_cells]
     ACC_dr_cell_subset = {k: ACC_dr_cell[k].loc[common_cells] for k in ACC_dr_cell.keys()}
-    imputed_acc_obj.subset(cells = common_cells)
     X_ACC_subset = imputed_acc_obj.mtx
 
     #add prefixes
