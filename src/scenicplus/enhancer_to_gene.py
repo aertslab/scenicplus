@@ -10,11 +10,12 @@ import subprocess
 import pyranges as pr
 from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b, calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
 from .utils import coord_to_region_names, message_join_vector, region_names_to_coordinates
+from .scenicplus_class import SCENICPLUS
 
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
 from scipy.stats import pearsonr, spearmanr
 
-from scenicplus_class import SCENICPLUS
+from .scenicplus_class import SCENICPLUS
 
 import ranky as rk
 
@@ -86,7 +87,7 @@ INTERACT_AS = """table interact
     )
 """
 
-def get_search_space(pr_regions,
+def get_search_space(SCENICPLUS_obj: SCENICPLUS,
                      species = None,
                      assembly = None,
                      pr_annot = None, 
@@ -96,14 +97,16 @@ def get_search_space(pr_regions,
                      downstream = [1000, 100000],
                      extend_tss = [10, 10],
                      remove_promoters = False,
-                     biomart_host = 'http://www.ensembl.org'):
+                     biomart_host = 'http://www.ensembl.org',
+                     inplace = True,
+                     key_added = 'search_space'):
     """
     Get search space surrounding genes to calculate enhancer to gene links
 
     Parameters
     ----------
-    pr_regions: pr.PyRanges
-        a :class:`pr.PyRanges` containing regions with which the extended search space should be intersected.
+    SCENICPLUS_obj: SCENICPLUS
+        a :class:`pr.SCENICPLUS`.
     species: string, optional
         Name of the species (e.g. hsapiens) on whose reference genome the search space should be calculated. This will be used to retrieve gene annotations from biomart. 
         Annotations can also be manually provided using the parameter [pr_annot]. Default: None
@@ -148,11 +151,10 @@ def get_search_space(pr_regions,
        or (species is not None and assembly is not None and pr_annot is not None and pr_chromsizes is not None) ):
             raise Exception('Either a name of a species and a name of an assembly or a pyranges object containing gene annotation and a pyranges object containing chromosome sizes should be provided!')
     
-    extra_cols = set.difference(set(pr_regions.df.columns), set(['Chromosome', 'Start', 'End']))
-    if len(extra_cols) > 0:
-        Warning('The columns: "{}" will be dropped from pr_regions'.format(', '.join(extra_cols)))
-        pr_regions = pr.PyRanges( pr_regions.df[ ['Chromosome', 'Start', 'End'] ] )
-    
+    #get regions
+    #TODO: Add option to select subset of regions? (e.g. highly variable, ...)?
+    pr_regions = pr.PyRanges(region_names_to_coordinates(SCENICPLUS_obj.region_names))
+
     #set region names
     pr_regions.Name = coord_to_region_names(pr_regions)
 
@@ -325,7 +327,11 @@ def get_search_space(pr_regions,
         regions_per_gene_distal_wo_promoters = regions_per_gene_distal.overlap(pr_promoters, invert=True)
         regions_per_gene = pr.PyRanges(pd.concat([regions_per_gene_overlapping_genes.df, regions_per_gene_distal_wo_promoters.df]))
     
-    return regions_per_gene.df[['Name', 'Gene', 'Distance']]
+    log.info('Done!')
+    if inplace:
+        SCENICPLUS_obj.uns[key_added] = regions_per_gene.df[['Name', 'Gene', 'Distance']]
+    else:
+        return regions_per_gene.df[['Name', 'Gene', 'Distance']]
 
 @ray.remote
 def score_regions_to_single_gene_ray(X, y, regressor_type, regressor_kwargs) -> list:
@@ -377,7 +383,6 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
     Wrapper function for score_regions_to_single_gene and score_regions_to_single_gene_ray.
     Calculates region to gene importances or region to gene correlations for multiple genes
     :param SCENICPLUS_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data
-    :param search space: pandas data frame containing regions (stored in column 'Name') in the search space for each gene (stored in column 'Gene')
     :param genes: list of genes for which to calculate region gene scores. Uses all genes if set to None
     :param regressor_type: type of regression/correlation analysis. 
            Available regression analysis are: 'RF' (Random Forrest regression), 'ET' (Extra Trees regression), 'GBM' (Gradient Boostin regression).
@@ -390,7 +395,7 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
     #Check overlaps with search space (Issue #1)
     search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
 
-    if genes == None:
+    if genes is None:
         genes_to_use = list( set.intersection(set(search_space['Gene']), set(SCENICPLUS_obj.gene_names)) )
     elif not all( np.isin(genes, list(search_space['Gene'])) ):
         genes_to_use = list(set.intersection(set(search_space['Gene']), set(genes)))
@@ -446,7 +451,7 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
     return regions_to_genes
 
 def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS, 
-                                             search_space :pd.DataFrame, 
+                                             search_space_key : str = 'search_space', 
                                              mask_expr_dropout = False,
                                              genes = None,
                                              importance_scoring_method = 'RF', 
@@ -454,6 +459,8 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
                                              correlation_scoring_method = 'SR',
                                              ray_n_cpu = None,
                                              add_distance = True,
+                                             key_added: str = 'region_to_gene',
+                                             inplace: bool = True,
                                              **kwargs) -> pd.DataFrame:
     """
     Wrapper function for score_regions_to_genes.
@@ -476,6 +483,11 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     logging.basicConfig(level = level, format = format, handlers = handlers)
     log = logging.getLogger('R2G')
     
+    if search_space_key not in SCENICPLUS_obj.uns.keys():
+        raise Exception(f'key {search_space_key} not found in SCENICPLUS_obj.uns, first get search space using function: "get_search_space"')
+    
+    search_space = SCENICPLUS_obj.uns[search_space_key]
+
     #Check overlaps with search space (Issue #1)
     search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
 
@@ -519,11 +531,27 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
         #TODO: use consistent column names
         search_space_rn = search_space.rename({'Name': 'region', 'Gene': 'target'}, axis = 1).copy()
         result_df = result_df.merge(search_space_rn, on = ['region', 'target'])
-    return result_df
+    
+    log.info('Done!')
 
-def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ray_n_cpu = None, return_copy = True, **kwargs):
-    if return_copy:
-        region_to_gene = region_to_gene.copy()
+    if inplace:
+        SCENICPLUS_obj.uns[key_added] = result_df
+    else:
+        return result_df
+
+def binarize_region_to_gene_importances(SCENICPLUS_obj: SCENICPLUS, 
+                                        region_to_gene_key = 'region_to_gene',
+                                        method = 'BASC', 
+                                        ray_n_cpu = None, 
+                                        inplace = True, 
+                                        **kwargs):
+    if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
+        raise Exception(f'key {region_to_gene_key} not found in SCENICPLUS_obj.uns, first calculate region to gene relationships using function: "calculate_regions_to_genes_relationships"')
+    
+    if inplace:
+        region_to_gene = SCENICPLUS_obj.uns[region_to_gene_key]
+    else:
+        region_to_gene = SCENICPLUS_obj.uns[region_to_gene_key].copy()
     if method == 'BASC':
         from .BASCA import binarize
         if ray_n_cpu is None:
@@ -531,10 +559,6 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
             for idx, target in enumerate(res.index):
                 region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = res[idx]
             region_to_gene['selected'] = region_to_gene['selected'] == 1
-            if return_copy:
-                return region_to_gene
-            else:
-                return
         else:
             @ray.remote
             def _ray_binarize(vect, tau, n_samples):
@@ -553,10 +577,6 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
             for target, binarized_result in zip(set(region_to_gene['target']), binarized_results):
                 region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = binarized_result
             region_to_gene['selected'] = region_to_gene['selected'] == 1
-            if return_copy:
-                return region_to_gene
-            else:
-                return
             
     if method == 'mean':
         def _gt_mean(vect):
@@ -565,19 +585,11 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
         res = region_to_gene.groupby('target')['importance'].apply(lambda x: _gt_mean(x))
         for idx, target in enumerate(res.index):
             region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = res[idx]
-        if return_copy:
-            return region_to_gene
-        else:
-            return
     
     if method == 'otsu':
         from pycisTopic.topic_binarization import threshold_otsu
         if ray_n_cpu is None:
             region_to_gene['selected'] = region_to_gene.groupby('target')['importance'].apply(lambda x: x > threshold_otsu(x))
-            if return_copy:
-                return region_to_gene
-            else:
-                return
         else:
             @ray.remote
             def _ray_threshold_otsu(x):
@@ -596,18 +608,10 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
             for target, binarized_result in zip(set(region_to_gene['target']), binarized_results):
                 region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = binarized_result
             region_to_gene['selected'] = region_to_gene['selected'] == 1
-            if return_copy:
-                return region_to_gene
-            else:
-                return
     if method == 'yen':
         from pycisTopic.topic_binarization import threshold_yen
         if ray_n_cpu is None:
             region_to_gene['selected'] = region_to_gene.groupby('target')['importance'].apply(lambda x: x > threshold_yen(x))
-            if return_copy:
-                return region_to_gene
-            else:
-                return
         else:
             @ray.remote
             def _ray_threshold_yen(x):
@@ -626,114 +630,14 @@ def binarize_region_to_gene_importances(region_to_gene: pd.DataFrame, method, ra
             for target, binarized_result in zip(set(region_to_gene['target']), binarized_results):
                 region_to_gene.loc[region_to_gene['target'] == target, 'selected'] = binarized_result
             region_to_gene['selected'] = region_to_gene['selected'] == 1
-            if return_copy:
-                return region_to_gene
-            else:
-                return
-
-def add_max_mean_acc(region_to_gene: pd.DataFrame, 
-                     imputed_acc_mtx: pd.DataFrame,
-                     grouping_vector: pd.Series,
-                     return_copy = True):
-    # Create logger
-    level    = logging.INFO
-    format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-    handlers = [logging.StreamHandler(stream=sys.stdout)]
-    logging.basicConfig(level = level, format = format, handlers = handlers)
-    log = logging.getLogger('R2G')
-
-    if return_copy:
-        region_to_gene = region_to_gene.copy()
-    
-    #calculate mean accessibility per group in grouping vector
-    log.info("Calculating max mean accessibility per group in grouping vector, groups: {}" .format(message_join_vector(grouping_vector)))
-    imputed_acc_mtx_subset = imputed_acc_mtx.loc[ grouping_vector.index, set(region_to_gene['region']) ].copy()
-    mean_imputed_acc_mtx = imputed_acc_mtx_subset.groupby( grouping_vector ).mean().T
-    max_mean = mean_imputed_acc_mtx.max(axis = 1)
-
-    region_to_gene['max_mean_acc'] = max_mean.loc[region_to_gene['region']].to_numpy()
-
-    if return_copy:
+    if not inplace:
         return region_to_gene
-    else:
-        return
 
-def rank_aggregation(region_to_gene: pd.DataFrame, 
-                     method = 'euclidean', 
-                     ray_n_cpu = None, 
-                     return_copy = True,
-                     scale_ceil = 1000,
-                     on = ['importance', 'abs_rho', 'max_mean_acc'],
-                    **kwargs):
-    # Create logger
-    level    = logging.INFO
-    format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-    handlers = [logging.StreamHandler(stream=sys.stdout)]
-    logging.basicConfig(level = level, format = format, handlers = handlers)
-    log = logging.getLogger('R2G')
-    
-    if return_copy:
-        region_to_gene = region_to_gene.copy()
-    
-    #check that all keys in on are in the dataframe
-    for key in on:
-        if key not in region_to_gene.columns:
-            raise Exception('Key "{}" not found in region_to_gene columns!'.format(key))
-
-    #check for NaN values
-    if region_to_gene[on].isnull().values.any():
-        raise Exception("Region_to_gene dataframe contains NaNs, please check input!")
-    
-    #rank by provided column values
-    log.info("Ranking on: {}".format(message_join_vector(on, max_len = len(on) + 1)))
-    
-    rank_columns = ['rank_'+key for key in on]
-    region_to_gene[rank_columns] = region_to_gene.groupby('target')[on].rank(method = 'first', ascending = True) - 1
-
-    #create aggregated ranking
-    log.info("Calculating aggregated ranking.")
-    start_time = time.time()
-    if ray_n_cpu is None:
-        #use pd.DataFrame otherwise: TypeError: Series.name must be a hashable type
-        region_to_gene['aggr_rank_score'] = region_to_gene.groupby('target')[rank_columns].apply(
-            lambda x: pd.DataFrame(rk.center(x, method = method, axis = 1, verbose = False)))
-    else:
-        @ray.remote
-        def _ray_rk_center(x, method, axis):
-            return rk.center(x, method = method, axis = axis, verbose = False)
-        #aggregate rankings in parallel
-        ray.init(num_cpus = ray_n_cpu, **kwargs)
-        try:
-            aggr_rank_scores = ray.get(
-                [_ray_rk_center.remote(
-                        x = region_to_gene.loc[ region_to_gene['target'] == target, rank_columns ],
-                        method = method,
-                        axis = 1)
-                for target in set(region_to_gene['target'])]
-            )
-        except Exception as e:
-            print(e)
-        finally:
-            ray.shutdown()
-        #put results in dataframe
-        for target, scores in zip(set(region_to_gene['target']), aggr_rank_scores):
-            region_to_gene.loc[region_to_gene['target'] == target, 'aggr_rank_score'] = scores
-    log.info('Took {} seconds'.format(time.time() - start_time))
-
-    if scale_ceil is not None:
-        region_to_gene['aggr_rank_score'] = region_to_gene.groupby('target')['aggr_rank_score'].apply(
-            lambda x: (x / x.max()) * scale_ceil )
-    
-    if return_copy:
-        return region_to_gene
-    else:
-        return
-
-def export_to_UCSC_interact(region_to_gene_df, 
+def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS, 
                             species,  
-                            outfile, 
+                            outfile,
+                            region_to_gene_key = 'region_to_gene',
                             pbm_host = 'http://www.ensembl.org',
-                            aggr_rank_score_thr = 600,
                             bigbed_outfile = None, 
                             path_bedToBigBed = None, 
                             assembly = None, 
@@ -765,13 +669,17 @@ def export_to_UCSC_interact(region_to_gene_df,
     handlers = [logging.StreamHandler(stream=sys.stdout)]
     logging.basicConfig(level = level, format = format, handlers = handlers)
     log = logging.getLogger('R2G')
-    region_to_gene_df = region_to_gene_df.copy()
+
+    if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
+        raise Exception(f'key {region_to_gene_key} not found in SCENICPLUS_obj.uns, first calculate region to gene relationships using function: "calculate_regions_to_genes_relationships"')
+    
+    region_to_gene_df = SCENICPLUS_obj.uns[region_to_gene_key].copy()
 
     #Rename columns to be in line with biomart annotation
     region_to_gene_df.rename(columns = {'target': 'Gene'}, inplace = True)
 
     #threshold
-    region_to_gene_df = region_to_gene_df.loc[region_to_gene_df['aggr_rank_score'] > aggr_rank_score_thr]
+    region_to_gene_df = region_to_gene_df.loc[region_to_gene_df['selected']]
 
     # Get TSS annotation (end-point for links)
     log.info('Downloading gene annotation from biomart, using dataset: {}'.format(species+'_gene_ensembl'))
@@ -833,13 +741,13 @@ def export_to_UCSC_interact(region_to_gene_df,
     region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = [','.join(map(str, color_list)) 
                                                                                  for color_list 
                                                                                  in getattr(cm, cmap_pos)(
-                                                                                     norm(region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'aggr_rank_score']), bytes = True)[:,0:3]]
+                                                                                     norm(region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'importance']), bytes = True)[:,0:3]]
     
     # map negative correlation values to color
     region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'color'] = [','.join(map(str, color_list)) 
                                                                                 for color_list 
                                                                                 in getattr(cm, cmap_neg)(
-                                                                                    norm(region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'aggr_rank_score']), bytes = True)[:,0:3]]
+                                                                                    norm(region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'importance']), bytes = True)[:,0:3]]
     #set color to gray where correlation coef equals nan
     region_to_gene_df['color'] = region_to_gene_df['color'].fillna('55,55,55')
     #get name for regions (add incremental number to gene in range of regions linked to gene)
@@ -862,7 +770,7 @@ def export_to_UCSC_interact(region_to_gene_df,
                                     'chromEnd':     chromEnd,
                                     'name':         names,
                                     'score':        np.repeat(0, len(region_to_gene_df)),
-                                    'value':        region_to_gene_df['aggr_rank_score'].values,
+                                    'value':        region_to_gene_df['importance'].values,
                                     'exp':          np.repeat('.', len(region_to_gene_df)),
                                     'color':        region_to_gene_df['color'].values,
                                     'sourceChrom':  sourceChrom,
