@@ -93,7 +93,7 @@ class SCENICPLUS():
     dr_region       = attr.ib(type = Mapping[str, iterable], default = None)
 
     # unstructured attributes like: region to gene, eregulons, ...
-    uns = attr.ib(type = Mapping[str, Any], default = None)
+    uns = attr.ib(type = Mapping[str, Any], default = {})
     
 
     #validation
