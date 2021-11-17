@@ -33,7 +33,6 @@ Exploratory functions (after running pipeline)
 Feel free to comment/edit/add extra things :)!!
 """
 
-
 def _check_dimmensions(instance, attribute, value):
     if attribute.name == 'X_ACC':
         if not value.shape[1] == instance.X_EXP.shape[0]:
@@ -247,7 +246,84 @@ class SCENICPLUS():
 
         self.metadata_genes = pd.concat([self.metadata_genes, gene_data.loc[common_genes]], axis = 1)
         
-    
+    def subset(self, cells = None, regions = None, genes = None, return_copy = False):
+        
+        def _subset(X, row_idx, col_idx):
+            if type(X) == pd.core.frame.DataFrame:
+                return X.iloc[row_idx, col_idx].copy()
+            else:
+                return X[row_idx, :][:, col_idx].copy()
+
+        if cells is not None:
+            #keep subset of cells
+            cell_idx_to_keep = [self.cell_names.get_loc(cell) for cell in cells]
+        else:
+            #keep all cells
+            cell_idx_to_keep = [self.cell_names.get_loc(cell) for cell in self.cell_names]
+
+        if regions is not None:
+            #keep subset of regions
+            region_idx_to_keep = [self.region_names.get_loc(region) for region in regions]
+        else:
+            #keep all regions
+            region_idx_to_keep = [self.region_names.get_loc(region) for region in self.region_names]
+
+        if genes is not None:
+            #keep subset of genes
+            gene_idx_to_keep = [self.gene_names.get_loc(gene) for gene in genes]
+        else:
+            #keep all genes
+            gene_idx_to_keep = [self.gene_names.get_loc(gene) for gene in self.gene_names]
+
+        #subset gene expression and chromatin accessibility
+        X_EXP_subset = _subset(self.X_EXP, cell_idx_to_keep, gene_idx_to_keep)
+        X_ACC_subset = _subset(self.X_ACC, region_idx_to_keep, cell_idx_to_keep)
+
+        #subset dimmensional reductions
+        if self.dr_cell is not None:
+            dr_cell_subset = {key: _subset(
+                self.dr_cell[key], 
+                cell_idx_to_keep, 
+                [ i for i in range(self.dr_cell[key].shape[1]) ]) for key in self.dr_cell.keys()}
+        else:
+            dr_cell_subset = None
+        if self.dr_region is not None:
+            dr_region_subset = {key: _subset(
+                self.dr_region[key],
+                region_idx_to_keep,
+                [ i for i in range(self.dr_region[key].shape[1]) ]) for key in self.dr_region.keys()}
+        else:
+            dr_region_subset = None
+        
+        #subset metadata
+        metadata_cell_subset = self.metadata_cell.iloc[cell_idx_to_keep, :]
+        metadata_gene_subset = self.metadata_genes.iloc[gene_idx_to_keep, :]
+        metadata_region_subset = self.metadata_regions.iloc[region_idx_to_keep, :]
+
+        #subset menr if necessary (i.e. when there are no more cells with a certain annotation)
+        menr_subset = {key: {annotation: self.menr[key][annotation] for annotation in set(metadata_cell_subset[key])} 
+                       for key in set(self.menr.keys()) - set([TOPIC_FACTOR_NAME])}
+
+        if return_copy:
+            return SCENICPLUS(
+                X_ACC = X_ACC_subset,
+                X_EXP = X_EXP_subset,
+                metadata_regions = metadata_region_subset,
+                metadata_genes = metadata_gene_subset,
+                metadata_cell = metadata_cell_subset,
+                menr = menr_subset,
+                dr_cell = dr_cell_subset,
+                dr_region = dr_region_subset)
+        else:
+            self.X_ACC = X_ACC_subset
+            self.X_EXP = X_EXP_subset
+            self.metadata_regions = metadata_region_subset
+            self.metadata_genes = metadata_gene_subset
+            self.metadata_cell = metadata_cell_subset
+            self.menr = menr_subset
+            self.dr_cell = dr_cell_subset
+            self.dr_region = dr_region_subset
+
     def __repr__(self) -> str:
         #inspired by AnnData
         descr = f"SCENIC+ object with n_cells x n_genes = {self.n_cells} x {self.n_genes} and n_cells x n_regions = {self.n_cells} x {self.n_regions}"
@@ -266,7 +342,6 @@ class SCENICPLUS():
             except:
                 continue
         return descr
-    
 
 def create_SCENICPLUS_object(
     GEX_anndata: AnnData,
@@ -280,7 +355,7 @@ def create_SCENICPLUS_object(
     bc_transform_func: Callable = lambda x: x.replace('-1___', '-1-').rsplit('__', 1)[0],
     ACC_prefix: str = 'ACC_',
     GEX_prefix: str = 'GEX_'
-) -> SCENICPLUS:
+    ) -> SCENICPLUS:
     GEX_cell_metadata = GEX_anndata.obs.copy(deep = True)
     GEX_gene_metadata = GEX_anndata.var.copy(deep = True)
     GEX_cell_names = GEX_anndata.obs_names.copy(deep = True)
@@ -354,3 +429,4 @@ def create_SCENICPLUS_object(
         SCENICPLUS_obj.add_cell_data(cell_metadata)
     
     return SCENICPLUS_obj
+
