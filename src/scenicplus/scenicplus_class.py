@@ -91,7 +91,10 @@ class SCENICPLUS():
     #optional attributes
     dr_cell         = attr.ib(type = Mapping[str, iterable], default = None)
     dr_region       = attr.ib(type = Mapping[str, iterable], default = None)
-    # unstructured attributes like: dimensional reduction, region to gene, eregulons, ...
+
+    # unstructured attributes like: region to gene, eregulons, ...
+    uns = attr.ib(type = Mapping[str, Any], default = None)
+    
 
     #validation
     @metadata_regions.validator
