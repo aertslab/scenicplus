@@ -545,6 +545,7 @@ def binarize_region_to_gene_importances(SCENICPLUS_obj: SCENICPLUS,
                                         ray_n_cpu = None, 
                                         inplace = True, 
                                         **kwargs):
+    #TODO: add ability to do multiple thresholds, maybe in a seperate function
     if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
         raise Exception(f'key {region_to_gene_key} not found in SCENICPLUS_obj.uns, first calculate region to gene relationships using function: "calculate_regions_to_genes_relationships"')
     

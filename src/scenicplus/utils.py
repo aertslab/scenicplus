@@ -5,6 +5,8 @@ import networkx as nx
 from ctxcore.genesig import Regulon
 import logging
 import sys
+from .scenicplus_class import SCENICPLUS
+
 
 def extend_pyranges(pr_obj: pr.PyRanges,
                     upstream: int,
@@ -315,3 +317,36 @@ def annotate_regions(pr_regions,
     df_regions.loc[pr_promoter_regions.Name, 'annotation'] = "Promoter"
     
     return pr.PyRanges(df_regions.drop_duplicates())
+
+def join_list_of_dicts(ld):
+    flatten_list = lambda t: [item for sublist in t for item in sublist]
+    #get all keys
+    keys = []
+    for d in ld:
+        for k in d.keys():
+            if k not in keys:
+                keys.append(k)
+    #get all values for key across dictionaries
+    new_dict = {}
+    for key in keys:
+        key_values = [d[key] for d in ld if key in d.keys()]
+        new_dict[key] = list(set(flatten_list(key_values)))
+    
+    return new_dict
+
+def cistarget_results_to_TF2R(ctx_results, keep_extended = False):
+    direct_cistromes = [{k.split('_')[0]: ctx_result.cistromes['Region_set'][k] 
+                         for k in ctx_result.cistromes['Region_set'].keys() if 'extended' not in k}
+                         for ctx_result in ctx_results]
+    direct_cistromes_merged = join_list_of_dicts(direct_cistromes)
+    if keep_extended:
+        extended_cistromes = [{k.split('_')[0]: ctx_result.cistromes['Region_set'][k]
+                            for k in ctx_result.cistromes['Region_set'].keys() if 'extended' in k}
+                            for ctx_result in ctx_results]
+        extended_cistromes_merged = join_list_of_dicts(extended_cistromes)
+        cistromes_merged = join_list_of_dicts( [direct_cistromes_merged, extended_cistromes_merged] )
+    else:
+        cistromes_merged = direct_cistromes_merged
+    
+    return cistromes_merged
+    
