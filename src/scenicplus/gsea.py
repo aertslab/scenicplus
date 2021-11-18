@@ -1,16 +1,84 @@
 from gseapy.algorithm import enrichment_score
+from gseapy.algorithm import gsea_compute
+from gseapy.plot import GSEAPlot
 import numpy as np
+import pandas as pd
 
 seed = 666
 
-def run_gsea(ranked_gene_list: np.array, 
+def run_gsea(ranked_gene_list: pd.Series, 
+             gene_set: list,
+             n_perm: int = 1000,
+             ascending: bool = False,
+             return_res: bool = False,
+             name:str = 'gene_set'):
+    """
+    Calculates gene set enrichment score (and estimates its significance) and leading edge for the gene set in the ranked gene list using gseapy prerank.
+
+    Parameters
+    ----------
+    ranked_gene_list: pd.Series
+        A :class: `pd.Series` containing the gene scores, with gene names as index. 
+    gene_set: 
+        A list-like object containing a set of genes which will be tested for enrichment in the top / bottom of the sorted list of genes 
+    n_perm: int
+        Number of permutations to use to estimate the empirical p value.
+    return_res: bool
+        Wether or not to return the GSEAplot object. This object can then be visalised by applying the method .add_axes()
+    name: str
+        Name of the gene set, used as plot title.
+        
+    Returns
+    ------
+    NES, pval, LE_genes, (res)
+        Normalized enrichment score (NES), estimated p value (pval), the genes in the leading edge (LE_genes) (and the values needed to plot the random walk (res))
+    """
+
+    # run gsea prerank with default option
+    gmt={name:list(gene_set)}
+    gsea_results, ind, rank_ES, gs = gsea_compute(data=ranked_gene_list, n=n_perm, gmt=gmt,
+                weighted_score_type=1, permutation_type='gene_set', method=None,
+                pheno_pos='Pos', pheno_neg='Neg',classes=None, ascending=ascending)
+
+    # extract enrichment scores
+    gseale=list(gsea_results)[0]
+    RES =rank_ES[0]
+    ind = ind[0]
+
+    # extract Leading Edges information
+    es = gseale[0]
+    if es > 0:
+        idx = RES.argmax()
+        ldg_pos = list(filter(lambda x: x<= idx, ind))
+    elif es < 0:
+        idx = RES.argmin()
+        ldg_pos = list(filter(lambda x: x >= idx, ind))
+    else:
+        ldg_pos = ind # es == 0 ?
+    
+    # return results
+    nes = gseale[1]
+    pval = gseale[2]
+    fdr = gseale[3]
+    LE = list(map(str,ranked_gene_list.iloc[ldg_pos].index))
+    if return_res:
+        res = GSEAPlot(ranked_gene_list, name, ind, nes, pval, fdr, RES,
+             pheno_pos='', pheno_neg='', figsize=(6,5.5), 
+            cmap='seismic', ofname=None)
+        return nes, pval, LE, res
+    else:
+        return nes, pval, LE
+    
+
+
+def run_enrichr(ranked_gene_list: np.array, 
              gene_set,
              weights: np.array = None,
              p: float =  0,
              n_perm = 1000,
              return_res = False):
     """
-    Calculates enrichment score (and estimates its significance) and leading edge for the gene set in the ranked gene list.
+    Calculates enrichment score (and estimates its significance) and leading edge for the gene set in the ranked gene list ussing gseapy enrichr.
 
     Parameters
     ----------
