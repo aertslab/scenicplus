@@ -349,4 +349,16 @@ def cistarget_results_to_TF2R(ctx_results, keep_extended = False):
         cistromes_merged = direct_cistromes_merged
     
     return cistromes_merged
+
+def p_adjust_bh(p: float):
+    """
+    Benjamini-Hochberg p-value correction for multiple hypothesis testing.
+    from: pyCistopic: https://github.com/aertslab/pycisTopic/blob/d06246d9860157e028fcfee933fb3e784220b2c3/pycisTopic/diff_features.py#L747
+    """
+    p = np.asfarray(p)
+    by_descend = p.argsort()[::-1]
+    by_orig = by_descend.argsort()
+    steps = float(len(p)) / np.arange(len(p), 0, -1)
+    q = np.minimum(1, np.minimum.accumulate(steps * p[by_descend]))
+    return q[by_orig]
     

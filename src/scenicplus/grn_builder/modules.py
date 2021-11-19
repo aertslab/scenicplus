@@ -29,7 +29,8 @@ class eRegulon():
     context = attr.ib(default = frozenset())
     in_leading_edge = attr.ib(type = List[bool], default = None)
     gsea_enrichment_score = attr.ib(type = float, default = None)
-
+    gsea_pval = attr.ib(type = float, default = None)
+    gsea_adj_pval = attr.ib(type = float, default = None)
     @regions2genes.validator
     def validate_regions2genes_header(self, attribute, value):
         if value is not None:
@@ -56,14 +57,14 @@ class eRegulon():
         """
         Return target genes of this eRegulon.
         """
-        return [ getattr(r2g, TARGET_GENE_NAME) for r2g in self.regions2genes ]
+        return list(set([ getattr(r2g, TARGET_GENE_NAME) for r2g in self.regions2genes ]))
     
     @property
     def target_regions(self):
         """
         Return target regions of this eRegulon.
         """
-        return [ getattr(r2g, TARGET_REGION_NAME) for r2g in self.regions2genes ]
+        return list(set([ getattr(r2g, TARGET_REGION_NAME) for r2g in self.regions2genes ]))
     
     @property
     def n_target_genes(self):
@@ -98,7 +99,9 @@ class eRegulon():
                     context = self.context,
                     regions2genes = regions2genes_subset,
                     in_leading_edge = in_leading_edge_subset,
-                    gsea_enrichment_score = self.gsea_enrichment_score)
+                    gsea_enrichment_score = self.gsea_enrichment_score,
+                    gsea_pval = self.gsea_pval,
+                    gsea_adj_pval = self.gsea_adj_pval)
         else:
             Warning('Leading edge not defined!')
     
