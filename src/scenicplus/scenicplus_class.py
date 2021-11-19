@@ -397,7 +397,7 @@ def create_SCENICPLUS_object(
     GEX_dr_cell_subset = {k: GEX_dr_cell[k].loc[common_cells] for k in GEX_dr_cell.keys()}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        X_EXP_subset = GEX_anndata[[bc in common_cells for bc in GEX_cell_names], :].X.copy()
+        X_EXP_subset = GEX_anndata[[GEX_cell_names.index(bc) for bc in common_cells], :].X.copy()
 
     ACC_cell_metadata_subset = ACC_cell_metadata.loc[common_cells]
     ACC_dr_cell_subset = {k: ACC_dr_cell[k].loc[common_cells] for k in ACC_dr_cell.keys()}
