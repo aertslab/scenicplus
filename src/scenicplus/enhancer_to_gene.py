@@ -336,10 +336,10 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         return regions_per_gene.df[['Name', 'Gene', 'Distance']]
 
 @ray.remote
-def score_regions_to_single_gene_ray(X, y, regressor_type, regressor_kwargs) -> list:
-    return score_regions_to_single_gene(X, y, regressor_type, regressor_kwargs)
+def score_regions_to_single_gene_ray(X, y, gene_name, regressor_type, regressor_kwargs) -> list:
+    return score_regions_to_single_gene(X, y, gene_name, regressor_type, regressor_kwargs)
 
-def score_regions_to_single_gene(X, y, regressor_type, regressor_kwargs) -> list:
+def score_regions_to_single_gene(X, y, gene_name, regressor_type, regressor_kwargs) -> list:
     """
     Calculates region to gene importances or region to gene correlations for a single gene
     :param X: numpy array containing matrix of accessibility of regions in search space
@@ -361,7 +361,7 @@ def score_regions_to_single_gene(X, y, regressor_type, regressor_kwargs) -> list
         feature_importance = arboreto_core.to_feature_importances(  regressor_type = regressor_type, 
                                                                         regressor_kwargs = regressor_kwargs, 
                                                                         trained_regressor = fitted_model)
-        return feature_importance
+        return feature_importance, gene_name
 
     if regressor_type in SCIPY_CORRELATION_FACTORY.keys():
         #define correlation method
@@ -371,7 +371,7 @@ def score_regions_to_single_gene(X, y, regressor_type, regressor_kwargs) -> list
         correlation_result = np.array([correlator(x, y) for x in X.T])
         correlation_coef = correlation_result[:, 0]
         
-        return correlation_coef#, correlation_adj_pval
+        return correlation_coef, gene_name#, correlation_adj_pval
 
 def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
                            search_space: pd.DataFrame,
@@ -405,7 +405,6 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
     #get expression and chromatin accessibility dataframes only once
     EXP_df = SCENICPLUS_obj.to_df(layer = 'EXP')
     ACC_df = SCENICPLUS_obj.to_df(layer = 'ACC')
-    
     if ray_n_cpu != None:
         ray.init(num_cpus = ray_n_cpu, **kwargs)
         try:
@@ -425,21 +424,20 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
                 # Check-up for genes with 1 region only, related to issue 2
                 if acc.ndim == 1:
                     acc = acc.reshape(-1,1)
-                jobs.append(score_regions_to_single_gene_ray.remote(X = acc, y = expr, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs))
+                jobs.append(score_regions_to_single_gene_ray.remote(X = acc, y = expr, gene_name = gene, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs))
             
             #add progress bar, from: https://github.com/ray-project/ray/issues/8164
             def to_iterator(obj_ids):
                 while obj_ids:
                     done, obj_ids = ray.wait(obj_ids)
                     yield ray.get(done[0])
-            regions_to_genes = []
-            for x in tqdm(to_iterator(jobs), total=len(jobs), desc = f'Running using {ray_n_cpu} cores'):
-                regions_to_genes.append(x)
+            regions_to_genes = {}
+            for importance, gene_name in tqdm(to_iterator(jobs), total=len(jobs), desc = f'Running using {ray_n_cpu} cores'):
+                regions_to_genes[gene_name] = importance
         except Exception as e:
             print(e)
         finally:
             ray.shutdown()
-        regions_to_genes = {gene: regions_to_gene for gene, regions_to_gene in zip(genes_to_use, regions_to_genes)}
     else:
         regions_to_genes = {}
         for gene in tqdm(genes_to_use, total = len(genes_to_use), desc = f'Running using a single core'):
@@ -457,7 +455,7 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
                                 # Check-up for genes with 1 region only, related to issue 2
             if acc.ndim == 1:
                 acc = acc.reshape(-1,1)
-            regions_to_genes[gene] = score_regions_to_single_gene(X = acc, y = expr, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs)
+            regions_to_genes[gene], _ = score_regions_to_single_gene(X = acc, y = expr, gene_name = gene, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs)
     
     return regions_to_genes
 
