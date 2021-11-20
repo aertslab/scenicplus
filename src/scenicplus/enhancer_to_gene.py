@@ -336,10 +336,10 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         return regions_per_gene.df[['Name', 'Gene', 'Distance']]
 
 @ray.remote
-def score_regions_to_single_gene_ray(X, y, gene_name, regressor_type, regressor_kwargs) -> list:
-    return score_regions_to_single_gene(X, y, gene_name, regressor_type, regressor_kwargs)
+def score_regions_to_single_gene_ray(X, y, gene_name, region_names, regressor_type, regressor_kwargs) -> list:
+    return score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs)
 
-def score_regions_to_single_gene(X, y, gene_name, regressor_type, regressor_kwargs) -> list:
+def score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs) -> list:
     """
     Calculates region to gene importances or region to gene correlations for a single gene
     :param X: numpy array containing matrix of accessibility of regions in search space
@@ -361,7 +361,7 @@ def score_regions_to_single_gene(X, y, gene_name, regressor_type, regressor_kwar
         feature_importance = arboreto_core.to_feature_importances(  regressor_type = regressor_type, 
                                                                         regressor_kwargs = regressor_kwargs, 
                                                                         trained_regressor = fitted_model)
-        return feature_importance, gene_name
+        return pd.Series(feature_importance, index = region_names), gene_name
 
     if regressor_type in SCIPY_CORRELATION_FACTORY.keys():
         #define correlation method
@@ -371,7 +371,7 @@ def score_regions_to_single_gene(X, y, gene_name, regressor_type, regressor_kwar
         correlation_result = np.array([correlator(x, y) for x in X.T])
         correlation_coef = correlation_result[:, 0]
         
-        return correlation_coef, gene_name#, correlation_adj_pval
+        return pd.Series(correlation_coef, index = region_names), gene_name#, correlation_adj_pval
 
 def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
                            search_space: pd.DataFrame,
@@ -410,29 +410,36 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
         try:
             jobs = []
             for gene in tqdm(genes_to_use, total = len(genes_to_use), desc = 'initializing'):
+                regions_in_search_space = search_space.loc[search_space['Gene'] == gene, 'Name'].values
                 if mask_expr_dropout:
                     expr = EXP_df[gene]
                     cell_non_zero = expr.index[expr != 0]
                     expr = expr.loc[cell_non_zero].to_numpy()
-                    acc = ACC_df.loc[
-                                search_space.loc[search_space['Gene'] == gene, 'Name'].values,
-                                cell_non_zero].T.to_numpy()
+                    acc = ACC_df.loc[regions_in_search_space, cell_non_zero].T.to_numpy()
                 else:
                     expr = EXP_df[gene].to_numpy()
-                    acc = ACC_df.loc[
-                                search_space.loc[search_space['Gene'] == gene, 'Name'].values].T.to_numpy()
+                    acc = ACC_df.loc[regions_in_search_space].T.to_numpy()
                 # Check-up for genes with 1 region only, related to issue 2
                 if acc.ndim == 1:
                     acc = acc.reshape(-1,1)
-                jobs.append(score_regions_to_single_gene_ray.remote(X = acc, y = expr, gene_name = gene, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs))
+                jobs.append(score_regions_to_single_gene_ray.remote(X = acc, 
+                                                                    y = expr, 
+                                                                    gene_name = gene,
+                                                                    region_names = regions_in_search_space,
+                                                                    regressor_type = regressor_type, 
+                                                                    regressor_kwargs = regressor_kwargs))
             
-            #add progress bar, from: https://github.com/ray-project/ray/issues/8164
+            #add progress bar, adapted from: https://github.com/ray-project/ray/issues/8164
             def to_iterator(obj_ids):
                 while obj_ids:
-                    done, obj_ids = ray.wait(obj_ids)
-                    yield ray.get(done[0])
+                    finished_ids, obj_ids = ray.wait(obj_ids)
+                    for finished_id in finished_ids:
+                        yield ray.get(finished_id)
             regions_to_genes = {}
-            for importance, gene_name in tqdm(to_iterator(jobs), total=len(jobs), desc = f'Running using {ray_n_cpu} cores'):
+            for importance, gene_name in tqdm(to_iterator(jobs), 
+                                              total=len(jobs), 
+                                              desc = f'Running using {ray_n_cpu} cores',
+                                              smoothing = 0.1):
                 regions_to_genes[gene_name] = importance
         except Exception as e:
             print(e)
@@ -441,21 +448,24 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
     else:
         regions_to_genes = {}
         for gene in tqdm(genes_to_use, total = len(genes_to_use), desc = f'Running using a single core'):
+            regions_in_search_space = search_space.loc[search_space['Gene'] == gene, 'Name'].values
             if mask_expr_dropout:
                 expr = EXP_df[gene]
                 cell_non_zero = expr.index[expr != 0]
                 expr = expr.loc[cell_non_zero].to_numpy()
-                acc = ACC_df.loc[
-                                search_space.loc[search_space['Gene'] == gene, 'Name'].values,
-                                cell_non_zero].T.to_numpy()
+                acc = ACC_df.loc[regions_in_search_space, cell_non_zero].T.to_numpy()
             else:
                 expr = EXP_df[gene].to_numpy()
-                acc = ACC_df.loc[
-                                search_space.loc[search_space['Gene'] == gene, 'Name'].values].T.to_numpy()
-                                # Check-up for genes with 1 region only, related to issue 2
+                acc = ACC_df.loc[regions_in_search_space].T.to_numpy()
+            # Check-up for genes with 1 region only, related to issue 2
             if acc.ndim == 1:
                 acc = acc.reshape(-1,1)
-            regions_to_genes[gene], _ = score_regions_to_single_gene(X = acc, y = expr, gene_name = gene, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs)
+            regions_to_genes[gene], _ = score_regions_to_single_gene(X = acc, 
+                                                                     y = expr, 
+                                                                     gene_name = gene,
+                                                                     region_names = regions_in_search_space, 
+                                                                     regressor_type = regressor_type, 
+                                                                     regressor_kwargs = regressor_kwargs)
     
     return regions_to_genes
 
@@ -466,7 +476,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
                                              importance_scoring_method = 'RF', 
                                              importance_scoring_kwargs = RF_KWARGS,
                                              correlation_scoring_method = 'SR',
-                                             ray_n_cpu = None,
+                                               ray_n_cpu = None,
                                              add_distance = True,
                                              key_added: str = 'region_to_gene',
                                              inplace: bool = True,
@@ -496,7 +506,6 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
         raise Exception(f'key {search_space_key} not found in SCENICPLUS_obj.uns, first get search space using function: "get_search_space"')
     
     search_space = SCENICPLUS_obj.uns[search_space_key]
-
     #Check overlaps with search space (Issue #1)
     search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
 
@@ -527,9 +536,10 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
 
     #transform dictionaries to pandas dataframe
     result_df = pd.concat   (  [ pd.DataFrame(data = {  'target': gene, 
-                                                        'region': search_space.loc[search_space['Gene'] == gene, 'Name'].values,
-                                                        'importance' : region_to_gene_importances[gene],
-                                                        'rho': region_to_gene_correlation[gene]})
+                                                        'region': region_to_gene_importances[gene].index.to_list(),
+                                                        'importance' : region_to_gene_importances[gene].to_list(),
+                                                        'rho': region_to_gene_correlation[gene].loc[
+                                                            region_to_gene_importances[gene].index.to_list()].to_list()})
                                     for gene in region_to_gene_importances.keys()
                                 ]
                             )
