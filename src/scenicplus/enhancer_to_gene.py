@@ -19,6 +19,8 @@ from .scenicplus_class import SCENICPLUS
 
 import ranky as rk
 
+from tqdm import tqdm
+
 RANDOM_SEED = 666
 
 SKLEARN_REGRESSOR_FACTORY = {
@@ -394,36 +396,45 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
     """
     #Check overlaps with search space (Issue #1)
     search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
-
     if genes is None:
         genes_to_use = list( set.intersection(set(search_space['Gene']), set(SCENICPLUS_obj.gene_names)) )
     elif not all( np.isin(genes, list(search_space['Gene'])) ):
         genes_to_use = list(set.intersection(set(search_space['Gene']), set(genes)))
     else:
         genes_to_use = genes
+    #get expression and chromatin accessibility dataframes only once
+    EXP_df = SCENICPLUS_obj.to_df(layer = 'EXP')
+    ACC_df = SCENICPLUS_obj.to_df(layer = 'ACC')
     
     if ray_n_cpu != None:
         ray.init(num_cpus = ray_n_cpu, **kwargs)
         try:
             jobs = []
-            for gene in genes_to_use:
+            for gene in tqdm(genes_to_use, total = len(genes_to_use), desc = 'initializing'):
                 if mask_expr_dropout:
-                    expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene]
+                    expr = EXP_df[gene]
                     cell_non_zero = expr.index[expr != 0]
                     expr = expr.loc[cell_non_zero].to_numpy()
-                    acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                    acc = ACC_df.loc[
                                 search_space.loc[search_space['Gene'] == gene, 'Name'].values,
                                 cell_non_zero].T.to_numpy()
                 else:
-                    expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene].to_numpy()
-                    acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                    expr = EXP_df[gene].to_numpy()
+                    acc = ACC_df.loc[
                                 search_space.loc[search_space['Gene'] == gene, 'Name'].values].T.to_numpy()
                 # Check-up for genes with 1 region only, related to issue 2
                 if acc.ndim == 1:
                     acc = acc.reshape(-1,1)
                 jobs.append(score_regions_to_single_gene_ray.remote(X = acc, y = expr, regressor_type = regressor_type, regressor_kwargs = regressor_kwargs))
-
-            regions_to_genes = ray.get(jobs)
+            
+            #add progress bar, from: https://github.com/ray-project/ray/issues/8164
+            def to_iterator(obj_ids):
+                while obj_ids:
+                    done, obj_ids = ray.wait(obj_ids)
+                    yield ray.get(done[0])
+            regions_to_genes = []
+            for x in tqdm(to_iterator(jobs), total=len(jobs), desc = f'Running using {ray_n_cpu} cores'):
+                regions_to_genes.append(x)
         except Exception as e:
             print(e)
         finally:
@@ -431,17 +442,17 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
         regions_to_genes = {gene: regions_to_gene for gene, regions_to_gene in zip(genes_to_use, regions_to_genes)}
     else:
         regions_to_genes = {}
-        for gene in genes_to_use:
+        for gene in tqdm(genes_to_use, total = len(genes_to_use), desc = f'Running using a single core'):
             if mask_expr_dropout:
-                expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene]
+                expr = EXP_df[gene]
                 cell_non_zero = expr.index[expr != 0]
                 expr = expr.loc[cell_non_zero].to_numpy()
-                acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                acc = ACC_df.loc[
                                 search_space.loc[search_space['Gene'] == gene, 'Name'].values,
                                 cell_non_zero].T.to_numpy()
             else:
-                expr = SCENICPLUS_obj.to_df(layer = 'EXP')[gene].to_numpy()
-                acc = SCENICPLUS_obj.to_df(layer = 'ACC').loc[
+                expr = EXP_df[gene].to_numpy()
+                acc = ACC_df.loc[
                                 search_space.loc[search_space['Gene'] == gene, 'Name'].values].T.to_numpy()
                                 # Check-up for genes with 1 region only, related to issue 2
             if acc.ndim == 1:
