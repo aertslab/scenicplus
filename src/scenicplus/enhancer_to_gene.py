@@ -101,7 +101,8 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
                      remove_promoters = False,
                      biomart_host = 'http://www.ensembl.org',
                      inplace = True,
-                     key_added = 'search_space'):
+                     key_added = 'search_space',
+                     implode_entries = True):
     """
     Get search space surrounding genes to calculate enhancer to gene links
 
@@ -133,6 +134,10 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         Space around the TSS consider as promoter. Default: [10,10]
     remove_promoters: bool, optional
         Whether to remove promoters from the search space or not. Default: False
+    implode_entries: bool, optional
+        When a gene has multiple start/end sites it has multiple distances and gene width. 
+        If this parameter is set to True these multiple entries per region and gene will be put in a list, generating a single entry.
+        If this parameter is set to False these multiple entries will be kept.
     Return
     ------
     pd.DataFrame
@@ -329,6 +334,22 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         regions_per_gene_distal_wo_promoters = regions_per_gene_distal.overlap(pr_promoters, invert=True)
         regions_per_gene = pr.PyRanges(pd.concat([regions_per_gene_overlapping_genes.df, regions_per_gene_distal_wo_promoters.df]))
     
+    regions_per_gene = pr.PyRanges(regions_per_gene.df.drop_duplicates())
+
+    if implode_entries:
+        log.info('Imploding multiple entries per region and gene')
+        df = regions_per_gene.df
+        default_columns = ['Chromosome', 'Start', 'End', 'Name', 'Strand', 'Gene']
+        agg_dict_func1 = {column: lambda x: x.tolist()[0] 
+                          for column in default_columns}
+        agg_dict_func2 = {column: lambda x: x.tolist()
+                          for column in set(list(df.columns)) - set(default_columns)}
+        agg_dict_func = {**agg_dict_func1, **agg_dict_func2}
+        df = df.groupby(['Gene', 'Name'], as_index = False).agg(agg_dict_func)
+        regions_per_gene = pr.PyRanges(df)
+    else:
+        Warning('Not imploding might cause error when calculating region to gene links.')
+
     log.info('Done!')
     if inplace:
         SCENICPLUS_obj.uns[key_added] = regions_per_gene.df[['Name', 'Gene', 'Distance']]
@@ -473,8 +494,8 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
                                              search_space_key : str = 'search_space', 
                                              mask_expr_dropout = False,
                                              genes = None,
-                                             importance_scoring_method = 'RF', 
-                                             importance_scoring_kwargs = RF_KWARGS,
+                                             importance_scoring_method = 'GBM', 
+                                             importance_scoring_kwargs = GBM_KWARGS,
                                              correlation_scoring_method = 'SR',
                                                ray_n_cpu = None,
                                              add_distance = True,
@@ -501,7 +522,6 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     handlers = [logging.StreamHandler(stream=sys.stdout)]
     logging.basicConfig(level = level, format = format, handlers = handlers)
     log = logging.getLogger('R2G')
-    
     if search_space_key not in SCENICPLUS_obj.uns.keys():
         raise Exception(f'key {search_space_key} not found in SCENICPLUS_obj.uns, first get search space using function: "get_search_space"')
     
@@ -510,7 +530,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     search_space = search_space[ search_space['Name'].isin(SCENICPLUS_obj.region_names) ]
 
     #calulcate region to gene importance
-    log.info('Calculating region to gene importances')
+    log.info(f'Calculating region to gene importances, using {importance_scoring_method} method')
     start_time = time.time()
     region_to_gene_importances = score_regions_to_genes(SCENICPLUS_obj,
                                                         search_space = search_space,
@@ -523,7 +543,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     log.info('Took {} seconds'.format(time.time() - start_time))
 
     #calculate region to gene correlation
-    log.info('Calculating region to gene correlation')
+    log.info(f'Calculating region to gene correlation, using {correlation_scoring_method} method')
     start_time = time.time()
     region_to_gene_correlation = score_regions_to_genes(SCENICPLUS_obj,
                                                         search_space = search_space,
@@ -535,16 +555,21 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     log.info('Took {} seconds'.format(time.time() - start_time))
 
     #transform dictionaries to pandas dataframe
-    result_df = pd.concat   (  [ pd.DataFrame(data = {  'target': gene, 
-                                                        'region': region_to_gene_importances[gene].index.to_list(),
-                                                        'importance' : region_to_gene_importances[gene].to_list(),
-                                                        'rho': region_to_gene_correlation[gene].loc[
-                                                            region_to_gene_importances[gene].index.to_list()].to_list()})
-                                    for gene in region_to_gene_importances.keys()
-                                ]
-                            )
-    result_df = result_df.reset_index()
-    result_df = result_df.drop('index', axis = 1)
+    try:
+        result_df = pd.concat   (  [ pd.DataFrame(data = {  'target': gene, 
+                                                            'region': region_to_gene_importances[gene].index.to_list(),
+                                                            'importance' : region_to_gene_importances[gene].to_list(),
+                                                            'rho': region_to_gene_correlation[gene].loc[
+                                                                region_to_gene_importances[gene].index.to_list()].to_list()})
+                                        for gene in region_to_gene_importances.keys()
+                                    ]
+                                )
+        result_df = result_df.reset_index()
+        result_df = result_df.drop('index', axis = 1)
+    
+    except:
+        print('An error occured!')
+        return region_to_gene_importances, region_to_gene_correlation
 
     if add_distance:
         #TODO: use consistent column names
