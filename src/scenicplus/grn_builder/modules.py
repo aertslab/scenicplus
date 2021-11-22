@@ -111,7 +111,6 @@ class eRegulon():
         descr += f"\n\tThis eRegulon has {self.n_target_regions} target regions and {self.n_target_genes} target genes."
         return descr
 
-
 def quantile_thr(adjacencies, grouped, threshold, min_regions_per_gene,  context = frozenset()):
 
     def _qt(x):
@@ -156,7 +155,7 @@ def top_targets(adjacencies, grouped, n, min_regions_per_gene, context = frozens
         else:
             return np.repeat(False, len(x))
 
-    c = frozenset(["top {} gene targets".format(n)]).union(context)
+    c = frozenset(["Top {} region-to-gene links per gene".format(n)]).union(context)
     #grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function
     importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
 
@@ -187,7 +186,7 @@ def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozens
         else:
             return np.repeat(False, len(x))
 
-    c = frozenset(["top {} region targets".format(n)]).union(context)
+    c = frozenset(["Per region top {} region-to-gene links per gene".format(n)]).union(context)
 
     #grouped = Groupby(adjacencies[TARGET_REGION_NAME].to_numpy()) #this could be moved out of the function
     importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
@@ -207,11 +206,44 @@ def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozens
     if len(df) > 0:
         yield c, df
 
+def binarize_BASC(adjacencies, grouped, min_regions_per_gene, context = frozenset()):
+    from ..BASCA import binarize
+
+    def _binarize_basc(x):
+        if len(x) > 2:
+            return binarize(x, calc_p=False).threshold
+        else:
+            # can only binarize when array is > 2
+            return 0
+    
+    def _gt(x):
+        #function to check minimum regions requirement
+        if sum(x) >= min_regions_per_gene:
+            return x
+        else:
+            return np.repeat(False, len(x))
+
+    c = frozenset(["BASC binarized"]).union(context)
+
+    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    
+    #get BASC thresholds
+    thresholds = grouped.apply(_binarize_basc, importances, True)
+    passing = importances > thresholds
+
+    if min_regions_per_gene > 0:
+        #check min regions per gene
+        passing = grouped.apply(_gt, passing, True).astype(bool)
+
+    if sum(passing) > 0:
+        yield c, adjacencies.loc[passing].reset_index(drop = True)
+
 def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     region_to_gene_key = 'region_to_gene',
                     thresholds = (0.75, 0.90),
                     top_n_target_genes = (50, 100),
                     top_n_target_regions = (),
+                    binarize_basc = False,
                     min_regions_per_gene = 5,
                     rho_dichotomize=True,
                     keep_only_activating=False,
@@ -240,7 +272,11 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                                             grouped = grouped_adj_by_region, 
                                             n = n, 
                                             min_regions_per_gene = min_regions_per_gene, 
-                                            context = context) for n in top_n_target_regions)
+                                            context = context) for n in top_n_target_regions),
+            chain.from_iterable(binarize_BASC(adjacencies = adj,
+                                              grouped = grouped_adj_by_gene,
+                                              min_regions_per_gene = min_regions_per_gene,
+                                              context = context)) if binarize_basc else []
         )
 
     if rho_dichotomize:
@@ -279,3 +315,5 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                         regions2genes = list(r2g_df_enriched_for_TF_motif[list(REGIONS2GENES_HEADER)].itertuples(index = False, name = 'r2g')),
                         context = context))
     return set(tfs_to_regions_d), eRegulons
+
+
