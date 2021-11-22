@@ -1,10 +1,11 @@
 from ..scenicplus_class import SCENICPLUS
 import attr
-from typing import List
+from typing import List, Tuple
 from collections import namedtuple
 from itertools import chain
 from tqdm import tqdm
-from ..utils import cistarget_results_to_TF2R
+from ..utils import cistarget_results_to_TF2R, Groupby
+import numpy as np
 
 flatten_list = lambda t: [item for sublist in t for item in sublist]
 
@@ -110,52 +111,136 @@ class eRegulon():
         descr += f"\n\tThis eRegulon has {self.n_target_regions} target regions and {self.n_target_genes} target genes."
         return descr
 
-def quantile_thr(adjacencies, threshold, min_regions_per_gene,  context = frozenset()):
+
+def quantile_thr(adjacencies, grouped, threshold, min_regions_per_gene,  context = frozenset()):
+
+    def _qt(x):
+        #function to return threshold_quantile from a vector
+        return np.quantile(x, threshold)
+    
+    def _gt(x):
+        #function to check minimum regions requirement
+        if sum(x) >= min_regions_per_gene:
+            return x
+        else:
+            return np.repeat(False, len(x))
+    
     c = frozenset(["{} quantile".format(threshold)]).union(context)
-    df = adjacencies.groupby(by = TARGET_GENE_NAME).apply(
-        lambda df_grp: df_grp.loc[df_grp[IMPORTANCE_SCORE_NAME] > df_grp[IMPORTANCE_SCORE_NAME].quantile(threshold)]
-        if len(df_grp.loc[df_grp[IMPORTANCE_SCORE_NAME] > df_grp[IMPORTANCE_SCORE_NAME].quantile(threshold)]) >= min_regions_per_gene 
-        else None)
-    if len(df) > 0:
-        yield c, df.droplevel(level = 0).reset_index(drop = True)
+    #grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function
+    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    
+    #get quantiles and threshold
+    thresholds = grouped.apply(_qt, importances, True)
+    passing = importances > thresholds
 
-def top_targets(adjacencies, n, min_regions_per_gene, context = frozenset()):
+    if min_regions_per_gene > 0:
+        #check min regions per gene
+        passing = grouped.apply(_gt, passing, True).astype(bool)
+
+    if sum(passing) > 0:
+        yield c, adjacencies.loc[passing].reset_index(drop = True)
+
+def top_targets(adjacencies, grouped, n, min_regions_per_gene, context = frozenset()):
+
+    def _top(x):
+        #function to get top n entries. 
+        if len(x) >= n:
+            return min(np.sort(x)[-n:])
+        else:
+            return min(x)
+    
+    def _gt(x):
+        #function to check minimum regions requirement
+        if sum(x) >= min_regions_per_gene:
+            return x
+        else:
+            return np.repeat(False, len(x))
+
     c = frozenset(["top {} gene targets".format(n)]).union(context)
-    df = adjacencies.groupby(by = TARGET_GENE_NAME).apply(
-        lambda df_grp: df_grp.nlargest(n, IMPORTANCE_SCORE_NAME)
-        if len(df_grp.nlargest(n, IMPORTANCE_SCORE_NAME)) >= min_regions_per_gene
-        else None)
-    if len(df) > 0:
-        yield c, df.droplevel(level = 0).reset_index(drop = True)
+    #grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function
+    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
 
-def top_regions(adjacencies, n, min_regions_per_gene, context = frozenset()):
+    #get top n threshold
+    thresholds = grouped.apply(_top, importances, True)
+    passing = importances >= thresholds
+
+    if min_regions_per_gene > 0:
+        #check min regions per gene
+        passing = grouped.apply(_gt, passing, True).astype(bool)
+
+    if sum(passing) > 0:
+        yield c, adjacencies.loc[passing].reset_index(drop = True)
+
+def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozenset()):
+
+    def _top(x):
+        #function to get top n entries. 
+        if len(x) >= n:
+            return min(np.sort(x)[-n:])
+        else:
+            return min(x)
+    
+    def _gt(x):
+        #function to check minimum regions requirement
+        if sum(x) >= min_regions_per_gene:
+            return x
+        else:
+            return np.repeat(False, len(x))
+
     c = frozenset(["top {} region targets".format(n)]).union(context)
-    df = adjacencies.groupby(by = TARGET_REGION_NAME).apply(
-        lambda grp: grp.nlargest(n, IMPORTANCE_SCORE_NAME)).groupby(by = TARGET_GENE_NAME).apply(
-            lambda grp: grp
-            if len(grp) >= min_regions_per_gene
-            else None)
+
+    #grouped = Groupby(adjacencies[TARGET_REGION_NAME].to_numpy()) #this could be moved out of the function
+    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    
+    #get top n threshold
+    thresholds = grouped.apply(_top, importances, True)
+    passing = importances >= thresholds
+
+    df = adjacencies.loc[passing].reset_index(drop = True)
+
+    if min_regions_per_gene > 0:
+        #check minimum target gene requirement
+        grouped = Groupby(df[TARGET_GENE_NAME].to_numpy())
+        passing = grouped.apply(_gt, passing[passing], True).astype(bool)
+        df = df.loc[passing].reset_index(drop = True)
+
     if len(df) > 0:
-        yield c, df.droplevel(level = 0).reset_index(drop = True)
+        yield c, df
 
 def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     region_to_gene_key = 'region_to_gene',
                     thresholds = (0.75, 0.90),
                     top_n_target_genes = (50, 100),
-                    top_n_target_regions = (5, 10, 50),
+                    top_n_target_regions = (),
                     min_regions_per_gene = 5,
                     rho_dichotomize=True,
                     keep_only_activating=False,
-                    rho_threshold=RHO_THRESHOLD) -> List[eRegulon]:
+                    rho_threshold=RHO_THRESHOLD) -> Tuple[List[str], List[eRegulon]]:
     #check input
     if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
         raise ValueError('Calculate region to gene relationships first.')
     
     def iter_thresholding(adj, context):
+        grouped_adj_by_gene = Groupby(adj[TARGET_GENE_NAME].to_numpy())
+        grouped_adj_by_region = Groupby(adj[TARGET_REGION_NAME].to_numpy())
         yield from chain(
-            chain.from_iterable(quantile_thr(adj, thr, min_regions_per_gene, context) for thr in thresholds),
-            chain.from_iterable(top_targets(adj, n, min_regions_per_gene,  context) for n in top_n_target_genes),
-            chain.from_iterable(top_regions(adj, n, min_regions_per_gene, context) for n in top_n_target_regions)
+            chain.from_iterable(quantile_thr(adjacencies = adj, 
+                                             grouped = grouped_adj_by_gene, 
+                                             threshold = thr, 
+                                             min_regions_per_gene = min_regions_per_gene, 
+                                             context = context) for thr in thresholds),
+
+            chain.from_iterable(top_targets(adjacencies = adj, 
+                                            grouped = grouped_adj_by_gene, 
+                                            n = n, 
+                                            min_regions_per_gene = min_regions_per_gene,  
+                                            context = context) for n in top_n_target_genes),
+
+            chain.from_iterable(top_regions(adjacencies = adj, 
+                                            grouped = grouped_adj_by_region, 
+                                            n = n, 
+                                            min_regions_per_gene = min_regions_per_gene, 
+                                            context = context) for n in top_n_target_regions)
         )
 
     if rho_dichotomize:
@@ -180,10 +265,12 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     ctx_results = flatten_list([[SCENICPLUS_obj.menr[x][y] for y in SCENICPLUS_obj.menr[x].keys()] for x in SCENICPLUS_obj.menr.keys()])
     tfs_to_regions_d = cistarget_results_to_TF2R(ctx_results)
     #iterate over all thresholdings and generate eRegulons
+    n_params = sum([len(thresholds), len(top_n_target_genes), len(top_n_target_regions)])
+    total_iter = 2 * n_params if rho_dichotomize else n_params
     eRegulons = []
-    for context, r2g_df in r2g_iter:
+    for context, r2g_df in tqdm(r2g_iter, total = total_iter):
         for transcription_factor in tfs_to_regions_d.keys():
-            regions_enriched_for_TF_motif = tfs_to_regions_d[transcription_factor]
+            regions_enriched_for_TF_motif = set(tfs_to_regions_d[transcription_factor])
             r2g_df_enriched_for_TF_motif = r2g_df.loc[ [ region in regions_enriched_for_TF_motif for region in r2g_df[TARGET_REGION_NAME] ] ]
             if len(r2g_df_enriched_for_TF_motif) > 0:
                 eRegulons.append(
@@ -191,4 +278,4 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                         transcription_factor = transcription_factor,
                         regions2genes = list(r2g_df_enriched_for_TF_motif[list(REGIONS2GENES_HEADER)].itertuples(index = False, name = 'r2g')),
                         context = context))
-    return eRegulons
+    return set(tfs_to_regions_d), eRegulons
