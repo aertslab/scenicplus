@@ -224,7 +224,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     try:
         log.info(f'Running GSEA...')
         new_e_modules = []
-        TF_to_TF_adj_d = {} #dict so adjacencies matrix is only subsetted once per TF (might improve performance.)
+        TF_to_TF_adj_d = {} #dict so adjacencies matrix is only subsetted once per TF (improves performance)
         tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
         for e_module in tqdm(e_modules, total = len(e_modules), desc = tqdm_desc):
             TF = e_module.transcription_factor
