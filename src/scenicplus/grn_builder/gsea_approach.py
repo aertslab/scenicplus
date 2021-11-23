@@ -110,7 +110,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              quantiles = (0.85, 0.90),
              top_n_regionTogenes_per_gene = (5, 10, 15),
              top_n_regionTogenes_per_region = (),
-             binarize_basc = False,
+             binarize_using_basc = False,
              min_regions_per_gene = 0,
              rho_dichotomize = True,
              keep_only_activating = False,
@@ -149,7 +149,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     top_n_regionTogenes_per_region
         A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
         Default: ()
-    binarize_basc:
+    binarize_using_basc:
         A boolean specifying wether or not to binarize region-to-gene links using BASC.
         See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
              IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
@@ -208,7 +208,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         quantiles = quantiles,
         top_n_regionTogenes_per_gene = top_n_regionTogenes_per_gene,
         top_n_regionTogenes_per_region = top_n_regionTogenes_per_region,
-        binarize_using_basc = binarize_basc,
+        binarize_using_basc = binarize_using_basc,
         min_regions_per_gene = min_regions_per_gene,
         rho_dichotomize = rho_dichotomize,
         keep_only_activating = keep_only_activating,
