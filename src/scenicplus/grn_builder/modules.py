@@ -247,11 +247,11 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     min_regions_per_gene = 5,
                     rho_dichotomize=True,
                     keep_only_activating=False,
-                    rho_threshold=RHO_THRESHOLD) -> Tuple[List[str], List[eRegulon]]:
+                    rho_threshold=RHO_THRESHOLD,
+                    keep_extended_motif_annot = False) -> Tuple[List[str], List[eRegulon]]:
     #check input
     if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
         raise ValueError('Calculate region to gene relationships first.')
-    
     def iter_thresholding(adj, context):
         grouped_adj_by_gene = Groupby(adj[TARGET_GENE_NAME].to_numpy())
         grouped_adj_by_region = Groupby(adj[TARGET_REGION_NAME].to_numpy())
@@ -273,10 +273,10 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                                             n = n, 
                                             min_regions_per_gene = min_regions_per_gene, 
                                             context = context) for n in top_n_target_regions),
-            chain.from_iterable(binarize_BASC(adjacencies = adj,
-                                              grouped = grouped_adj_by_gene,
-                                              min_regions_per_gene = min_regions_per_gene,
-                                              context = context)) if binarize_basc else []
+            binarize_BASC(adjacencies = adj,
+                          grouped = grouped_adj_by_gene,
+                          min_regions_per_gene = min_regions_per_gene,
+                          context = context) if binarize_basc else []
         )
 
     if rho_dichotomize:
@@ -299,15 +299,18 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
 
     #merge all cistarget results
     ctx_results = flatten_list([[SCENICPLUS_obj.menr[x][y] for y in SCENICPLUS_obj.menr[x].keys()] for x in SCENICPLUS_obj.menr.keys()])
-    tfs_to_regions_d = cistarget_results_to_TF2R(ctx_results)
+    tfs_to_regions_d = cistarget_results_to_TF2R(ctx_results, keep_extended = keep_extended_motif_annot)
     #iterate over all thresholdings and generate eRegulons
     n_params = sum([len(thresholds), len(top_n_target_genes), len(top_n_target_regions)])
-    total_iter = 2 * n_params if rho_dichotomize else n_params
+    total_iter = (2 * (n_params + (binarize_basc * 1)) )  if rho_dichotomize else (n_params + (binarize_basc * 1))
     eRegulons = []
     for context, r2g_df in tqdm(r2g_iter, total = total_iter):
         for transcription_factor in tfs_to_regions_d.keys():
             regions_enriched_for_TF_motif = set(tfs_to_regions_d[transcription_factor])
-            r2g_df_enriched_for_TF_motif = r2g_df.loc[ [ region in regions_enriched_for_TF_motif for region in r2g_df[TARGET_REGION_NAME] ] ]
+            try:
+                r2g_df_enriched_for_TF_motif = r2g_df.loc[ [ region in regions_enriched_for_TF_motif for region in r2g_df[TARGET_REGION_NAME] ] ]
+            except:
+                print(r2g_df)
             if len(r2g_df_enriched_for_TF_motif) > 0:
                 eRegulons.append(
                     eRegulon(
@@ -315,5 +318,61 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                         regions2genes = list(r2g_df_enriched_for_TF_motif[list(REGIONS2GENES_HEADER)].itertuples(index = False, name = 'r2g')),
                         context = context))
     return set(tfs_to_regions_d), eRegulons
+
+def _merge_single_TF(l_e_modules):
+    transcription_factor = set([em.transcription_factor for em in l_e_modules])
+    if len(transcription_factor) > 1:
+        raise ValueError('l_e_modules should only contain a single TF')
+    else:
+        transcription_factor = list(transcription_factor)[0]
+
+    regions2genes_merged = list( set( flatten_list([em.regions2genes for em in  np.array(l_e_modules)]) ) )
+    context = frozenset(flatten_list([em.context for em in l_e_modules]))
+    return eRegulon(
+        transcription_factor = transcription_factor,
+        regions2genes = regions2genes_merged,
+        context = context)
+
+def _merge_across_TF(l_e_modules):
+    l_e_modules = np.array(l_e_modules)
+    TFs = [em.transcription_factor for em in l_e_modules]
+    grouped = Groupby(TFs)
+    for idx in grouped.indices:
+        yield _merge_single_TF(l_e_modules[idx])
+    
+def merge_emodules(SCENICPLUS_obj: SCENICPLUS = None,
+                   e_modules: list = None,
+                   e_modules_key: str = 'eRegulons',
+                   rho_dichotomize: bool = True,
+                   key_to_add: str = 'eRegulons',
+                   inplace: bool = True):
+    #check input
+    if SCENICPLUS_obj is not None:
+        if e_modules_key not in SCENICPLUS_obj.uns.keys():
+            raise ValueError(f'No e-modules found under key: {e_modules_key}.')
+    
+    e_modules = SCENICPLUS_obj.uns[e_modules_key] if SCENICPLUS_obj is not None else e_modules
+
+    if rho_dichotomize:
+        TF2G_pos_R2G_pos_ems = [em for em in e_modules if ('positive tf2g' in em.context and 'positive r2g' in em.context)]
+        TF2G_pos_R2G_neg_ems = [em for em in e_modules if ('positive tf2g' in em.context and 'negative r2g' in em.context)]
+        TF2G_neg_R2G_pos_ems = [em for em in e_modules if ('negative tf2g' in em.context and 'positive r2g' in em.context)]
+        TF2G_neg_R2G_neg_ems = [em for em in e_modules if ('negative tf2g' in em.context and 'negative r2g' in em.context)]
+
+        iter_merger = chain(
+            _merge_across_TF(TF2G_pos_R2G_pos_ems),
+            _merge_across_TF(TF2G_pos_R2G_neg_ems),
+            _merge_across_TF(TF2G_neg_R2G_pos_ems),
+            _merge_across_TF(TF2G_neg_R2G_neg_ems)
+        )
+    else:
+        iter_merger = chain(
+            _merge_across_TF(e_modules)
+        )
+    
+    if inplace:
+        SCENICPLUS_obj.uns[key_to_add] = [eReg for eReg in iter_merger]
+    else:
+        return [eReg for eReg in iter_merger]
 
 

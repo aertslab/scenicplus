@@ -1,5 +1,5 @@
 from ..scenicplus_class import SCENICPLUS
-from .modules import create_emodules, eRegulon, TARGET_GENE_NAME
+from .modules import create_emodules, eRegulon, TARGET_GENE_NAME, merge_emodules
 from ..gsea import run_gsea #TODO:probably better to move this into the grn_builder directory.
 from pyscenic.utils import add_correlation, COLUMN_NAME_CORRELATION
 import pandas as pd
@@ -66,9 +66,10 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              adj_key = 'TF2G_adj',
              region_to_gene_key = 'region_to_gene',
              gsea_n_perm = 1000,
-             thresholds = (0.75, 0.90),
-             top_n_target_genes = (50, 100),
-             top_n_target_regions = (5, 10, 50),
+             quantiles = (0.75, 0.90),
+             top_n_regionTogenes_per_gene = (50, 100),
+             top_n_regionTogenes_per_region = (),
+             binarize_basc = False,
              min_regions_per_gene = 5,
              rho_dichotomize=True,
              keep_only_activating=False,
@@ -79,32 +80,40 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              inplace = True,
              key_added = 'eRegulons',
              ray_n_cpu = None,
+             merge_eRegulons = True,
+             keep_extended_motif_annot = False,
              **kwargs):
 
     if not adj_key in SCENICPLUS_obj.uns.keys():
         raise ValueError(f'key {adj_key} not found in uns slot. Please first load TF2G adjacencies!')
     
     log.info('Thresholding region to gene relationships')
-    e_modules = create_emodules(
+    relevant_tfs, e_modules = create_emodules(
         SCENICPLUS_obj = SCENICPLUS_obj,
         region_to_gene_key = region_to_gene_key,
-        thresholds = thresholds,
-        top_n_target_genes = top_n_target_genes,
-        top_n_target_regions = top_n_target_regions,
+        thresholds = quantiles,
+        top_n_target_genes = top_n_regionTogenes_per_gene,
+        top_n_target_regions = top_n_regionTogenes_per_region,
+        binarize_basc = binarize_basc,
         min_regions_per_gene = min_regions_per_gene,
         rho_dichotomize = rho_dichotomize,
         keep_only_activating = keep_only_activating,
-        rho_threshold = rho_threshold)
+        rho_threshold = rho_threshold,
+        keep_extended_motif_annot = keep_extended_motif_annot)
     
+    log.info('Subsetting TF2G adjacencies for TF with motif.')
+    TF2G_adj_relevant = SCENICPLUS_obj.uns[adj_key].loc[[tf in relevant_tfs for tf in SCENICPLUS_obj.uns[adj_key]['TF']]]
+
     if ray_n_cpu is not None:
         ray.init(num_cpus = ray_n_cpu, **kwargs)
         jobs = []
     try:
         log.info(f'Running GSEA...')
         new_e_modules = []
-        for e_module in e_modules:
+        tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
+        for e_module in tqdm(e_modules, total = len(e_modules), desc = tqdm_desc):
             TF = e_module.transcription_factor
-            TF2G_adj = SCENICPLUS_obj.uns[adj_key].loc[SCENICPLUS_obj.uns[adj_key]['TF'] == TF]
+            TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
             if rho_dichotomize:
                 TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho'] > rho_threshold]
                 TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho'] < -rho_threshold]
@@ -159,7 +168,18 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                             gsea_n_perm,
                             frozenset([''])))
         if ray_n_cpu is not None:
-            new_e_modules = ray.get(jobs)
+            def to_iterator(obj_ids):
+                while obj_ids:
+                    finished_ids, obj_ids = ray.wait(obj_ids)
+                    for finished_id in finished_ids:
+                        yield ray.get(finished_id)
+
+            for e_module in tqdm(to_iterator(jobs), 
+                                 total=len(jobs), 
+                                 desc = f'Running using {ray_n_cpu} cores',
+                                 smoothing = 0.1):
+                new_e_modules.append(e_module)
+
     except Exception as e:
         print(e)
     finally:
@@ -179,7 +199,9 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     for module in new_e_modules:
         if module.gsea_adj_pval < adj_pval_thr and module.gsea_enrichment_score > NES_thr and sum(module.in_leading_edge) >= min_target_genes:
             e_modules_to_return.append(module.subset_leading_edge(inplace = False ))
-    
+    if merge_eRegulons:
+        log.info('Merging eRegulons')
+        e_modules_to_return = merge_emodules(e_modules = e_modules_to_return, inplace = False)
     if inplace:
         log.info(f'Storing eRegulons in .uns[{key_added}].')
         SCENICPLUS_obj.uns[key_added] = e_modules_to_return
