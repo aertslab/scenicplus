@@ -15,6 +15,10 @@ def assemble_e_regulons(
     keep_negative: bool = True,
     GSEA_NES_thr: float = 0.0,
     GSEA_PVal_thr: float = 0.01):
+    """
+    This function is deprecated
+    """
+    Warning("This function is deprecated and will be removed soon!")
     # Create logger
     level    = logging.INFO
     format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
