@@ -197,7 +197,7 @@ class Result:
         self.threshold = threshold
         self.pVal = pVal
     
-def binarize(vect, tau = 0.01, n_samples = 999):
+def binarize(vect, tau = 0.01, n_samples = 999, calc_p = True):
     #original step function is just the sorted vector
     vect_sorted = sorted(vect)
 
@@ -210,7 +210,7 @@ def binarize(vect, tau = 0.01, n_samples = 999):
 
     #step 3: Estimate location and variation of the strongest discontinuities
     threshold = calcThreshold(vect_sorted, v)
-    p_val = calcP(v, vect_sorted, tau, n_samples)
+    p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
 
     BinarizedMeasurements = [(val > threshold) * 1 for val in vect]
 
