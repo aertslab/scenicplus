@@ -374,7 +374,7 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     quantiles: tuple = (0.85, 0.90),
                     top_n_regionTogenes_per_gene: tuple = (5, 10, 15),
                     top_n_regionTogenes_per_region : tuple = (),
-                    binarize_basc: bool = False,
+                    binarize_using_basc: bool = False,
                     min_regions_per_gene: int = 0,
                     rho_dichotomize: bool = True,
                     keep_only_activating: bool = False,
@@ -401,7 +401,7 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     top_n_regionTogenes_per_region
         A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
         Default: ()
-    binarize_basc:
+    binarize_using_basc:
         A boolean specifying wether or not to binarize region-to-gene links using BASC.
         See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
              IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
@@ -454,7 +454,7 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
             binarize_BASC(adjacencies = adj,
                           grouped = grouped_adj_by_gene,
                           min_regions_per_gene = min_regions_per_gene,
-                          context = context) if binarize_basc else []
+                          context = context) if binarize_using_basc else []
         )
 
     if rho_dichotomize:
@@ -480,15 +480,12 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     tfs_to_regions_d = cistarget_results_to_TF2R(ctx_results, keep_extended = keep_extended_motif_annot)
     #iterate over all thresholdings and generate eRegulons
     n_params = sum([len(quantiles), len(top_n_regionTogenes_per_gene), len(top_n_regionTogenes_per_region)])
-    total_iter = (2 * (n_params + (binarize_basc * 1)) )  if rho_dichotomize else (n_params + (binarize_basc * 1))
+    total_iter = (2 * (n_params + (binarize_using_basc * 1)) )  if rho_dichotomize else (n_params + (binarize_using_basc * 1))
     eRegulons = []
     for context, r2g_df in tqdm(r2g_iter, total = total_iter):
         for transcription_factor in tfs_to_regions_d.keys():
             regions_enriched_for_TF_motif = set(tfs_to_regions_d[transcription_factor])
-            try:
-                r2g_df_enriched_for_TF_motif = r2g_df.loc[ [ region in regions_enriched_for_TF_motif for region in r2g_df[TARGET_REGION_NAME] ] ]
-            except:
-                print(r2g_df)
+            r2g_df_enriched_for_TF_motif = r2g_df.loc[ [ region in regions_enriched_for_TF_motif for region in r2g_df[TARGET_REGION_NAME] ] ]
             if len(r2g_df_enriched_for_TF_motif) > 0:
                 eRegulons.append(
                     eRegulon(
