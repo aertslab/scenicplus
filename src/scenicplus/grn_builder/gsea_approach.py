@@ -23,6 +23,29 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
                             inplace = True, 
                             key_added = 'TF2G_adj', 
                             rho_threshold = RHO_THRESHOLD):
+    """
+    Function to load TF2G adjacencies from file
+
+    Parameters
+    ----------
+    SCENICPLUS_obj
+        An instance of :class:`~scenicplus.scenicplus_class.SCENICPLUS`
+    f_adj
+        File path to TF2G adjacencies matrix
+    inplace
+        Boolean specifying wether or not to store adjacencies matrix in :param:`SCENICPLUS_obj` under slot .uns[key_added]
+        default: True
+    key_added
+        String specifying where in the .uns slot to store the adjacencies matrix in :param:`SCENICPLUS_obj`
+        default: "TF2G_adj"
+    rho_threshold
+        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
+        default: 0.03
+    
+    Returns
+    -------
+    None if inplace is True else :class:`~pd.DataFrame` with adjacencies matrix.
+    """
     log.info(f'Reading file: {f_adj}')
     df_TF_gene_adj = pd.read_csv(f_adj, sep = '\t')
     #only keep relevant entries
@@ -44,6 +67,24 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
         return df_TF_gene_adj_subset
 
 def run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
+    """
+    Helper function to run gsea for single e_module
+
+    Parameters
+    ----------
+    e_module
+        Instance of :class:`~scenicplus.grn_builder.modules.eRegulon`
+    rnk
+        Instance of :class:`pd.Series` containing ranked genes.
+    gsea_n_perm
+        Int specifying number of permutations for gsea p value calculation
+    context
+        Context of eRegulon
+    
+    Returns
+    -------
+    Instance of :class:`~scenicplus.grn_builder.modules.eRegulon`
+    """
     gene_set = e_module.target_genes #is already made unique by the class
     TF = e_module.transcription_factor
     NES, pval, LE_genes = run_gsea(
@@ -66,14 +107,14 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              adj_key = 'TF2G_adj',
              region_to_gene_key = 'region_to_gene',
              gsea_n_perm = 1000,
-             quantiles = (0.75, 0.90),
-             top_n_regionTogenes_per_gene = (50, 100),
+             quantiles = (0.85, 0.90),
+             top_n_regionTogenes_per_gene = (5, 10, 15),
              top_n_regionTogenes_per_region = (),
              binarize_basc = False,
-             min_regions_per_gene = 5,
-             rho_dichotomize=True,
-             keep_only_activating=False,
-             rho_threshold=RHO_THRESHOLD,
+             min_regions_per_gene = 0,
+             rho_dichotomize = True,
+             keep_only_activating = False,
+             rho_threshold = RHO_THRESHOLD,
              NES_thr = 0,
              adj_pval_thr = 0.05,
              min_target_genes = 5,
@@ -83,6 +124,79 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              merge_eRegulons = True,
              keep_extended_motif_annot = False,
              **kwargs):
+    """
+    Build GRN using GSEA approach
+
+    Parameters
+    ---------
+    SCENICPLUS_obj
+        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`
+    adj_key
+        Key under which to find TF2G adjacencies
+        default: "TF2G_adj"
+    region_to_gene_key
+        Key under which to find R2G adjacnecies
+        default: "region_to_gene"
+    gsea_n_perm
+        Int specifying number of gsea permutations to run for p value calculation
+        default: 1000
+    quantiles
+        A tuple specifying the quantiles used to binarize region-to-gene links
+        Default: (0.85, 0.90)
+    top_n_regionTogenes_per_gene
+        A tuple specifying the top n region-to-gene links to take PER GENE in order to binarize region-to-gene links.
+        Default: (5, 10, 15)
+    top_n_regionTogenes_per_region
+        A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
+        Default: ()
+    binarize_basc:
+        A boolean specifying wether or not to binarize region-to-gene links using BASC.
+        See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
+             IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
+        Defailt: False
+    min_regions_per_gene:
+        An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
+        Default: 0
+    rho_dichotomize:
+        A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.
+        default: True
+    keep_only_activating:
+        A boolean specifying wether or not to only retain region-to-gene links with a positive correlation coefficient.
+        default: False
+    rho_threshold:
+        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
+        default: 0.03
+    NES_thr
+        Float specifying threshold on gsea NES value
+        defaut: 0
+    adj_pval_thr
+        Float specifying threshold on gsea adjusted p value
+        default: 0.05
+    min_target_genes
+        Int specifying minumum number of target genes in leading edge
+        default: 5
+    inplace
+        Boolean specifying wether to store results in :param:`SCENICPLUS_obj`
+        default: True
+    key_added
+        Key specifying in under which key to store result in :param:`SCENICPLUS_obj`.uns
+        default: "eRegulons"
+    ray_n_cpu
+        Int specifying number of cores to use
+        default: None
+    merge_eRegulons
+        Boolean specifying wether to merge eRegulons form the same TF but different thresholding approaches
+        default: True
+    keep_extended_motif_annot
+        A boolean specifying wether or not keep extended motif annotations for further analysis.
+        default: False
+    **kwargs
+        Additional keyword arguments passed to `ray.init`
+    
+    Returns
+    -------
+    None if inplace is True else list of :class:`~scenicplus.grn_builder.modules.eRegulon` instances.
+    """
 
     if not adj_key in SCENICPLUS_obj.uns.keys():
         raise ValueError(f'key {adj_key} not found in uns slot. Please first load TF2G adjacencies!')
@@ -91,9 +205,9 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     relevant_tfs, e_modules = create_emodules(
         SCENICPLUS_obj = SCENICPLUS_obj,
         region_to_gene_key = region_to_gene_key,
-        thresholds = quantiles,
-        top_n_target_genes = top_n_regionTogenes_per_gene,
-        top_n_target_regions = top_n_regionTogenes_per_region,
+        quantiles = quantiles,
+        top_n_regionTogenes_per_gene = top_n_regionTogenes_per_gene,
+        top_n_regionTogenes_per_region = top_n_regionTogenes_per_region,
         binarize_basc = binarize_basc,
         min_regions_per_gene = min_regions_per_gene,
         rho_dichotomize = rho_dichotomize,

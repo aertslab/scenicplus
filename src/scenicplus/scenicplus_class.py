@@ -76,6 +76,34 @@ class SCENICPLUS():
         A Dict containing dimmensional reduction coordinates of cells.
     dr_region
         A Dict containing dimmensional reduction coordinates of regions.
+    
+    Properties
+    ----------
+    n_cells
+        Returns number of cells.
+    n_genes
+        Returns number of genes.
+    n_regions
+        Returns number of regions.
+    cell_names
+        Returns cell names
+    gene_names
+        Returns gene names
+    region_names
+        Returns region names
+    to_df
+        Returns a :class:`~pd.DataFame` containing gene expression or region accessbility data
+
+    Functions
+    --------
+    add_cell_data
+        Add cell metadata
+    add_region_data
+        Add region metadata
+    add_gene_data
+        Add gene metadata
+    subset 
+        Subset object
     """
 
     #mandatory attributes
@@ -174,6 +202,7 @@ class SCENICPLUS():
     def region_names(self):
         return self.metadata_regions.index
     
+    @property
     def to_df(self, layer) -> pd.DataFrame:
         """
         Generate a :class:`~pandas.DataFrame`.
@@ -208,6 +237,14 @@ class SCENICPLUS():
     
     #The three functions below can probably be combined in a single function.
     def add_cell_data(self, cell_data: pd.DataFrame):
+        """
+        Add cell metadata
+        
+        Parameters
+        ----------
+        cell_data
+            A :class:`~pd.DataFrame` containing cell metdata indexed with cell barcodes.
+        """
         if not set(self.cell_names) <= set(cell_data.index):
             Warning("`cell_data` does not contain metadata for all cells in :attr:`cell_names`. This wil result in NaNs.")
         
@@ -222,6 +259,14 @@ class SCENICPLUS():
         self.metadata_cell = pd.concat([self.metadata_cell, cell_data.loc[common_cells]], axis = 1)
 
     def add_region_data(self, region_data: pd.DataFrame):
+        """
+        Add region metadata
+
+        Parameters
+        ----------
+        region_data
+            A :class:`~pd.DataFrame` containing region metadata indexed with region names.
+        """
         if not set(self.region_names) <= set(region_data.index):
             Warning("`region_data` does not contain metadata for all regions in :attr:`region_names`. This wil result in NaNs.")
         
@@ -236,6 +281,14 @@ class SCENICPLUS():
         self.metadata_regions = pd.concat([self.metadata_regions, region_data.loc[common_regions]], axis = 1)
 
     def add_gene_data(self, gene_data: pd.DataFrame):
+        """
+        Add gene metadata
+
+        Parameters
+        ---------
+        gene_data
+            A :class:`~pd.DataFrame` containing gene metadata indexed with gene names.
+        """
         if not set(self.gene_names) <= set(gene_data.index):
             Warning("`gene_data` does not contain metadata for all genes in :attr:`gene_names`. This wil result in NaNs.")
         
@@ -250,7 +303,23 @@ class SCENICPLUS():
         self.metadata_genes = pd.concat([self.metadata_genes, gene_data.loc[common_genes]], axis = 1)
         
     def subset(self, cells = None, regions = None, genes = None, return_copy = False):
+        """
+        Subset object
         
+        Parameters
+        ----------
+        cells
+            A list of cells to keep
+            default: None
+        regions
+            A list of regions to keep
+            default: None
+        genes
+            A list of genes to keep
+            default:None
+        return_copy
+            A boolean specifying wether to update the object (False) or return a copy (True)
+        """
         def _subset(X, row_idx, col_idx):
             if type(X) == pd.core.frame.DataFrame:
                 return X.iloc[row_idx, col_idx].copy()
@@ -360,6 +429,49 @@ def create_SCENICPLUS_object(
     bc_transform_func: Callable = lambda x: x.replace('-1___', '-1-').rsplit('__', 1)[0],
     ACC_prefix: str = 'ACC_',
     GEX_prefix: str = 'GEX_') -> SCENICPLUS:
+    """
+    Function to create instances of :class:`SCENICPLUS`
+
+    Parameters
+    ----------
+    GEX_anndata
+        An instance of :class:`~sc.AnnData` containing gene expression data and metadata.
+    cisTopic_obj
+        An instance of :class:`pycisTopic.cistopic_class.CistopicObject` containing chromatin accessibility data and metadata.
+    menr
+        A dict mapping annotations to motif enrichment results
+    imputed_acc_obj
+        An instance of :class:`~pycisTopic.diff_features.CistopicImputedFeatures` containing imputed chromatin accessibility.
+        default: None
+    imputed_acc_kwargs
+        Dict with keyword arguments for imputed chromatin accessibility.
+        default: {'scale_factor': 10**6}
+    normalize_imputed_acc
+        A boolean specifying wether or not to normalize imputed chromatin accessbility.
+        default: False
+    normalize_imputed_acc_kwargs
+        Dict with keyword arguments for normalizing imputed accessibility.
+        default: {'scale_factor': 10 ** 4}
+    cell_metadata
+        An instance of :class:`~pd.DataFrame` containing extra cell metadata
+        default: None
+    region_metadata
+        An instance of :class:`~pd.DataFrame` containing extra region metadata
+        default: None
+    gene_metadata
+        An instance of :class:`~pd.DataFrame` containing extra gene metadata
+        default: None
+    bc_transform_func
+        A function used to transform gene expression barcode layout to chromatin accessbility layout.
+        default: lambda x: x.replace('-1___', '-1-').rsplit('__', 1)[0]
+    ACC_prefix
+        String prefix to add to cell metadata coming from :param:`cisTopic_obj`
+        default: "ACC_"
+    GEX_prefix
+        String prefix to add to cell metadata coming from :param:`GEX_anndata`
+        default: "GEX_"
+    """
+
     GEX_cell_metadata = GEX_anndata.obs.copy(deep = True)
     GEX_gene_metadata = GEX_anndata.var.copy(deep = True)
     GEX_cell_names = GEX_anndata.obs_names.copy(deep = True)
