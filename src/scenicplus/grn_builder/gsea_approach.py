@@ -208,7 +208,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         quantiles = quantiles,
         top_n_regionTogenes_per_gene = top_n_regionTogenes_per_gene,
         top_n_regionTogenes_per_region = top_n_regionTogenes_per_region,
-        binarize_basc = binarize_basc,
+        binarize_using_basc = binarize_basc,
         min_regions_per_gene = min_regions_per_gene,
         rho_dichotomize = rho_dichotomize,
         keep_only_activating = keep_only_activating,
@@ -224,10 +224,15 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     try:
         log.info(f'Running GSEA...')
         new_e_modules = []
+        TF_to_TF_adj_d = {} #dict so adjacencies matrix is only subsetted once per TF (might improve performance.)
         tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
         for e_module in tqdm(e_modules, total = len(e_modules), desc = tqdm_desc):
             TF = e_module.transcription_factor
-            TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
+            if TF in TF_to_TF_adj_d.keys():
+                TF2G_adj = TF_to_TF_adj_d[TF]
+            else:
+                TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
+                TF_to_TF_adj_d[TF] = TF2G_adj
             if rho_dichotomize:
                 TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho'] > rho_threshold]
                 TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho'] < -rho_threshold]
@@ -301,14 +306,18 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             ray.shutdown()
     
     #filter out nans
-    new_e_modules = [m for m in new_e_modules if not np.isnan(m.gsea_enrichment_score)]
+    new_e_modules = [m for m in new_e_modules if not np.isnan(m.gsea_enrichment_score) and not np.isnan(m.gsea_pval)]
 
     log.info(f'Subsetting on adjusted pvalue: {adj_pval_thr}, minimal NES: {NES_thr} and minimal leading edge genes {min_target_genes}')
     #subset on adj_p_val
     adj_pval = p_adjust_bh([m.gsea_pval for m in new_e_modules])
+    if any([np.isnan(p) for p in adj_pval]):
+        Warning('Something went wrong with calculating adjusted p values, early returning!')
+        return new_e_modules
+    
     for module, adj_pval in zip(new_e_modules, adj_pval):
         module.gsea_adj_pval = adj_pval
-    
+
     e_modules_to_return = []
     for module in new_e_modules:
         if module.gsea_adj_pval < adj_pval_thr and module.gsea_enrichment_score > NES_thr and sum(module.in_leading_edge) >= min_target_genes:
