@@ -123,7 +123,7 @@ class SCENICPLUS():
         #check wether all keys, except topic, of the motif enrichment dictionary are in the columns of the metadata_cell dataframe
         if not ( set(value.keys()) - set([TOPIC_FACTOR_NAME]))<= set(self.metadata_cell.columns):
             not_found = set(value.keys()) - set(self.metadata_cell.columns)
-            raise ValueError(
+            Warning(
                 "All keys in `menr` (except {TOPIC_FACTOR_NAME}) should be factors in `metadata_cell`"
                 f" the keys: {not_found} are not found in `metadata_cell`")
     
@@ -131,7 +131,7 @@ class SCENICPLUS():
     def check_levels(self, attribute, value):
         #check wether for each key, except topic, of the motif enrichment dictionary its keys are levels in the metadata_cell dataframe
         if not all([set(value[s].keys()) <= set(self.metadata_cell[s]) for s in set(value.keys()) - set([TOPIC_FACTOR_NAME])]):
-            raise ValueError(
+            Warning(
                 f"For each key (except {TOPIC_FACTOR_NAME}) of `menr` its keys should be levels in `metadata_cell` under the same key.")
 
     @dr_cell.validator
