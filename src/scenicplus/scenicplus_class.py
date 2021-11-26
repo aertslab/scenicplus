@@ -146,22 +146,6 @@ class SCENICPLUS():
                 "`metadata_cell` must have the same number of cells as rows in `X_EXP` and columns `X_ACC`"
                 f" ({self.n_cells}), but has {len(value)} rows.")
 
-    @menr.validator
-    def check_keys(self, attribute, value):
-        #check wether all keys, except topic, of the motif enrichment dictionary are in the columns of the metadata_cell dataframe
-        if not ( set(value.keys()) - set([TOPIC_FACTOR_NAME]))<= set(self.metadata_cell.columns):
-            not_found = set(value.keys()) - set(self.metadata_cell.columns)
-            Warning(
-                "All keys in `menr` (except {TOPIC_FACTOR_NAME}) should be factors in `metadata_cell`"
-                f" the keys: {not_found} are not found in `metadata_cell`")
-    
-    @menr.validator
-    def check_levels(self, attribute, value):
-        #check wether for each key, except topic, of the motif enrichment dictionary its keys are levels in the metadata_cell dataframe
-        if not all([set(value[s].keys()) <= set(self.metadata_cell[s]) for s in set(value.keys()) - set([TOPIC_FACTOR_NAME])]):
-            Warning(
-                f"For each key (except {TOPIC_FACTOR_NAME}) of `menr` its keys should be levels in `metadata_cell` under the same key.")
-
     @dr_cell.validator
     def check_cell_dimmensions(self, attribute, value):
         if value is not None:
@@ -201,8 +185,7 @@ class SCENICPLUS():
     @property
     def region_names(self):
         return self.metadata_regions.index
-    
-    @property
+
     def to_df(self, layer) -> pd.DataFrame:
         """
         Generate a :class:`~pandas.DataFrame`.
@@ -372,10 +355,6 @@ class SCENICPLUS():
         metadata_gene_subset = self.metadata_genes.iloc[gene_idx_to_keep, :]
         metadata_region_subset = self.metadata_regions.iloc[region_idx_to_keep, :]
 
-        #subset menr if necessary (i.e. when there are no more cells with a certain annotation)
-        menr_subset = {key: {annotation: self.menr[key][annotation] for annotation in set(metadata_cell_subset[key])} 
-                       for key in set(self.menr.keys()) - set([TOPIC_FACTOR_NAME])}
-
         if return_copy:
             return SCENICPLUS(
                 X_ACC = X_ACC_subset,
@@ -383,7 +362,7 @@ class SCENICPLUS():
                 metadata_regions = metadata_region_subset,
                 metadata_genes = metadata_gene_subset,
                 metadata_cell = metadata_cell_subset,
-                menr = menr_subset,
+                menr = self.menr,
                 dr_cell = dr_cell_subset,
                 dr_region = dr_region_subset)
         else:
@@ -392,7 +371,7 @@ class SCENICPLUS():
             self.metadata_regions = metadata_region_subset
             self.metadata_genes = metadata_gene_subset
             self.metadata_cell = metadata_cell_subset
-            self.menr = menr_subset
+            self.menr = self.menr
             self.dr_cell = dr_cell_subset
             self.dr_region = dr_region_subset
 
