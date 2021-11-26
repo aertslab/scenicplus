@@ -182,7 +182,7 @@ class SCENICPLUS():
     @property
     def region_names(self):
         return self.metadata_regions.index
-    
+
     def to_df(self, layer) -> pd.DataFrame:
         """
         Generate a :class:`~pandas.DataFrame`.
@@ -352,10 +352,6 @@ class SCENICPLUS():
         metadata_gene_subset = self.metadata_genes.iloc[gene_idx_to_keep, :]
         metadata_region_subset = self.metadata_regions.iloc[region_idx_to_keep, :]
 
-        #subset menr if necessary (i.e. when there are no more cells with a certain annotation)
-        menr_subset = {key: {annotation: self.menr[key][annotation] for annotation in set(metadata_cell_subset[key])} 
-                       for key in set(self.menr.keys()) - set([TOPIC_FACTOR_NAME])}
-
         if return_copy:
             return SCENICPLUS(
                 X_ACC = X_ACC_subset,
@@ -363,7 +359,7 @@ class SCENICPLUS():
                 metadata_regions = metadata_region_subset,
                 metadata_genes = metadata_gene_subset,
                 metadata_cell = metadata_cell_subset,
-                menr = menr_subset,
+                menr = self.menr,
                 dr_cell = dr_cell_subset,
                 dr_region = dr_region_subset)
         else:
@@ -372,7 +368,7 @@ class SCENICPLUS():
             self.metadata_regions = metadata_region_subset
             self.metadata_genes = metadata_gene_subset
             self.metadata_cell = metadata_cell_subset
-            self.menr = menr_subset
+            self.menr = self.menr
             self.dr_cell = dr_cell_subset
             self.dr_region = dr_region_subset
 

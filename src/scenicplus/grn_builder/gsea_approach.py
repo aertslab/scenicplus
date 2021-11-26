@@ -93,6 +93,8 @@ def run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
         n_perm = gsea_n_perm)
     return eRegulon(
             transcription_factor = TF,
+            cistrome_name = e_module.cistrome_name,
+            is_extended = e_module.is_extended,
             regions2genes = e_module.regions2genes,
             context = e_module.context.union(context),
             gsea_enrichment_score = NES,
