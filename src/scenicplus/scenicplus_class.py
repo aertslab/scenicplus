@@ -16,10 +16,7 @@ TOPIC_FACTOR_NAME = 'topic'
 Create a SCENIC (or SCENIC+, if allowed) class with:
 
 Functions (Additional slots to fill in the object):
-- Filtering lowly accessible regions/genes (OPTIONAL)
 - Cistrome pruning
-- Region2gene links
-- eGRN (GSEA)
 
 Exploratory functions (after running pipeline)
 - Plot region2gene (with option to give custom bigwigs)
@@ -458,6 +455,9 @@ def create_SCENICPLUS_object(
         #transform GEX barcodes to ACC barcodes
         GEX_cell_names = [bc_transform_func(bc) for bc in GEX_anndata.obs_names]
         GEX_cell_metadata.index = GEX_cell_names
+    else:
+        GEX_cell_names = list(GEX_cell_names)
+
     GEX_dr_cell = {k: pd.DataFrame(GEX_anndata.obsm[k].copy(), index = GEX_cell_names) for k in GEX_anndata.obsm.keys()}
 
     ACC_cell_names = list(cisTopic_obj.cell_names.copy())
@@ -470,7 +470,7 @@ def create_SCENICPLUS_object(
     common_cells = list( set(GEX_cell_names) & set(ACC_cell_names) )
 
     if len(common_cells) == 0:
-        raise ValueError("No cells found which are present in both assays, check input and consider using `bc_transform_func`!")
+        raise Exception("No cells found which are present in both assays, check input and consider using `bc_transform_func`!")
     
     #impute accessbility if not given as parameter and subset for HQ cells
     if imputed_acc_obj is None:
