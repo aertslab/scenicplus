@@ -16,10 +16,7 @@ TOPIC_FACTOR_NAME = 'topic'
 Create a SCENIC (or SCENIC+, if allowed) class with:
 
 Functions (Additional slots to fill in the object):
-- Filtering lowly accessible regions/genes (OPTIONAL)
 - Cistrome pruning
-- Region2gene links
-- eGRN (GSEA)
 
 Exploratory functions (after running pipeline)
 - Plot region2gene (with option to give custom bigwigs)
@@ -146,22 +143,6 @@ class SCENICPLUS():
                 "`metadata_cell` must have the same number of cells as rows in `X_EXP` and columns `X_ACC`"
                 f" ({self.n_cells}), but has {len(value)} rows.")
 
-    @menr.validator
-    def check_keys(self, attribute, value):
-        #check wether all keys, except topic, of the motif enrichment dictionary are in the columns of the metadata_cell dataframe
-        if not ( set(value.keys()) - set([TOPIC_FACTOR_NAME]))<= set(self.metadata_cell.columns):
-            not_found = set(value.keys()) - set(self.metadata_cell.columns)
-            Warning(
-                "All keys in `menr` (except {TOPIC_FACTOR_NAME}) should be factors in `metadata_cell`"
-                f" the keys: {not_found} are not found in `metadata_cell`")
-    
-    @menr.validator
-    def check_levels(self, attribute, value):
-        #check wether for each key, except topic, of the motif enrichment dictionary its keys are levels in the metadata_cell dataframe
-        if not all([set(value[s].keys()) <= set(self.metadata_cell[s]) for s in set(value.keys()) - set([TOPIC_FACTOR_NAME])]):
-            Warning(
-                f"For each key (except {TOPIC_FACTOR_NAME}) of `menr` its keys should be levels in `metadata_cell` under the same key.")
-
     @dr_cell.validator
     def check_cell_dimmensions(self, attribute, value):
         if value is not None:
@@ -202,7 +183,6 @@ class SCENICPLUS():
     def region_names(self):
         return self.metadata_regions.index
     
-    @property
     def to_df(self, layer) -> pd.DataFrame:
         """
         Generate a :class:`~pandas.DataFrame`.
@@ -479,6 +459,9 @@ def create_SCENICPLUS_object(
         #transform GEX barcodes to ACC barcodes
         GEX_cell_names = [bc_transform_func(bc) for bc in GEX_anndata.obs_names]
         GEX_cell_metadata.index = GEX_cell_names
+    else:
+        GEX_cell_names = list(GEX_cell_names)
+
     GEX_dr_cell = {k: pd.DataFrame(GEX_anndata.obsm[k].copy(), index = GEX_cell_names) for k in GEX_anndata.obsm.keys()}
 
     ACC_cell_names = list(cisTopic_obj.cell_names.copy())
@@ -491,7 +474,7 @@ def create_SCENICPLUS_object(
     common_cells = list( set(GEX_cell_names) & set(ACC_cell_names) )
 
     if len(common_cells) == 0:
-        raise ValueError("No cells found which are present in both assays, check input and consider using `bc_transform_func`!")
+        raise Exception("No cells found which are present in both assays, check input and consider using `bc_transform_func`!")
     
     #impute accessbility if not given as parameter and subset for HQ cells
     if imputed_acc_obj is None:
