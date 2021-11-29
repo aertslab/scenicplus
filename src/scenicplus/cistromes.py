@@ -153,7 +153,8 @@ def make_rankings(scplus_obj: 'SCENICPLUS',
     return imputed_acc_ranking
 
 
-def score_cistromes(ranking: 'CistopicImputedFeatures',
+def score_cistromes(scplus_obj: 'SCENICPLUS',
+					ranking: 'CistopicImputedFeatures',
                     cistromes_key: str = 'Unfiltered',
                     enrichment_type: str = 'region',
                     auc_threshold: float = 0.05,
@@ -164,6 +165,8 @@ def score_cistromes(ranking: 'CistopicImputedFeatures',
     
     Parameters
     ---------
+    scplus_obj: :class:`SCENICPLUS`
+        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).
     rankings: CistopicImputedFeatures
         A CistopicImputedFeatures object with ranking values
     cistromes_key: str, optional
