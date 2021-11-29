@@ -24,7 +24,7 @@ def merge_cistromes(scplus_obj: 'SCENICPLUS',
     scplus_obj: :class:`SCENICPLUS`
         A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).
         Several analyses can be included in the slot (topics/DARs/other; and different methods [Homer/DEM/cistarget]).
-   	cistromes_key: str, optional
+       cistromes_key: str, optional
         Key to store cistromes. Cistromes will stored at `scplus_obj.uns['Cistromes'][siganture_key]`
     subset: list
         A PyRanges containing a set of regions that regions in cistromes must overlap. This is useful when
@@ -83,26 +83,26 @@ def merge_cistromes(scplus_obj: 'SCENICPLUS',
 
 # Score cistromes in cells
 def make_rankings(scplus_obj: 'SCENICPLUS',
-				  target: str = 'region',
-				  seed: int = 123):
-	"""
-	A function to generate rankings per cell based on the imputed accessibility scores per region
-	or the gene expression per cell.
-	
-	Parameters
-	---------
-	scplus_obj: :class:`SCENICPLUS`
+                  target: str = 'region',
+                  seed: int = 123):
+    """
+    A function to generate rankings per cell based on the imputed accessibility scores per region
+    or the gene expression per cell.
+    
+    Parameters
+    ---------
+    scplus_obj: :class:`SCENICPLUS`
         A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).
     target: str, optional
-    	Whether rankings should be done based on gene expression or region accessibilty. Default: 'region'
-	seed: int, optional
-		Random seed to ensure reproducibility of the rankings when there are ties
-		
-	Return
-	------
-	   CistopicImputedFeatures
-		A :class:`CistopicImputedFeatures` containing with ranking values rather than scores.
-	"""
+        Whether rankings should be done based on gene expression or region accessibilty. Default: 'region'
+    seed: int, optional
+        Random seed to ensure reproducibility of the rankings when there are ties
+        
+    Return
+    ------
+       CistopicImputedFeatures
+        A :class:`CistopicImputedFeatures` containing with ranking values rather than scores.
+    """
     # Initialize random number generator, for handling ties
     rng = np.random.default_rng(seed=seed)
 
@@ -213,7 +213,7 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
     nr_cells : int, optional
         Number of cells to include per pseudobulk.
     nr_pseudobulks: int, optional
-    	Number of pseudobulks to generate per class
+        Number of pseudobulks to generate per class
     seed: int
         Seed to ensure that pseudobulk are reproducible.
     """
@@ -251,8 +251,8 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
     scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key] = cistrome_auc_agg 
     
 def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
-							variable: str,
-							use_pseudobulk: bool = True,
+                            variable: str,
+                            use_pseudobulk: bool = True,
                             cistromes_key: str = 'Unfiltered',
                             out_key: str = 'Unfiltered',
                             subset: List[str] = None):
@@ -266,7 +266,7 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
     variable: str, optional
         Variable used to create the pseudobulks. Must be a key in `scplus_obj.uns['Pseudobulk']`.
     use_pseudobulk: bool, optional
-    	Whether to use pseudobulk matrix or actual values.
+        Whether to use pseudobulk matrix or actual values.
     cistromes_key: str, optional
         Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from
         `scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key]` and 
@@ -278,7 +278,7 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
     """
     if use_pseudobulk:
         dgem_agg = scplus_obj.uns['Pseudobulk'][variable]['Expression']
-    	cistromes_auc_agg = scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key]
+        cistromes_auc_agg = scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key]
     else:
         dgem_agg = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
         cistromes_auc_agg = scplus_obj.uns['Cistromes_AUC'][cistromes_key].copy().T
@@ -346,28 +346,27 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
         `scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Cistromes_AUC'][cistromes_key]` and 
         gene expression from `scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Expression']`.
     use_pseudobulk: bool, optional
-    	Whether to use pseudobulk matrix or actual values.
+        Whether to use pseudobulk matrix or actual values.
     show_dot_plot: bool, optional
-    	Whether to show dots in plot
+        Whether to show dots in plot
     show_line_plot: bool, optional
-    	Whether to show line fitting to plot
+        Whether to show line fitting to plot
     variable: str, optional
-    	Variable to color plot by. Must be a columns in `scplus_obj.metadata_cell`.
+        Variable to color plot by. Must be a columns in `scplus_obj.metadata_cell`.
     color_dict: Dict, optional
-    	Color dictionary to specify colors
+        Color dictionary to specify colors
     subset: List, optional
-    	Subset of pseudobulks/cells to use
+        Subset of pseudobulks/cells to use
     seed: int
         Seed to ensure that pseudobulk are reproducible.
     ***kwargs:
-    	Parameters for seaborn plotting.
-    	
+        Parameters for seaborn plotting.
+        
     """
     if use_pseudobulk:
         dgem = scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Expression'].copy()
-        cistromes_auc = scplus_obj.uns['Pseudobulk'][pseudobulk_variable][['Cistromes_AUC'][cistromes_key].copy()
-        cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc.columns], 
-                                 index=cistromes_auc.columns).iloc[:,0]
+        cistromes_auc = scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Cistromes_AUC'][cistromes_key].copy()
+        cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc.columns], index=cistromes_auc.columns).iloc[:,0]
     else:
         dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
         cistromes_auc = scplus_obj.uns['Cistromes_AUC'][cistromes_key].copy().T
@@ -429,9 +428,9 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
 
 # Utils
 def region_names_to_coordinates(region_names):
-	"""
-	Convert region names (list, UCSC format) to a coordinate dataframe
-	"""
+    """
+    Convert region names (list, UCSC format) to a coordinate dataframe
+    """
     chrom=pd.DataFrame([i.split(':', 1)[0] for i in region_names if ':' in i])
     coor = [i.split(':', 1)[1] for i in region_names if ':' in i]
     start=pd.DataFrame([int(i.split('-', 1)[0]) for i in coor])
@@ -445,8 +444,8 @@ def target_to_overlapping_query(target: Union[pr.PyRanges, List[str]],
          query: Union[pr.PyRanges, List[str]],
          fraction_overlap: float = 0.4):
     """
-	Return mapping between two sets of regions
-	"""
+    Return mapping between two sets of regions
+    """
     #Read input
     if isinstance(target, str):
         target_pr=pr.read_bed(target)
