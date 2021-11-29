@@ -1,6 +1,6 @@
 # SCENIC+
 
-SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or seperate single-cell gene expression (scRNA-seq) and single-cell chromatin accessbility (scATAC-seq)data.
+SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or seperate single-cell gene expression (scRNA-seq) and single-cell chromatin accessbility (scATAC-seq) data.
 
 ## Installing
 
@@ -18,7 +18,47 @@ Depending on your pip version, you may need to run this pip command instead:
 pip install -e .
 ```
 
-## References
-1. [Gonzalez-Blas, C.B. *et al.* (2020). Identification of genomic enhancers through spatial integration of single-cell transcriptomics and epigenomics. MOLECULAR SYSTEMS BIOLOGY](https://lirias.kuleuven.be/retrieve/580865)
+## Creating a Docker/Singularity Image
 
-2. [Janssens, J. *et al.* (2021) Decoding gene regulation in the fly brain. BioRxiv](https://www.biorxiv.org/content/10.1101/2021.08.11.454937v1)
+To build a Docker image, and then create a Singularity image from this:
+
+```bash
+# Clone repositories 
+git clone https://github.com/aertslab/pycisTopic.git
+git clone https://github.com/aertslab/pycistarget.git
+git clone https://github.com/aertslab/scenicplus.git
+
+# Login
+podman login docker.io
+
+# Build image
+podman build -t aertslab/scenicplus:latest . -f scenicplus/Dockerfile
+
+# Export to oci 
+podman save --format oci-archive --output scenicplus_img.tar localhost/aertslab/scenicplus
+
+# Build to singularity
+singularity build scenicplus.sif oci-archive://scenicplus_img.tar
+
+# Add all binding paths where you would need to access
+singularity exec -B /lustre1,/staging,/data,/vsc-hard-mounts,/scratch scenicplus.sif ipython3
+```
+
+## Check version
+
+To check your SCENIC+ version:
+
+```bash
+import scenicplus
+scenicplus.__version__
+```
+
+## Tutorials
+
+Coming soon
+
+
+## References
+1. [Bravo Gonzalez-Blas, C. *et al.* (2020). Identification of genomic enhancers through spatial integration of single-cell transcriptomics and epigenomics. Molecular Systems Biology](https://www.embopress.org/doi/full/10.15252/msb.20209438)
+
+2. [Janssens, J., Aibar, S., Taskiran, I.I. *et al.* (2021) Decoding gene regulation in the fly brain. BioRxiv](https://www.biorxiv.org/content/10.1101/2021.08.11.454937v1)
