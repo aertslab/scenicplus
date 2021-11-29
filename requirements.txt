@@ -19,3 +19,4 @@ pycistarget
 gseapy
 networkx
 ctxcore
+seaborn
