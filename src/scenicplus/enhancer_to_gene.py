@@ -17,8 +17,6 @@ from scipy.stats import pearsonr, spearmanr
 
 from .scenicplus_class import SCENICPLUS
 
-import ranky as rk
-
 from tqdm import tqdm
 
 RANDOM_SEED = 666
