@@ -51,10 +51,10 @@ RUN cd /tmp/pycistarget && \
     cd .. && rm -rf pycistarget
     
 # install scenicplus
-COPY pycistarget /tmp/pycistarget
-RUN cd /tmp/pycistarget && \
+COPY scenicplus /tmp/scenicplus
+RUN cd /tmp/scenicplus && \
     pip install . && \
-    cd .. && rm -rf pycistarget
+    cd .. && rm -rf scenicplus
 
 FROM python:3.8-slim AS build-image
 
