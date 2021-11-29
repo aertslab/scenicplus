@@ -251,7 +251,7 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
     scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key] = cistrome_auc_agg 
     
 def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
-                            variable: str,
+                            variable: str = None,
                             use_pseudobulk: bool = True,
                             cistromes_key: str = 'Unfiltered',
                             out_key: str = 'Unfiltered',
@@ -265,6 +265,7 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
         A :class:`SCENICPLUS` object with pseudobulk matrices (`scplus_obj.uns['Pseudobulk']`)
     variable: str, optional
         Variable used to create the pseudobulks. Must be a key in `scplus_obj.uns['Pseudobulk']`.
+        Only required if use_pseudobulk is False.
     use_pseudobulk: bool, optional
         Whether to use pseudobulk matrix or actual values.
     cistromes_key: str, optional
@@ -323,7 +324,7 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
                use_pseudobulk: bool = True,
                show_dot_plot: bool = True,
                show_line_plot: bool = False,
-               variable: str = 'Pseudobulk',
+               variable: str = None,
                color_dict = None,
                subset = None,
                seed=555, 
