@@ -1,10 +1,10 @@
 # SCENIC+
 
-SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or seperate single-cell gene expression (scRNA-seq) and single-cell chromatin accessbility (scATAC-seq) data.
+SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
 
 ## Installing
 
-To install SCENIC+
+To install SCENIC+:
 
 ```bash
 git clone https://github.com/aertslab/scenicplus

@@ -1,18 +1,20 @@
-from setuptools import setup, find_packages
+import setuptools
 import glob
+import os
+
 
 def read_requirements(fname):
     with open(fname, 'r', encoding='utf-8') as file:
         return [line.rstrip() for line in file]
 
 
-setup(
+setuptools.setup(
      name='scenicplus',
      use_scm_version=True,
      setup_requires=['setuptools_scm'],
      packages=setuptools.find_packages(where='src'),
      package_dir={'': 'src'},
-     py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob.glob('src/*.py') + glob.glob('src/*/*.py')],
+     py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob.glob('src/*.py')],
      install_requires=read_requirements('requirements.txt'),
      author="Seppe de Winter, Swann Flochlay, Carmen Bravo",
      author_email="seppe.dewinter@kuleuven.be, swann.flochlay@kuleuven.be, carmen.bravogonzalezblas@kuleuven.be",
