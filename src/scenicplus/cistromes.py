@@ -68,8 +68,8 @@ def merge_cistromes(scplus_obj: 'SCENICPLUS',
         merged_signatures_extended = {k: target_to_overlapping_query(subset, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
         merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
     else:
-        merged_signatures_direct = {k: target_to_overlapping_query(regions, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
-        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
+        merged_signatures_extended = {k: target_to_overlapping_query(regions, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
+        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
     # Sort alphabetically
     merged_signatures_direct = dict( sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()) )
     merged_signatures_extended = dict( sorted(merged_signatures_extended.items(), key=lambda x: x[0].lower()) )
@@ -154,7 +154,7 @@ def make_rankings(scplus_obj: 'SCENICPLUS',
 
 
 def score_cistromes(scplus_obj: 'SCENICPLUS',
-					ranking: 'CistopicImputedFeatures',
+                    ranking: 'CistopicImputedFeatures',
                     cistromes_key: str = 'Unfiltered',
                     enrichment_type: str = 'region',
                     auc_threshold: float = 0.05,
@@ -467,11 +467,12 @@ def target_to_overlapping_query(target: Union[pr.PyRanges, List[str]],
         query_pr=query
     
     join_pr = target_pr.join(query_pr, report_overlap = True)
-    join_pr.Overlap_query =  join_pr.Overlap/(join_pr.End_b - join_pr.Start_b)
-    join_pr.Overlap_target =  join_pr.Overlap/(join_pr.End - join_pr.Start)
-    join_pr = join_pr[(join_pr.Overlap_query > fraction_overlap) | (join_pr.Overlap_target > fraction_overlap)]
-    join_pr = join_pr[['Chromosome', 'Start', 'End']]
-    return join_pr 
+    if len(join_pr) > 0:
+        join_pr.Overlap_query =  join_pr.Overlap/(join_pr.End_b - join_pr.Start_b)
+        join_pr.Overlap_target =  join_pr.Overlap/(join_pr.End - join_pr.Start)
+        join_pr = join_pr[(join_pr.Overlap_query > fraction_overlap) | (join_pr.Overlap_target > fraction_overlap)]
+        join_pr = join_pr[['Chromosome', 'Start', 'End']]
+        return join_pr 
     
 # Function for adjusting p-value
 def p_adjust_bh(p: float):
