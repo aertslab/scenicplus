@@ -92,6 +92,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
                      assembly = None,
                      pr_annot = None, 
                      pr_chromsizes = None, 
+                     predefined_boundaries = None,
                      use_gene_boundaries = False, 
                      upstream = [1000, 100000], 
                      downstream = [1000, 100000],
@@ -120,6 +121,9 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         and Transcription Start Site. Default: None
     pr_chromsizes: pr.PyRanges, optional
         A :class:`pr.PyRanges` containing size of each chromosome, containing 'Chromosome', 'Start' and 'End' columns. Default: None
+    predefined_boundaries: pr.PyRanges, optional
+        A :class:`pr.PyRanges` containing predefined genomic domain boundaries (e.g. TAD boundaries) to use as boundaries. If 
+        given, use_gene_boundaries will be ignored.
     use_gene_boundaries: bool, optional
         Whether to use the whole search space or stop when encountering another gene. Default: False
     upstream: List, optional
@@ -221,8 +225,26 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
     log.info('Extending promoter annotation to {} bp upstream and {} downstream'.format( str(extend_tss[0]), str(extend_tss[1]) ))
     pr_promoters = extend_pyranges(pr_promoters, extend_tss[0], extend_tss[1])
 
-    if use_gene_boundaries:
-        log.info('Calculating gene boundaries [use_gene_boundaries = True]')
+    if use_gene_boundaries or predefined_boundaries:
+        if predefined_boundaries:
+            predefined_boundaries_pos = predefined_boundaries.df.copy()
+            predefined_boundaries_neg = predefined_boundaries.df.copy()
+            predefined_boundaries_pos['Strand'] = '+'
+            predefined_boundaries_neg['Strand'] = '-'
+            predefined_boundaries = pr.PyRanges(
+            pd.concat(
+                [
+                    predefined_boundaries_pos,
+                    predefined_boundaries_neg
+                ]
+            )
+            )
+            space=predefined_boundaries
+            log.info('Using predefined domains')
+            use_gene_boundaries=False
+        if use_gene_boundaries:
+            space=pr_promoters
+            log.info('Calculating gene boundaries')
         #add chromosome limits
         chromsizes_begin_pos = chromsizes.df.copy()
         chromsizes_begin_pos['End'] = 1
@@ -317,7 +339,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
     regions_per_gene.End = (regions_per_gene.Start + 1).astype(np.int32)
     # Calculate distance
     log.info('Calculating distances from region to gene')
-    if use_gene_boundaries:
+    if use_gene_boundaries or predefined_boundaries:
         regions_per_gene = reduce_pyranges_with_limits_b(regions_per_gene)
         regions_per_gene = calculate_distance_with_limits_join(regions_per_gene)
     else:
