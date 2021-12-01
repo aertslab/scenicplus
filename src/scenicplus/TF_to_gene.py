@@ -227,7 +227,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
     log.info('Took {} seconds'.format(time.time() - start_time))
     start_time = time.time()
     log.info(f'Adding correlation coefficients to adjacencies.')
-    adj = pd.concat(adj).sort_values(by='importance', ascending=False)
+    adj = pd.concat(tfs_to_genes).sort_values(by='importance', ascending=False)
     ex_matrix = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
     adj = add_correlation(adj, ex_matrix)
     log.info(f'Adding importance x rho scores to adjacencies.')
