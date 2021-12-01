@@ -81,6 +81,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              ray_n_cpu = None,
              merge_eRegulons = True,
              keep_extended_motif_annot = False,
+             disable_tqdm = False,
              **kwargs):
     """
     Build GRN using GSEA approach
@@ -172,7 +173,8 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         keep_only_activating = keep_only_activating,
         rho_threshold = rho_threshold,
         keep_extended_motif_annot = keep_extended_motif_annot,
-        order_regions_to_genes_by = order_regions_to_genes_by)
+        order_regions_to_genes_by = order_regions_to_genes_by,
+        disable_tqdm=disable_tqdm)
     
     log.info('Subsetting TF2G adjacencies for TF with motif.')
     TF2G_adj_relevant = SCENICPLUS_obj.uns[adj_key].loc[[tf in relevant_tfs for tf in SCENICPLUS_obj.uns[adj_key]['TF']]]
@@ -185,7 +187,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         new_e_modules = []
         TF_to_TF_adj_d = {} #dict so adjacencies matrix is only subsetted once per TF (improves performance)
         tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
-        for e_module in tqdm(e_modules, total = len(e_modules), desc = tqdm_desc):
+        for e_module in tqdm(e_modules, total = len(e_modules), desc = tqdm_desc, disable=disable_tqdm):
             TF = e_module.transcription_factor
             if TF in TF_to_TF_adj_d.keys():
                 TF2G_adj = TF_to_TF_adj_d[TF]
@@ -255,7 +257,8 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             for e_module in tqdm(to_iterator(jobs), 
                                  total=len(jobs), 
                                  desc = f'Running using {ray_n_cpu} cores',
-                                 smoothing = 0.1):
+                                 smoothing = 0.1,
+                                 disable=disable_tqdm):
                 new_e_modules.append(e_module)
 
     except Exception as e:

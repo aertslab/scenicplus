@@ -398,7 +398,8 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     rho_dichotomize: bool = True,
                     keep_only_activating: bool = False,
                     rho_threshold: float = RHO_THRESHOLD,
-                    keep_extended_motif_annot: bool = False) -> Tuple[List[str], List[eRegulon]]:
+                    keep_extended_motif_annot: bool = False,
+                    disable_tqdm=False) -> Tuple[List[str], List[eRegulon]]:
     """
     A function to create e_modules of :class: ~scenicplus.grn_builder.modules.eRegulon. 
     This function will binarize region-to-gene links using various parameters and couples these links to a TF
@@ -514,11 +515,12 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     total_iter = (2 * (n_params + (binarize_using_basc * 1)) )  if rho_dichotomize else (n_params + (binarize_using_basc * 1))
     relevant_tfs = []
     eRegulons = []
-    for context, r2g_df in tqdm(r2g_iter, total = total_iter):
+    for context, r2g_df in tqdm(r2g_iter, total = total_iter, disable = disable_tqdm):
         for cistrome_name in tqdm(cistrome_to_regions_d.keys(), 
                                   total = len(cistrome_to_regions_d.keys()), 
                                   desc = f"\u001b[32;1mProcessing:\u001b[0m {', '.join(context)}",
-                                  leave = False):
+                                  leave = False,
+                                  disable=disable_tqdm):
             if (not keep_extended_motif_annot) and 'extended' in cistrome_name:
                 #skip
                 continue
