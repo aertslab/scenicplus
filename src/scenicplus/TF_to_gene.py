@@ -74,7 +74,7 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: 'SCENICPLUS',
         df_TF_gene_adj_subset[COLUMN_NAME_SCORE] = abs(df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION]) * abs(df_TF_gene_adj_subset[COLUMN_NAME_WEIGHT])
     
     if inplace:
-        log.info(f'Storing adjacencies in .uns[{key_added}].')
+        log.info(f'Storing adjacencies in .uns["{key}"].')
         SCENICPLUS_obj.uns[key] = df_TF_gene_adj_subset
     else:
         return df_TF_gene_adj_subset
