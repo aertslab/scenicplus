@@ -6,7 +6,9 @@ from ctxcore.genesig import Regulon
 import logging
 import sys
 from .scenicplus_class import SCENICPLUS
+from typing import List
 
+flatten_list = lambda t: [item for sublist in t for item in sublist]
 
 def extend_pyranges(pr_obj: pr.PyRanges,
                     upstream: int,
@@ -386,3 +388,84 @@ class Groupby:
                 result[self.keys_as_int[k]] = function(vector[idx])
 
         return result
+
+def split_eregulons_by_influence(l_eRegulons):
+    pos_tf2g__pos_r2g = [eReg for eReg in l_eRegulons if ('positive tf2g' in eReg.context and 'positive r2g' in eReg.context)]
+    neg_tf2g__pos_r2g = [eReg for eReg in l_eRegulons if ('negative tf2g' in eReg.context and 'positive r2g' in eReg.context)]
+    pos_tf2g__neg_r2g = [eReg for eReg in l_eRegulons if ('positive tf2g' in eReg.context and 'negative r2g' in eReg.context)]
+    neg_tf2g__neg_r2g = [eReg for eReg in l_eRegulons if ('negative tf2g' in eReg.context and 'negative r2g' in eReg.context)]
+
+    for c, r in zip(['pos_tf2g;pos_r2g', 'neg_tf2g;pos_r2g', 'pos_tf2g;neg_r2g', 'neg_tf2g;neg_r2g'],
+                    [pos_tf2g__pos_r2g, neg_tf2g__pos_r2g, pos_tf2g__neg_r2g, neg_tf2g__neg_r2g]):
+        yield c, r
+
+
+def only_keep_extended_eregulons_if_not_direct(l_eRegulons):
+    direct_eRegulons = [eReg for eReg in l_eRegulons if not eReg.is_extended]
+    extended_eRegulons = [eReg for eReg in l_eRegulons if eReg.is_extended]
+
+    eRegulons_to_return = []
+    for (_, direct_eRegulons_split_by_influence), (_, extended_eRegulons_split_by_influence) in zip(
+        split_eregulons_by_influence(direct_eRegulons), split_eregulons_by_influence(extended_eRegulons)):
+        direct_TFs = [eReg.transcription_factor for eReg in direct_eRegulons_split_by_influence]
+        extended_TFs = [eReg.transcription_factor for eReg in extended_eRegulons_split_by_influence]
+        extended_TFs_not_in_direct_TFs = np.isin(extended_TFs, direct_TFs, invert = True)
+
+        extended_eRegulons_to_keep = np.array(extended_eRegulons_split_by_influence)[extended_TFs_not_in_direct_TFs]
+        eRegulons_to_return.extend([*direct_eRegulons_split_by_influence, *extended_eRegulons_to_keep])
+
+    return eRegulons_to_return
+
+def eRegulons_to_networkx(SCENICPLUS_obj: SCENICPLUS,
+                          eRegulons_key_to_use: str = 'eRegulons',
+                          only_keep_extended_if_not_direct = True,
+                          only_TF_TF_interactions: bool = False,
+                          selected_TFs: List[str] = None,
+                          r2g_importance_key: str = 'importance',
+                          only_keep_pos: bool = False):
+    if eRegulons_key_to_use not in SCENICPLUS_obj.uns.keys():
+        raise ValueError(f'key SCENICPLUS_obj.uns["{eRegulons_key_to_use}"] not found!')
+    
+    l_eRegulons = only_keep_extended_eregulons_if_not_direct(SCENICPLUS_obj.uns[eRegulons_key_to_use]) if only_keep_extended_if_not_direct else SCENICPLUS_obj.uns[eRegulons_key_to_use]
+
+    if not only_keep_pos:
+        G = nx.MultiDiGraph()
+    else:
+        G = nx.DiGraph()
+    for c, eRegulons_split_by_influence in split_eregulons_by_influence(l_eRegulons):
+        if only_keep_pos and 'neg' in c:
+            continue
+        TF_to_region =   np.array(flatten_list([ [(eReg.transcription_factor, region, 0) for region in eReg.target_regions] 
+                            for eReg in eRegulons_split_by_influence ]))
+        if selected_TFs is not None:
+            TF_to_region = TF_to_region[np.isin(TF_to_region[:, 0], selected_TFs)]
+        
+        _tmp_regions = set(TF_to_region[:, 1])
+
+        TFs = list(set(TF_to_region[:, 0]))
+        if only_TF_TF_interactions:
+            region_to_gene = np.array(flatten_list([ flatten_list([ [(getattr(r2g, 'region'), getattr(r2g, 'target'), getattr(r2g, r2g_importance_key))] for r2g in eReg.regions2genes 
+                                                if (getattr(r2g, 'target') in TFs and getattr(r2g, 'region') in _tmp_regions) ])
+                                for eReg in eRegulons_split_by_influence]))
+        else:
+            region_to_gene = np.array(flatten_list([ flatten_list([ [(getattr(r2g, 'region'), getattr(r2g, 'target'), getattr(r2g, r2g_importance_key))] for r2g in eReg.regions2genes
+                                                if getattr(r2g, 'region') in _tmp_regions])
+                                for eReg in eRegulons_split_by_influence]))
+        if len(region_to_gene) > 0:
+            regions = list(set(region_to_gene[:, 0]))
+            genes =   list(set(region_to_gene[:, 1]))
+
+            #only keep TF_to_region if region has a target gene
+            TF_to_region = TF_to_region[np.isin(np.array(TF_to_region)[:, 1], regions)]
+
+            #make sure weight is float (by converting back and forward to numpy arrays this will be converted in str)
+            TF_to_region = [(TF, region, float(weight)) for TF, region, weight in TF_to_region]
+            region_to_gene = [(region, gene, float(weight)) for region, gene, weight in region_to_gene]
+
+            G.add_nodes_from(TFs, type = 'TF')
+            G.add_nodes_from(regions, type = 'region')
+            G.add_nodes_from(list(set(genes) - set(TFs)), type = 'gene')
+            G.add_weighted_edges_from(TF_to_region, interaction_type = c.split(';')[0])
+            G.add_weighted_edges_from(region_to_gene, interaction_type = c.split(';')[1])
+
+    return G
