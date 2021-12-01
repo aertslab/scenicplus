@@ -14,7 +14,7 @@ from arboreto.core import to_tf_matrix, infer_partial_network
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
-from scenicplus.scenicplus_class import SCENICPLUS
+from .scenicplus_class import SCENICPLUS
 
 COLUMN_NAME_TARGET = "target"
 COLUMN_NAME_WEIGHT = "importance"
