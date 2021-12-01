@@ -15,8 +15,10 @@ TARGET_REGION_NAME = 'region'
 TARGET_GENE_NAME = 'target'
 IMPORTANCE_SCORE_NAME = 'importance'
 CORRELATION_COEFFICIENT_NAME = 'rho'
+SCORE_NAME_1 = "importance_x_rho"
+SCORE_NAME_2 = "importance_x_|rho|"
 
-REGIONS2GENES_HEADER = (TARGET_REGION_NAME, TARGET_GENE_NAME, IMPORTANCE_SCORE_NAME, CORRELATION_COEFFICIENT_NAME)
+REGIONS2GENES_HEADER = (TARGET_REGION_NAME, TARGET_GENE_NAME, IMPORTANCE_SCORE_NAME, CORRELATION_COEFFICIENT_NAME, SCORE_NAME_1, SCORE_NAME_2)
 
 @attr.s(repr=False)
 class eRegulon():
@@ -169,7 +171,7 @@ class eRegulon():
         descr += f"\n\tThis eRegulon has {self.n_target_regions} target regions and {self.n_target_genes} target genes."
         return descr
 
-def quantile_thr(adjacencies, grouped, threshold, min_regions_per_gene,  context = frozenset()):
+def quantile_thr(adjacencies, grouped, threshold, min_regions_per_gene,  context = frozenset(), order_regions_to_genes_by='importance'):
     """
     A helper function to binarize region-to-gene links using based on quantiles of importance.
     
@@ -204,7 +206,7 @@ def quantile_thr(adjacencies, grouped, threshold, min_regions_per_gene,  context
     
     c = frozenset(["{} quantile".format(threshold)]).union(context)
     #grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function
-    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    importances = adjacencies[order_regions_to_genes_by].to_numpy()
     
     #get quantiles and threshold
     thresholds = grouped.apply(_qt, importances, True)
@@ -219,7 +221,7 @@ def quantile_thr(adjacencies, grouped, threshold, min_regions_per_gene,  context
         df.index = df[TARGET_REGION_NAME]
         yield c, df
 
-def top_targets(adjacencies, grouped, n, min_regions_per_gene, context = frozenset()):
+def top_targets(adjacencies, grouped, n, min_regions_per_gene, context = frozenset(), order_regions_to_genes_by = 'importance'):
     """
     A helper function to binarize region-to-gene links using based on the top region-to-gene links per gene.
     
@@ -257,7 +259,7 @@ def top_targets(adjacencies, grouped, n, min_regions_per_gene, context = frozens
 
     c = frozenset(["Top {} region-to-gene links per gene".format(n)]).union(context)
     #grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function
-    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    importances = adjacencies[order_regions_to_genes_by].to_numpy()
 
     #get top n threshold
     thresholds = grouped.apply(_top, importances, True)
@@ -272,7 +274,7 @@ def top_targets(adjacencies, grouped, n, min_regions_per_gene, context = frozens
         df.index = df[TARGET_REGION_NAME]
         yield c, df
 
-def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozenset()):
+def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozenset(), order_regions_to_genes_by = 'importance'):
     """
     A helper function to binarize region-to-gene links using based on the top region-to-gene links per region.
     
@@ -311,7 +313,7 @@ def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozens
     c = frozenset(["Per region top {} region-to-gene links per gene".format(n)]).union(context)
 
     #grouped = Groupby(adjacencies[TARGET_REGION_NAME].to_numpy()) #this could be moved out of the function
-    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    importances = adjacencies[order_regions_to_genes_by].to_numpy()
     
     #get top n threshold
     thresholds = grouped.apply(_top, importances, True)
@@ -329,7 +331,7 @@ def top_regions(adjacencies, grouped, n, min_regions_per_gene, context = frozens
     if len(df) > 0:
         yield c, df
 
-def binarize_BASC(adjacencies, grouped, min_regions_per_gene, context = frozenset()):
+def binarize_BASC(adjacencies, grouped, min_regions_per_gene, context = frozenset(), order_regions_to_genes_by = 'importance'):
     """
     A helper function to binarize region-to-gene links using BASC
     For more information see: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
@@ -369,7 +371,7 @@ def binarize_BASC(adjacencies, grouped, min_regions_per_gene, context = frozense
 
     c = frozenset(["BASC binarized"]).union(context)
 
-    importances = adjacencies[IMPORTANCE_SCORE_NAME].to_numpy()
+    importances = adjacencies[order_regions_to_genes_by].to_numpy()
     
     #get BASC thresholds
     thresholds = grouped.apply(_binarize_basc, importances, True)
@@ -387,6 +389,7 @@ def binarize_BASC(adjacencies, grouped, min_regions_per_gene, context = frozense
 def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     region_to_gene_key: str = 'region_to_gene',
                     cistromes_key: str = 'Unfiltered',
+                    order_regions_to_genes_by: str = 'importance',
                     quantiles: tuple = (0.85, 0.90),
                     top_n_regionTogenes_per_gene: tuple = (5, 10, 15),
                     top_n_regionTogenes_per_region : tuple = (),
@@ -460,23 +463,27 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                                              grouped = grouped_adj_by_gene, 
                                              threshold = thr, 
                                              min_regions_per_gene = min_regions_per_gene, 
-                                             context = context) for thr in quantiles),
+                                             context = context,
+                                             order_regions_to_genes_by = order_regions_to_genes_by) for thr in quantiles),
 
             chain.from_iterable(top_targets(adjacencies = adj, 
                                             grouped = grouped_adj_by_gene, 
                                             n = n, 
                                             min_regions_per_gene = min_regions_per_gene,  
-                                            context = context) for n in top_n_regionTogenes_per_gene),
+                                            context = context,
+                                            order_regions_to_genes_by = order_regions_to_genes_by) for n in top_n_regionTogenes_per_gene),
 
             chain.from_iterable(top_regions(adjacencies = adj, 
                                             grouped = grouped_adj_by_region, 
                                             n = n, 
                                             min_regions_per_gene = min_regions_per_gene, 
-                                            context = context) for n in top_n_regionTogenes_per_region),
+                                            context = context,
+                                            order_regions_to_genes_by = order_regions_to_genes_by) for n in top_n_regionTogenes_per_region),
             binarize_BASC(adjacencies = adj,
                           grouped = grouped_adj_by_gene,
                           min_regions_per_gene = min_regions_per_gene,
-                          context = context) if binarize_using_basc else []
+                          context = context,
+                          order_regions_to_genes_by = order_regions_to_genes_by) if binarize_using_basc else []
         )
 
     if rho_dichotomize:

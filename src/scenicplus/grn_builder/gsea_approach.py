@@ -60,13 +60,17 @@ def ray_run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
 def build_grn(SCENICPLUS_obj: SCENICPLUS,
              adj_key = 'TF2G_adj',
              region_to_gene_key = 'region_to_gene',
+             order_regions_to_genes_by = 'importance',
+             order_TFs_to_genes_by = 'importance',
              gsea_n_perm = 1000,
              quantiles = (0.85, 0.90),
              top_n_regionTogenes_per_gene = (5, 10, 15),
              top_n_regionTogenes_per_region = (),
              binarize_using_basc = False,
              min_regions_per_gene = 0,
-             rho_dichotomize = True,
+             rho_dichotomize_tf2g = True,
+             rho_dichotomize_r2g = True,
+             rho_dichotomize_eregulon = True,
              keep_only_activating = False,
              rho_threshold = RHO_THRESHOLD,
              NES_thr = 0,
@@ -164,10 +168,11 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         top_n_regionTogenes_per_region = top_n_regionTogenes_per_region,
         binarize_using_basc = binarize_using_basc,
         min_regions_per_gene = min_regions_per_gene,
-        rho_dichotomize = rho_dichotomize,
+        rho_dichotomize = rho_dichotomize_r2g,
         keep_only_activating = keep_only_activating,
         rho_threshold = rho_threshold,
-        keep_extended_motif_annot = keep_extended_motif_annot)
+        keep_extended_motif_annot = keep_extended_motif_annot,
+        order_regions_to_genes_by = order_regions_to_genes_by)
     
     log.info('Subsetting TF2G adjacencies for TF with motif.')
     TF2G_adj_relevant = SCENICPLUS_obj.uns[adj_key].loc[[tf in relevant_tfs for tf in SCENICPLUS_obj.uns[adj_key]['TF']]]
@@ -187,7 +192,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             else:
                 TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
                 TF_to_TF_adj_d[TF] = TF2G_adj
-            if rho_dichotomize:
+            if rho_dichotomize_tf2g:
                 TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho'] > rho_threshold]
                 TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho'] < -rho_threshold]
 
@@ -199,14 +204,14 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                         new_e_modules.append(
                             run_gsea_for_e_module(
                                 e_module, 
-                                pd.Series(TF2G_adj_activating['importance']).sort_values(ascending = False),
+                                pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(ascending = False),
                                 gsea_n_perm,
                                 frozenset(['positive tf2g'])))
                     else:
                         jobs.append(
                             ray_run_gsea_for_e_module.remote(
                                 e_module, 
-                                pd.Series(TF2G_adj_activating['importance']).sort_values(ascending = False),
+                                pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(ascending = False),
                                 gsea_n_perm,
                                 frozenset(['positive tf2g'])))
                         
@@ -215,14 +220,14 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                         new_e_modules.append(
                             run_gsea_for_e_module(
                                 e_module,
-                                pd.Series(TF2G_adj_repressing['importance']).sort_values(ascending = False),
+                                pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(ascending = False),
                                 gsea_n_perm,
                                 frozenset(['negative tf2g'])))
                     else:
                         jobs.append(
                             ray_run_gsea_for_e_module.remote(
                                 e_module,
-                                pd.Series(TF2G_adj_repressing['importance']).sort_values(ascending = False),
+                                pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(ascending = False),
                                 gsea_n_perm,
                                 frozenset(['negative tf2g'])))
             else:
@@ -230,14 +235,14 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                     new_e_modules.append(
                         run_gsea_for_e_module(
                             e_module,
-                            pd.Series(TF2G_adj['importance']).sort_values(ascending = False),
+                            pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(ascending = False),
                             gsea_n_perm,
                             frozenset([''])))
                 else:
                     jobs.append(
                         ray_run_gsea_for_e_module.remote(
                             e_module,
-                            pd.Series(TF2G_adj['importance']).sort_values(ascending = False),
+                            pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(ascending = False),
                             gsea_n_perm,
                             frozenset([''])))
         if ray_n_cpu is not None:
@@ -278,7 +283,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             e_modules_to_return.append(module.subset_leading_edge(inplace = False ))
     if merge_eRegulons:
         log.info('Merging eRegulons')
-        e_modules_to_return = merge_emodules(e_modules = e_modules_to_return, inplace = False)
+        e_modules_to_return = merge_emodules(e_modules = e_modules_to_return, inplace = False, rho_dichotomize = rho_dichotomize_eregulon)
     if inplace:
         log.info(f'Storing eRegulons in .uns[{key_added}].')
         SCENICPLUS_obj.uns[key_added] = e_modules_to_return

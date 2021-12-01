@@ -22,7 +22,8 @@ COLUMN_NAME_WEIGHT = "importance"
 COLUMN_NAME_REGULATION = "regulation"
 COLUMN_NAME_CORRELATION = "rho"
 COLUMN_NAME_TF = "TF"
-COLUMN_NAME_SCORE = "importance_x_|rho|"
+COLUMN_NAME_SCORE_1 = "importance_x_rho"
+COLUMN_NAME_SCORE_2 = "importance_x_|rho|"
 RHO_THRESHOLD = 0.03
 
 #Create logger
@@ -69,10 +70,13 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: 'SCENICPLUS',
             adjacencies = df_TF_gene_adj_subset,
             ex_mtx = SCENICPLUS_obj.to_df(layer = 'EXP'),
             rho_threshold = rho_threshold)
-    if not COLUMN_NAME_SCORE in df_TF_gene_adj_subset.columns:
+    if not COLUMN_NAME_SCORE_1 in df_TF_gene_adj_subset.columns:
         log.info(f'Adding importance x rho scores to adjacencies.')
-        df_TF_gene_adj_subset[COLUMN_NAME_SCORE] = abs(df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION]) * abs(df_TF_gene_adj_subset[COLUMN_NAME_WEIGHT])
-    
+        df_TF_gene_adj_subset[COLUMN_NAME_SCORE_1] = df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION] * df_TF_gene_adj_subset[COLUMN_NAME_WEIGHT]
+    if not COLUMN_NAME_SCORE_2 in df_TF_gene_adj_subset.columns:
+        log.info(f'Adding importance x |rho| scores to adjacencies.')
+        df_TF_gene_adj_subset[COLUMN_NAME_SCORE_2] = abs(df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION]) * abs(df_TF_gene_adj_subset[COLUMN_NAME_WEIGHT])
+
     if inplace:
         log.info(f'Storing adjacencies in .uns["{key}"].')
         SCENICPLUS_obj.uns[key] = df_TF_gene_adj_subset
@@ -89,16 +93,16 @@ def add_correlation(
     
     Parameters
     ----------
-	adjacencies: pd.DataFrame
-		The dataframe with the TF-target links.
-	ex_mtx: pd.DataFrame
-		The expression matrix (n_cells x n_genes).
-	rho_threshold: float
-		The threshold on the correlation to decide if a target gene is activated
-		(rho > `rho_threshold`) or repressed (rho < -`rho_threshold`).
-	mask_dropouts: boolean
-		Do not use cells in which either the expression of the TF or the target gene is 0 when
-		calculating the correlation between a TF-target pair.
+    adjacencies: pd.DataFrame
+        The dataframe with the TF-target links.
+    ex_mtx: pd.DataFrame
+        The expression matrix (n_cells x n_genes).
+    rho_threshold: float
+        The threshold on the correlation to decide if a target gene is activated
+        (rho > `rho_threshold`) or repressed (rho < -`rho_threshold`).
+    mask_dropouts: boolean
+        Do not use cells in which either the expression of the TF or the target gene is 0 when
+        calculating the correlation between a TF-target pair.
     
     Returns
     -------
@@ -233,7 +237,8 @@ def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
     ex_matrix = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
     adj = add_correlation(adj, ex_matrix)
     log.info(f'Adding importance x rho scores to adjacencies.')
-    adj[COLUMN_NAME_SCORE] = abs(adj[COLUMN_NAME_CORRELATION]) * abs(adj[COLUMN_NAME_WEIGHT])
+    adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION]) * adj[COLUMN_NAME_WEIGHT]
+    adj[COLUMN_NAME_SCORE_2] = abs(adj[COLUMN_NAME_CORRELATION]) * abs(adj[COLUMN_NAME_WEIGHT])
     log.info('Took {} seconds'.format(time.time() - start_time))
     scplus_obj.uns[key] = adj
     

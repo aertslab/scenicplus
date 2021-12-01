@@ -586,6 +586,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
                                 )
         result_df = result_df.reset_index()
         result_df = result_df.drop('index', axis = 1)
+        result_df['importance_x_rho'] = result_df['rho'] * result_df['importance']
         result_df['importance_x_|rho|'] = abs(result_df['rho']) * result_df['importance']
     
     except:
