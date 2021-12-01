@@ -18,54 +18,6 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level = level, format = format, handlers = handlers)
 log = logging.getLogger('GSEA')
 
-def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS, 
-                            f_adj: str, 
-                            inplace = True, 
-                            key_added = 'TF2G_adj', 
-                            rho_threshold = RHO_THRESHOLD):
-    """
-    Function to load TF2G adjacencies from file
-
-    Parameters
-    ----------
-    SCENICPLUS_obj
-        An instance of :class:`~scenicplus.scenicplus_class.SCENICPLUS`
-    f_adj
-        File path to TF2G adjacencies matrix
-    inplace
-        Boolean specifying wether or not to store adjacencies matrix in :param:`SCENICPLUS_obj` under slot .uns[key_added]
-        default: True
-    key_added
-        String specifying where in the .uns slot to store the adjacencies matrix in :param:`SCENICPLUS_obj`
-        default: "TF2G_adj"
-    rho_threshold
-        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
-        default: 0.03
-    
-    Returns
-    -------
-    None if inplace is True else :class:`~pd.DataFrame` with adjacencies matrix.
-    """
-    log.info(f'Reading file: {f_adj}')
-    df_TF_gene_adj = pd.read_csv(f_adj, sep = '\t')
-    #only keep relevant entries
-    idx_to_keep = np.logical_and( np.array([tf in SCENICPLUS_obj.gene_names for tf in df_TF_gene_adj['TF']]),
-                                  np.array([gene in SCENICPLUS_obj.gene_names for gene in df_TF_gene_adj['target']]) )
-    df_TF_gene_adj_subset = df_TF_gene_adj.loc[idx_to_keep]
-    
-    if not COLUMN_NAME_CORRELATION in df_TF_gene_adj_subset.columns:
-        log.info(f'Adding correlation coefficients to adjacencies.')
-        df_TF_gene_adj_subset = add_correlation(
-            adjacencies = df_TF_gene_adj_subset,
-            ex_mtx = SCENICPLUS_obj.to_df(layer = 'EXP'),
-            rho_threshold = rho_threshold)
-    
-    if inplace:
-        log.info(f'Storing adjacencies in .uns[{key_added}].')
-        SCENICPLUS_obj.uns[key_added] = df_TF_gene_adj_subset
-    else:
-        return df_TF_gene_adj_subset
-
 def run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
     """
     Helper function to run gsea for single e_module
