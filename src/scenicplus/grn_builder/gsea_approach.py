@@ -174,7 +174,9 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         rho_threshold = rho_threshold,
         keep_extended_motif_annot = keep_extended_motif_annot,
         order_regions_to_genes_by = order_regions_to_genes_by,
-        disable_tqdm=disable_tqdm)
+        disable_tqdm=disable_tqdm,
+        ray_n_cpu=ray_n_cpu,
+        **kwargs)
     
     log.info('Subsetting TF2G adjacencies for TF with motif.')
     TF2G_adj_relevant = SCENICPLUS_obj.uns[adj_key].loc[[tf in relevant_tfs for tf in SCENICPLUS_obj.uns[adj_key]['TF']]]

@@ -7,6 +7,7 @@ import logging
 import sys
 from .scenicplus_class import SCENICPLUS
 from typing import List
+import ray
 
 flatten_list = lambda t: [item for sublist in t for item in sublist]
 
@@ -377,15 +378,28 @@ class Groupby:
             self.indices[k].append(i)
         self.indices = [np.array(elt) for elt in self.indices]
         
-    def apply(self, function, vector, broadcast):
-        if broadcast:
-            result = np.zeros(len(vector))
-            for idx in self.indices:
-                result[idx] = function(vector[idx])
+    def apply(self, function, vector, broadcast, ray_n_cpu = None):
+        if ray_n_cpu is not None:
+            ray_function = ray.remote(function)
+            if broadcast:
+                result = np.zeros(len(vector))
+                results_unsorted = ray.get( [ray_function.remote(vector[idx]) for idx in self.indices] )
+                for idx, res in zip(self.indices, results_unsorted):
+                    result[idx] = res
+            else:
+                result = np.zeros(self.n_keys)
+                results_unsorted = ray.get( [ray_function.remote(vector[idx]) for _, idx in enumerate(self.indices)] )
+                for (k, _), res in zip(enumerate(self.indices), results_unsorted):
+                    result[self.keys_as_int[k]] = res   
         else:
-            result = np.zeros(self.n_keys)
-            for k, idx in enumerate(self.indices):
-                result[self.keys_as_int[k]] = function(vector[idx])
+            if broadcast:
+                result = np.zeros(len(vector))
+                for idx in self.indices:
+                    result[idx] = function(vector[idx])
+            else:
+                result = np.zeros(self.n_keys)
+                for k, idx in enumerate(self.indices):
+                    result[self.keys_as_int[k]] = function(vector[idx])
 
         return result
 
