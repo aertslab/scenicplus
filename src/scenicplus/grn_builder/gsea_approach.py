@@ -289,9 +289,9 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     if merge_eRegulons:
         log.info('Merging eRegulons')
         e_modules_to_return = merge_emodules(e_modules = e_modules_to_return, inplace = False, rho_dichotomize = rho_dichotomize_eregulon)
+    e_modules_to_return = {e_modules_to_return[x].transcription_factor: e_modules_to_return[x] for x in range(len(e_modules_to_return)) if len(e_modules_to_return[x]) > 0}
     if inplace:
         log.info(f'Storing eRegulons in .uns[{key_added}].')
         SCENICPLUS_obj.uns[key_added] = e_modules_to_return
     else:
         return e_modules_to_return
-
