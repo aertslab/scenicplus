@@ -326,6 +326,14 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             """Extending search space to:
             \t\t\t\t\t\t{} bp downstream of the end of the gene.
             \t\t\t\t\t\t{} bp upstream of the start of the gene.""".format(str(downstream[1]), str(upstream[1])))
+        annot_nodup = annot[['Chromosome',
+                             'Start',
+                             'End',
+                             'Strand',
+                             'Gene',
+                             'Gene_width',
+                             'Gene_size_weight']].drop_duplicate_positions().copy()
+        annot_nodup = pr.PyRanges(annot_nodup.df.drop_duplicates(subset="Gene", keep="first"))
         extended_annot = extend_pyranges(annot, upstream[1], downstream[1])
         extended_annot = extended_annot[['Chromosome', 'Start', 'End', 'Strand', 'Gene', 'Gene_width', 'Gene_size_weight']]
     
