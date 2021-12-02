@@ -6,8 +6,10 @@ from ctxcore.genesig import Regulon
 import logging
 import sys
 from .scenicplus_class import SCENICPLUS
-from typing import List
+from typing import List, Union, Mapping
 import ray
+from random import sample
+import random
 
 flatten_list = lambda t: [item for sublist in t for item in sublist]
 
@@ -368,7 +370,7 @@ def p_adjust_bh(p: float):
 class Groupby:
     #from: http://esantorella.com/2016/06/16/groupby/
     def __init__(self, keys):
-        _, self.keys_as_int = np.unique(keys, return_inverse = True)
+        self.keys, self.keys_as_int = np.unique(keys, return_inverse = True)
         self.n_keys = max(self.keys_as_int) + 1
         self.set_indices()
         
@@ -412,7 +414,6 @@ def split_eregulons_by_influence(l_eRegulons):
     for c, r in zip(['pos_tf2g;pos_r2g', 'neg_tf2g;pos_r2g', 'pos_tf2g;neg_r2g', 'neg_tf2g;neg_r2g'],
                     [pos_tf2g__pos_r2g, neg_tf2g__pos_r2g, pos_tf2g__neg_r2g, neg_tf2g__neg_r2g]):
         yield c, r
-
 
 def only_keep_extended_eregulons_if_not_direct(l_eRegulons):
     direct_eRegulons = [eReg for eReg in l_eRegulons if not eReg.is_extended]
@@ -483,3 +484,49 @@ def eRegulons_to_networkx(SCENICPLUS_obj: SCENICPLUS,
             G.add_weighted_edges_from(region_to_gene, interaction_type = c.split(';')[1])
 
     return G
+
+def generate_pseudocells_for_numpy(X: np.array,
+                                   grouper: Groupby,
+                                   nr_cells: list,
+                                   nr_pseudobulks: list,
+                                   axis = 0):
+    if len(nr_cells) != len(grouper.indices):
+        raise ValueError(f'Length of nr_cells ({len(nr_cells)}) should be the same as length of grouper.indices ({len(grouper.indices)})')
+    if len(nr_pseudobulks) != len(grouper.indices):
+        raise ValueError(f'Length of nr_cells ({len(nr_pseudobulks)}) should be the same as length of grouper.indices ({len(grouper.indices)})')
+    if axis == 0:
+        shape_pseudo = (sum(nr_pseudobulks), X.shape[1])
+    elif axis == 1:
+        shape_pseudo = (X.shape[0], sum(nr_pseudobulks))
+    else:
+        raise ValueError(f'axis should be either 0 or 1 not {axis}')
+    X_pseudo = np.zeros(shape = shape_pseudo)
+    current_index = 0
+    for idx, n_pseudobulk, n_cell in zip(grouper.indices, nr_pseudobulks, nr_cells):
+        for x in range(n_pseudobulk):
+            random.seed(x)
+            sample_idx = sample(list(idx), n_cell)
+            if axis == 0:
+                sample_X = X[sample_idx, :]
+            elif axis == 1:
+                sample_X = X[:, sample_idx]
+            mean_sample_X = sample_X.mean(axis = axis)
+            if axis == 0:
+                X_pseudo[current_index, :] = mean_sample_X
+            elif axis == 1:
+                X_pseudo[:, current_index] = mean_sample_X
+            current_index += 1  #store index in X_pseudo where mean should be placed
+    return X_pseudo
+
+def generate_pseudocell_names(grouper: Groupby,
+                              nr_pseudobulks: list,
+                              sep = '_'):
+    if len(nr_pseudobulks) != len(grouper.indices):
+        raise ValueError(f'Length of nr_cells ({len(nr_pseudobulks)}) should be the same as length of grouper.indices ({len(grouper.indices)})')
+    names = []
+    for idx, n_pseudobulk, name in zip(grouper.indices, nr_pseudobulks, grouper.keys):
+        names.extend( [name + sep + str(x) for x in range(n_pseudobulk)] )
+    
+    return names
+            
+
