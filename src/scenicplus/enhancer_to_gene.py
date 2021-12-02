@@ -597,7 +597,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
         #TODO: use consistent column names
         search_space_rn = search_space.rename({'Name': 'region', 'Gene': 'target'}, axis = 1).copy()
         result_df = result_df.merge(search_space_rn, on = ['region', 'target'])
-        result_df['Distance'] = result_df['Distance'].map(lambda x: x[0])
+        #result_df['Distance'] = result_df['Distance'].map(lambda x: x[0])
     log.info('Done!')
 
     if inplace:
