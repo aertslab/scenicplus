@@ -9,7 +9,7 @@ import os
 import subprocess
 import pyranges as pr
 from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b, calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
-from .utils import coord_to_region_names, message_join_vector, region_names_to_coordinates
+from .utils import coord_to_region_names, region_names_to_coordinates, ASM_SYNONYMS
 from .scenicplus_class import SCENICPLUS
 
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
@@ -160,6 +160,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
        or (species is not None and assembly is not None and pr_annot is not None and pr_chromsizes is not None) ):
             raise Exception('Either a name of a species and a name of an assembly or a pyranges object containing gene annotation and a pyranges object containing chromosome sizes should be provided!')
     
+
     #get regions
     #TODO: Add option to select subset of regions? (e.g. highly variable, ...)?
     pr_regions = pr.PyRanges(region_names_to_coordinates(SCENICPLUS_obj.region_names))
@@ -175,6 +176,10 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         dataset_name = '{}_gene_ensembl'.format(species)
         server = pbm.Server(host = biomart_host, use_cache = False)
         mart = server['ENSEMBL_MART_ENSEMBL']
+        #check if biomart host is correct
+        dataset_display_name = getattr(mart.datasets[dataset_name], 'display_name')
+        if not ( ASM_SYNONYMS[assembly] in dataset_display_name or assembly in dataset_display_name ):
+            print(f'\u001b[31m!! The provided assembly {assembly} does not match the biomart host ({dataset_display_name}).\n Please check biomart host parameter\u001b[0m')
         #check wether dataset can be accessed.
         if dataset_name not in mart.list_datasets()['name'].to_numpy():
             raise Exception('{} could not be found as a dataset in biomart. Check species name or consider manually providing gene annotations!')

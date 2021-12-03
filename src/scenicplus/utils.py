@@ -10,6 +10,15 @@ import ray
 from random import sample
 import random
 
+ASM_SYNONYMS = {
+    'hg38': 'GRCh38',
+    'hg19': 'GRCh37',
+    'mm9': 'MGSCv37',
+    'mm10': 'GRCm38',
+    'mm39': 'GRCm39'}
+
+
+
 flatten_list = lambda t: [item for sublist in t for item in sublist]
 
 def extend_pyranges(pr_obj: pr.PyRanges,
