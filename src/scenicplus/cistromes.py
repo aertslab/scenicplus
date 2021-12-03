@@ -407,16 +407,23 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
                                 columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
             sns.scatterplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
                         hue='Variable', palette=color_dict, ax = ax,  **kwargs)
-            plt.legend(handles=patchList, bbox_to_anchor=(
-                                    1.04, 1), loc="upper left")
+            if ax is None:
+                plt.legend(handles=patchList, bbox_to_anchor=(
+                                        1.04, 1), loc="upper left")
+            else:
+                ax.legend(handles=patchList, bbox_to_anchor=(
+                                        1.04, 1), loc="upper left")
         if show_line_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
                                 columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
             sns.regplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
                         scatter_kws={'color': color}, ax = ax, **kwargs)
-            
-            plt.legend(handles=patchList, bbox_to_anchor=(
-                                    1.04, 1), loc="upper left")
+            if ax is None:
+                plt.legend(handles=patchList, bbox_to_anchor=(
+                                        1.04, 1), loc="upper left")
+            else:
+                ax.legend(handles=patchList, bbox_to_anchor=(
+                                        1.04, 1), loc="upper left")
     else:
         if show_dot_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
@@ -429,8 +436,12 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
              data=data, ax = ax, **kwargs)
         
     corr, _ = pearsonr(tf_expr, cistromes_auc_tf)
-    plt.xlabel('Correlation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
-    plt.title(cistrome_name)
+    if ax is None:
+        plt.xlabel('TF_Expression\nCorrelation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
+        plt.title(cistrome_name)
+    else:
+        ax.set_xlabel('TF_Expression\nCorrelation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
+        ax.set_title(cistrome_name)
     if ax is None:
         plt.show()
     
