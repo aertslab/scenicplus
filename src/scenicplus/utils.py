@@ -536,5 +536,72 @@ def generate_pseudocell_names(grouper: Groupby,
         names.extend( [name + sep + str(x) for x in range(n_pseudobulk)] )
     
     return names
-            
 
+def _create_idx_pairs(adjacencies: pd.DataFrame, exp_mtx: pd.DataFrame) -> np.ndarray:
+    """
+    :precondition: The column index of the exp_mtx should be sorted in ascending order.
+            `exp_mtx = exp_mtx.sort_index(axis=1)`
+    from pyscenic.utils
+    """
+
+    # Create sorted list of genes that take part in a TF-target link.
+    genes = set(adjacencies.TF).union(set(adjacencies.target))
+    sorted_genes = sorted(genes)
+
+    # Find column idx in the expression matrix of each gene that takes part in a link. Having the column index of genes
+    # sorted as well as the list of link genes makes sure that we can map indexes back to genes! This only works if
+    # all genes we are looking for are part of the expression matrix.
+    assert len(set(exp_mtx.columns).intersection(genes)) == len(genes)
+    symbol2idx = dict(zip(sorted_genes, np.nonzero(exp_mtx.columns.isin(sorted_genes))[0]))
+
+    # Create numpy array of idx pairs.
+    return np.array([[symbol2idx[s1], symbol2idx[s2]] for s1, s2 in zip(adjacencies.TF, adjacencies.target)])
+
+
+            
+import numpy as np
+from numba import njit, float64, int64, prange
+
+
+@njit(float64(float64[:], float64[:], float64))
+def masked_rho(x: np.ndarray, y: np.ndarray, mask: float = 0.0) -> float:
+    """
+    Calculates the masked correlation coefficient of two vectors.
+
+    :param x: A vector with the observations of a single variable.
+    :param y: Another vector with the same number of observations for a variable.
+    :param mask: The value to be masked.
+    :return: Pearson correlation coefficient for x and y.
+    """
+    idx = (x != mask) & (y != mask)
+    x_masked = x[idx]
+    y_masked = y[idx]
+    if (len(x_masked) == 0) or (len(y_masked) == 0):
+        return np.nan
+    x_demeaned = x_masked - x_masked.mean()
+    y_demeaned = y_masked - y_masked.mean()
+    cov_xy = np.dot(x_demeaned, y_demeaned)
+    std_x = np.sqrt(np.dot(x_demeaned, x_demeaned))
+    std_y = np.sqrt(np.dot(y_demeaned, y_demeaned))
+    if (std_x * std_y) == 0:
+        return np.nan
+    return cov_xy / (std_x * std_y)
+
+
+@njit(float64[:](float64[:, :], int64[:, :], float64), parallel=True)
+def masked_rho4pairs(mtx: np.ndarray, col_idx_pairs: np.ndarray, mask: float = 0.0) -> np.ndarray:
+    """
+    Calculates the masked correlation of columns pairs in a matrix.
+
+    :param mtx: the matrix from which columns will be used.
+    :param col_idx_pairs: the pairs of column indexes (nx2).
+    :return: array with correlation coefficients (n).
+    """
+    # Numba can parallelize loops automatically but this is still an experimental feature.
+    n = col_idx_pairs.shape[0]
+    rhos = np.empty(shape=n, dtype=np.float64)
+    for n_idx in prange(n):
+        x = mtx[:, col_idx_pairs[n_idx, 0]]
+        y = mtx[:, col_idx_pairs[n_idx, 1]]
+        rhos[n_idx] = masked_rho(x, y, mask)
+    return rhos

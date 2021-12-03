@@ -16,8 +16,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
 from .scenicplus_class import SCENICPLUS
-from .utils import _create_idx_pairs
-from math import masked_rho4pairs
+from .utils import _create_idx_pairs, masked_rho4pairs
 
 COLUMN_NAME_TARGET = "target"
 COLUMN_NAME_WEIGHT = "importance"
