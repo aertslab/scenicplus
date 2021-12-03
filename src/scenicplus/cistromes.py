@@ -331,7 +331,8 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
                variable: str = None,
                color_dict = None,
                subset = None,
-               seed=555, 
+               seed=555,
+               ax:plt.axes = None,
                **kwargs):
     """
     Plot cistrome accessibility versus  TF expression
@@ -364,7 +365,9 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
         Subset of pseudobulks/cells to use
     seed: int
         Seed to ensure that pseudobulk are reproducible.
-    ***kwargs:
+    ax: plt.axes, optional
+        matplotlib axes to plot to.
+    **kwargs:
         Parameters for seaborn plotting.
         
     """
@@ -403,14 +406,14 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
                                 columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
             sns.scatterplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
-                        hue='Variable', palette=color_dict,  **kwargs)
+                        hue='Variable', palette=color_dict, ax = ax,  **kwargs)
             plt.legend(handles=patchList, bbox_to_anchor=(
                                     1.04, 1), loc="upper left")
         if show_line_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
                                 columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
-            sns.lmplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
-                        scatter_kws={'color': color},  **kwargs)
+            sns.regplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
+                        scatter_kws={'color': color}, ax = ax, **kwargs)
             
             plt.legend(handles=patchList, bbox_to_anchor=(
                                     1.04, 1), loc="upper left")
@@ -418,17 +421,18 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
         if show_dot_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
                                 columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
-            sns.scatterplot(x="TF_Expression", y="Cistrome_AUC", data=data,  **kwargs)
+            sns.scatterplot(x="TF_Expression", y="Cistrome_AUC", data=data, ax = ax,  **kwargs)
         if show_line_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf)), 
                                 columns=['TF_Expression', 'Cistrome_AUC'])
-            sns.lmplot(x="TF_Expression", y="Cistrome_AUC",
-             data=data, **kwargs)
+            sns.regplot(x="TF_Expression", y="Cistrome_AUC",
+             data=data, ax = ax, **kwargs)
         
     corr, _ = pearsonr(tf_expr, cistromes_auc_tf)
     plt.xlabel('Correlation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
     plt.title(cistrome_name)
-    plt.show()
+    if ax is None:
+        plt.show()
     
 
 # Utils
