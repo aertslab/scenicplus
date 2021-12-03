@@ -16,6 +16,8 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
 from .scenicplus_class import SCENICPLUS
+from .utils import _create_idx_pairs
+from math import masked_rho4pairs
 
 COLUMN_NAME_TARGET = "target"
 COLUMN_NAME_WEIGHT = "importance"
@@ -237,7 +239,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
     ex_matrix = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
     adj = add_correlation(adj, ex_matrix)
     log.info(f'Adding importance x rho scores to adjacencies.')
-    adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION]) * adj[COLUMN_NAME_WEIGHT]
+    adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION] * adj[COLUMN_NAME_WEIGHT]
     adj[COLUMN_NAME_SCORE_2] = abs(adj[COLUMN_NAME_CORRELATION]) * abs(adj[COLUMN_NAME_WEIGHT])
     log.info('Took {} seconds'.format(time.time() - start_time))
     scplus_obj.uns[key] = adj
