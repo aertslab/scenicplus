@@ -147,7 +147,7 @@ def make_rankings(scplus_obj: 'SCENICPLUS',
     # Rank all scores per motif/track and assign a random ranking in range for regions/genes with the same score.
     for col_idx in range(len(imputed_acc_ranking.cell_names)):
             imputed_acc_ranking.mtx[:,col_idx] = rank_scores_and_assign_random_ranking_in_range_for_ties(
-                 mtx[:,col_idx].toarray().flatten()
+                 mtx[:,col_idx].toarray().flatten() if sparse.issparse(mtx) else mtx[:,col_idx].flatten()
             )
 
     return imputed_acc_ranking
