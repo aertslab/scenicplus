@@ -5,7 +5,6 @@ import networkx as nx
 from ctxcore.genesig import Regulon
 import logging
 import sys
-from .scenicplus_class import SCENICPLUS
 from typing import List, Union, Mapping
 import ray
 from random import sample
@@ -431,7 +430,7 @@ def only_keep_extended_eregulons_if_not_direct(l_eRegulons):
 
     return eRegulons_to_return
 
-def eRegulons_to_networkx(SCENICPLUS_obj: SCENICPLUS,
+def eRegulons_to_networkx(SCENICPLUS_obj,
                           eRegulons_key_to_use: str = 'eRegulons',
                           only_keep_extended_if_not_direct = True,
                           only_TF_TF_interactions: bool = False,
