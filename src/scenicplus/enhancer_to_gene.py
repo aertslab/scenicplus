@@ -186,7 +186,15 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         else:
             log.info("Downloading gene annotation from biomart dataset: {}".format(dataset_name))
             dataset = mart[dataset_name]
-            annot = dataset.query(attributes=['chromosome_name', 'start_position', 'end_position', 'strand', 'external_gene_name', 'transcription_start_site', 'transcript_biotype'])
+            if 'external_gene_name' not in dataset.attributes.keys():
+                external_gene_name_query = 'hgnc_symbol'
+            else:
+                external_gene_name_query = 'external_gene_name'
+            if 'transcription_start_site' not in dataset.attributes.keys():
+                transcription_start_site_query = 'transcript_start'
+            else:
+                transcription_start_site_query = 'transcription_start_site'
+            annot = dataset.query(attributes=['chromosome_name', 'start_position', 'end_position', 'strand', external_gene_name_query, transcription_start_site_query, 'transcript_biotype'])
             annot['Chromosome/scaffold name'] = 'chr' + annot['Chromosome/scaffold name'].astype(str)
             annot.columns=['Chromosome', 'Start', 'End', 'Strand', 'Gene','Transcription_Start_Site', 'Transcript_type']
             annot = annot[annot.Transcript_type == 'protein_coding']
