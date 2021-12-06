@@ -197,6 +197,7 @@ def score_cistromes(scplus_obj: 'SCENICPLUS',
 # Create pseudobulks                    
 def generate_pseudobulks(scplus_obj: 'SCENICPLUS', 
                          variable: str,
+                         normalize_expression: bool = True,
                          cistromes_key: str = 'Unfiltered',
                          nr_cells: int = 10,
                          nr_pseudobulks: int = 100,
@@ -229,8 +230,9 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
     cistrome_auc_agg_list = list()
     dgem_agg_list = list()
     cell_names = list()
-    dgem = dgem.T / dgem.T.sum(0) * 10**6
-    dgem = np.log1p(dgem).T
+    if normalize_expression:
+        dgem = dgem.T / dgem.T.sum(0) * 10**6
+        dgem = np.log1p(dgem).T
     for category in categories:
         cells = cell_data[cell_data.loc[:,variable] == category].index.tolist()
         for x in range(nr_pseudobulks):
