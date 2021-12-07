@@ -9,6 +9,9 @@ from typing import List, Union, Mapping
 import ray
 from random import sample
 import random
+from matplotlib import cm
+from matplotlib.colors import Normalize, rgb2hex
+import pyranges as pr
 
 ASM_SYNONYMS = {
     'hg38': 'GRCh38',
@@ -605,3 +608,173 @@ def masked_rho4pairs(mtx: np.ndarray, col_idx_pairs: np.ndarray, mask: float = 0
         y = mtx[:, col_idx_pairs[n_idx, 1]]
         rhos[n_idx] = masked_rho(x, y, mask)
     return rhos
+
+def get_interaction_pr(SCENICPLUS_obj, 
+                       species,
+                       assembly,
+                       region_to_gene_key = 'region_to_gene', 
+                       eRegulons_key = 'eRegulons',
+                       subset_for_eRegulons_regions = True,
+                       key_to_add = 'interaction_pr', 
+                       inplace = True, 
+                       pbm_host = 'http://www.ensembl.org',
+                       key_for_color = 'importance',
+                       cmap_pos = 'Blues', 
+                       cmap_neg = 'Reds',
+                       scale_by_gene = True,
+                       vmin = 0, vmax = 1):
+    if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
+        raise ValueError(f'key {region_to_gene_key} not found in SCENICPLUS_obj.uns.keys()')
+
+    region_to_gene_df = SCENICPLUS_obj.uns[region_to_gene_key].copy()
+    region_to_gene_df.rename(columns = {'target': 'Gene'}, inplace = True)
+
+    if subset_for_eRegulons_regions:
+        if eRegulons_key not in SCENICPLUS_obj.uns.keys():
+            raise ValueError(f'key {eRegulons_key} not found in SCENICPLUS_obj.uns.keys()')
+        eRegulon_regions = list(set(flatten_list([ereg.target_regions for ereg in SCENICPLUS_obj.uns[eRegulons_key]])))
+        region_to_gene_df.index = region_to_gene_df['region']
+        region_to_gene_df = region_to_gene_df.loc[eRegulon_regions].reset_index(drop = True)
+
+    import pybiomart as pbm
+    dataset_name = '{}_gene_ensembl'.format(species)
+    server = pbm.Server(host = pbm_host, use_cache = False)
+    mart = server['ENSEMBL_MART_ENSEMBL']
+    dataset_display_name = getattr(mart.datasets[dataset_name], 'display_name')
+    if not ( ASM_SYNONYMS[assembly] in dataset_display_name or assembly in dataset_display_name ):
+        print(f'\u001b[31m!! The provided assembly {assembly} does not match the biomart host ({dataset_display_name}).\n Please check biomart host parameter\u001b[0m\nFor more info see: https://m.ensembl.org/info/website/archives/assembly.html')
+    dataset = mart[dataset_name]
+    if 'external_gene_name' not in dataset.attributes.keys():
+        external_gene_name_query = 'hgnc_symbol'
+    else:
+        external_gene_name_query = 'external_gene_name'
+    if 'transcription_start_site' not in dataset.attributes.keys():
+        transcription_start_site_query = 'transcript_start'
+    else:
+        transcription_start_site_query = 'transcription_start_site'
+    annot = dataset.query(attributes=['chromosome_name', 
+                                      'start_position', 
+                                      'end_position', 
+                                      'strand', 
+                                      external_gene_name_query, 
+                                      transcription_start_site_query, 
+                                      'transcript_biotype'])
+    annot['Chromosome/scaffold name'] = 'chr' + annot['Chromosome/scaffold name'].astype(str)
+    annot.columns=['Chromosome', 'Start', 'End', 'Strand', 'Gene','Transcription_Start_Site', 'Transcript_type']
+    annot = annot[annot.Transcript_type == 'protein_coding']
+    annot.Strand[annot.Strand == 1] = '+'
+    annot.Strand[annot.Strand == -1] = '-'
+
+    annot['TSSeqStartEnd'] = np.logical_or(annot['Transcription_Start_Site'] == annot['Start'], annot['Transcription_Start_Site'] == annot['End'])
+    gene_to_tss = annot[['Gene', 'Transcription_Start_Site']].groupby('Gene').agg(lambda x: list(map(str, x)))
+    startEndEq = annot[['Gene', 'TSSeqStartEnd']].groupby('Gene').agg(lambda x: list(x))
+    gene_to_tss['Transcription_Start_Site'] = [np.array(tss[0])[eq[0]][0] if sum(eq[0]) >= 1 else tss[0][0] for eq, tss in zip(startEndEq.values, gene_to_tss.values)]
+    gene_to_tss.columns = ['TSS_Gene']
+
+    #get gene to strand mapping
+    gene_to_strand = annot[['Gene', 'Strand']].groupby('Gene').agg(lambda x: list(map(str, x))[0])
+
+    #get gene to chromosome mapping (should be the same as the regions mapped to the gene)
+    gene_to_chrom = annot[['Gene', 'Chromosome']].groupby('Gene').agg(lambda x: list(map(str, x))[0])
+
+    #add TSS for each gene to region_to_gene_df
+    region_to_gene_df = region_to_gene_df.join(gene_to_tss, on = 'Gene')
+
+    #add strand for each gene to region_to_gene_df
+    region_to_gene_df = region_to_gene_df.join(gene_to_strand, on = 'Gene')
+
+    #add chromosome for each gene to region_to_gene_df
+    region_to_gene_df = region_to_gene_df.join(gene_to_chrom, on = 'Gene')
+
+    arr = region_names_to_coordinates(region_to_gene_df['region']).to_numpy()
+    chrom, chromStart, chromEnd = np.split(arr, 3, 1)
+    chrom = chrom[:, 0]
+    chromStart = chromStart[:, 0]
+    chromEnd = chromEnd[:, 0]
+
+    sourceChrom = chrom
+    sourceStart = np.array(list(map(int, chromStart + (chromEnd - chromStart)/2 - 1)))
+    sourceEnd   = np.array(list(map(int, chromStart + (chromEnd - chromStart)/2)))
+
+    #get target chrom, chromStart, chromEnd (i.e. TSS)
+    targetChrom = region_to_gene_df['Chromosome']
+    targetStart = region_to_gene_df['TSS_Gene'].values
+    targetEnd   = list(map(str,np.array(list(map(int, targetStart))) + np.array([1 if strand == '+' else -1 for strand in region_to_gene_df['Strand'].values])))
+
+    norm = Normalize(vmin = vmin, vmax = vmax)
+
+    if scale_by_gene:
+        grouper = Groupby(region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'Gene'].to_numpy())
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_pos)
+        def _value_to_color(scores):
+            S = (scores - scores.min()) / (scores.max() - scores.min())
+            return [rgb2hex(mapper.to_rgba(s)) for s in S]
+        
+        colors_pos = np.zeros(len(scores), dtype='object')
+        for idx in grouper.indices:
+            colors_pos[idx] = _value_to_color(scores[idx])
+        
+        grouper = Groupby(region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'Gene'].to_numpy())
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] < 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_neg)
+        def _value_to_color(scores):
+            S = (scores - scores.min()) / (scores.max() - scores.min())
+            return [rgb2hex(mapper.to_rgba(s)) for s in S]
+        
+        colors_neg = np.zeros(len(scores), dtype='object')
+        for idx in grouper.indices:
+            colors_neg[idx] = _value_to_color(scores[idx])
+
+    else:
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_pos)
+        color_pos = [rgb2hex(mapper.to_rgba(s)) for s in scores]
+
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] < 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_neg)
+        color_neg = [rgb2hex(mapper.to_rgba(s)) for s in scores]
+    
+    region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = colors_pos
+    region_to_gene_df.loc[region_to_gene_df['rho'] < 0,  'color'] = colors_neg
+    region_to_gene_df['color'] = region_to_gene_df['color'].fillna('#525252')
+
+    #get name for regions (add incremental number to gene in range of regions linked to gene)
+    counter = 1
+    previous_gene = region_to_gene_df['Gene'].values[0]
+    names = []
+    for gene in region_to_gene_df['Gene'].values:
+            if gene != previous_gene:
+                    counter = 1
+            else:
+                    counter +=1
+            names.append(gene + '_' + str(counter))
+            previous_gene = gene
+    df_interact = pd.DataFrame(
+                        data = {
+                            'Chromosome':        chrom,
+                            'Start':   chromStart,
+                            'End':     chromEnd,
+                            'name':         names,
+                            'score':        np.repeat(0, len(region_to_gene_df)),
+                            'value':        region_to_gene_df['importance'].values,
+                            'exp':          np.repeat('.', len(region_to_gene_df)),
+                            'color':        region_to_gene_df['color'].values,
+                            'sourceChrom':  sourceChrom,
+                            'sourceStart':  sourceStart,
+                            'sourceEnd':    sourceEnd,
+                            'sourceName':   names,
+                            'sourceStrand': np.repeat('.', len(region_to_gene_df)),
+                            'targetChrom':  targetChrom,
+                            'targetStart':  targetStart,
+                            'targetEnd':    targetEnd,
+                            'targetName':   region_to_gene_df['Gene'].values,
+                            'targetStrand': region_to_gene_df['Strand'].values
+                        }
+                    )
+    pr_interact = pr.PyRanges(df_interact)
+
+    if inplace:
+        SCENICPLUS_obj.uns[key_to_add] = pr_interact
+    else:
+        return pr_interact
