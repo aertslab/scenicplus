@@ -238,7 +238,10 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         #intersect gtf with region and get first 9 columns
         gtf_region_intersect = pr_gtf.intersect(pr_region)
         #only keep exon and gene info
-        gtf_region_intersect = gtf_region_intersect[np.logical_or(gtf_region_intersect.Feature == 'gene', gtf_region_intersect.Feature == 'exon')]
+        gtf_region_intersect = gtf_region_intersect[np.logical_and(
+                                                        np.logical_or(gtf_region_intersect.Feature == 'gene', 
+                                                                      gtf_region_intersect.Feature == 'exon'),
+                                                        gtf_region_intersect.gene_type == 'protein_coding')]
         #iterate over all genes in intersect
         ax = axs_bw[subplot_idx]
         subplot_idx += 1
