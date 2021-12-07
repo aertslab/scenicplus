@@ -28,7 +28,9 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
     pip install --no-cache-dir MACS2 && \
     pip install --no-cache-dir lxml && \
     pip install --no-cache-dir tspex && \
-    pip install --no-cache-dir -r /tmp/requirements.txt
+    pip install --no-cache-dir plotly && \
+    pip install --no-cache-dir kaleido && \
+    pip install --no-cache-dir -r /tmp/requirements.txt 
     
 # install pycisTopic from local copy:
 COPY pycisTopic /tmp/pycisTopic
