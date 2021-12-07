@@ -11,6 +11,7 @@ import kaleido
 import matplotlib.backends.backend_pdf
 from typing import Dict, List, Tuple
 from typing import Optional, Union
+import re
 
 ## Utils
 def flatten(A):
