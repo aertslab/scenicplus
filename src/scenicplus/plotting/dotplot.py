@@ -7,6 +7,7 @@ from sklearn.cluster import AgglomerativeClustering
 import scanpy as sc
 from matplotlib.cm import ScalarMappable
 import plotly
+import pycistarget
 import kaleido
 import matplotlib.backends.backend_pdf
 from typing import Dict, List, Tuple
