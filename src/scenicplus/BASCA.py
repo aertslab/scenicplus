@@ -197,9 +197,13 @@ class Result:
         self.threshold = threshold
         self.pVal = pVal
     
-def binarize(vect, tau = 0.01, n_samples = 999, calc_p = True):
+def binarize(vect, tau = 0.01, n_samples = 999, calc_p = True, max_elements = 100):
     #original step function is just the sorted vector
     vect_sorted = sorted(vect)
+    
+    # if vector is too long, only use top features (scalability)
+    if len(vect_sorted) > max_elements:
+        vect_sorted = vect_sorted[0:max_elements]
 
     #step 1: Compute a series of step functions (each function minimizes the eucledian distance between the new step function and the original data)
     _, ind = calcCostAndIndMatrix(vect_sorted)
