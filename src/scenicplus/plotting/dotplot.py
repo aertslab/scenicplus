@@ -7,11 +7,13 @@ from sklearn.cluster import AgglomerativeClustering
 import scanpy as sc
 from matplotlib.cm import ScalarMappable
 import plotly
+import pycistarget
 import kaleido
 import matplotlib.backends.backend_pdf
 from typing import Dict, List, Tuple
 from typing import Optional, Union
 import re
+from pycistarget.motif_enrichment_dem import DEM
 
 ## Utils
 def flatten(A):
@@ -87,7 +89,7 @@ def generate_dotplot_df_motif_enrichment(scplus_obj: 'SCENICPLUS',
         dgem = np.log1p(dgem).T
     ### Checking motif enrichment data
     menr = scplus_obj.menr[enrichment_key]
-    if isinstance(menr, pycistarget.motif_enrichment_dem.DEM):
+    if isinstance(menr, DEM):
         menr = scplus_obj.menr[enrichment_key].motif_enrichment.copy()
         menr_df = pd.concat([menr[x] for x in menr.keys()])
         score_keys = ['Log2FC', 'Adjusted_pval']
@@ -451,7 +453,7 @@ def dotplot(df_dotplot: 'pd.DataFrame',
 
         # Generate plotting data
         n_group = len(set(df_dotplot['Group']))
-        n_TF = len(set(df_dotplot['TF']))
+        n_TF = len(set(df_dotplot[region_set_key]))
 
         # Generate a grid
         x = np.tile( np.arange(n_group), n_TF)
@@ -467,8 +469,8 @@ def dotplot(df_dotplot: 'pd.DataFrame',
         if highlight is not None:
             TFs = dotsizes.columns
             groups = dotsizes.index
-            linewidths = [highlight_lw if (TF, celltype) in highlighy else 0 for 
-                            TF, celltype in zip(np.repeat(TFs, n_group), np.tile(groups, n_TF))]
+            linewidths = [highlight_lw if TF in highlight else 0 for 
+                            TF in np.repeat(TFs, n_group)]
         else:
             linewidths = None
 
