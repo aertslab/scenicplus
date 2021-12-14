@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial" href="tutorials.html" />
+    <link rel="prev" title="Install" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Install</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#cistromes">cistromes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.cistromes.merge_cistromes">merge_cistromes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#parameters">Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.cistromes.make_rankings">make_rankings</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#return">Return</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.cistromes.score_cistromes">score_cistromes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.cistromes.generate_pseudobulks">generate_pseudobulks</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.cistromes.TF_cistrome_correlation">TF_cistrome_correlation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id4">Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.cistromes.prune_plot">prune_plot</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Parameters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#scenicplus-class">scenicplus_class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.scenicplus_class.SCENICPLUS">SCENICPLUS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#properties">Properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.scenicplus_class.create_SCENICPLUS_object">create_SCENICPLUS_object</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Parameters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#enhancer-to-gene">enhancer_to_gene</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.enhancer_to_gene.get_search_space">get_search_space</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id14">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id15">Return</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.enhancer_to_gene.calculate_regions_to_genes_relationships">calculate_regions_to_genes_relationships</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#gsea">gsea</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.gsea.run_gsea">run_gsea</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id16">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#returns">Returns</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.gsea.run_enrichr">run_enrichr</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id17">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id18">Returns</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#tf-to-gene">TF_to_gene</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.TF_to_gene.load_TF2G_adj_from_file">load_TF2G_adj_from_file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id19">Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.TF_to_gene.add_correlation">add_correlation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id24">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id25">Returns</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.TF_to_gene.calculate_TFs_to_genes_relationships">calculate_TFs_to_genes_relationships</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id26">Parameters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#grn-builder">grn_builder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#gsea-approach">gsea_approach</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.grn_builder.gsea_approach.build_grn">build_grn</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#modules">modules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.grn_builder.modules.eRegulon">eRegulon</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.grn_builder.modules.create_emodules">create_emodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.grn_builder.modules.merge_emodules">merge_emodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#plotting">plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-scenicplus.plotting.coverageplot.coverage_plot">coverage_plot</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id55">Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id56">Returns:</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#dotplot">dotplot</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.plotting.dotplot.generate_dotplot_df_motif_enrichment">generate_dotplot_df_motif_enrichment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.plotting.dotplot.generate_dotplot_df_cistrome_AUC">generate_dotplot_df_cistrome_AUC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id61">dotplot</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#grn-plot">grn_plot</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.plotting.grn_plot.draw_grn">draw_grn</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#preprocessing">preprocessing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#filtering">filtering</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.preprocessing.filtering.filter_genes">filter_genes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-scenicplus.preprocessing.filtering.filter_regions">filter_regions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorial</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/autodoc.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="documentation">
+<span id="autodoc"></span><h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
+<div class="section" id="cistromes">
+<h2>cistromes<a class="headerlink" href="#cistromes" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-scenicplus.cistromes.merge_cistromes">
+<span id="merge-cistromes"></span><h3>merge_cistromes<a class="headerlink" href="#module-scenicplus.cistromes.merge_cistromes" title="Permalink to this headline"></a></h3>
+<p>Generate cistromes from motif enrichment tables</p>
+<div class="section" id="parameters">
+<h4>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline"></a></h4>
+<dl>
+<dt>scplus_obj: <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></dt><dd><blockquote>
+<div><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with motif enrichment results from pycistarget (<cite>scplus_obj.menr</cite>).
+Several analyses can be included in the slot (topics/DARs/other; and different methods [Homer/DEM/cistarget]).</p>
+</div></blockquote>
+<dl class="simple">
+<dt>cistromes_key: str, optional</dt><dd><p>Key to store cistromes. Cistromes will stored at <cite>scplus_obj.uns[‘Cistromes’][siganture_key]</cite></p>
+</dd>
+</dl>
+</dd>
+<dt>subset: list</dt><dd><p>A PyRanges containing a set of regions that regions in cistromes must overlap. This is useful when
+aiming for cell type specific cistromes for example (e.g. providing the cell type’s MACS peaks)</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.cistromes.make_rankings">
+<span id="make-rankings"></span><h3>make_rankings<a class="headerlink" href="#module-scenicplus.cistromes.make_rankings" title="Permalink to this headline"></a></h3>
+<p>A function to generate rankings per cell based on the imputed accessibility scores per region
+or the gene expression per cell.</p>
+<div class="section" id="id1">
+<h4>Parameters<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>scplus_obj: <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with motif enrichment results from pycistarget (<cite>scplus_obj.menr</cite>).</p>
+</dd>
+<dt>target: str, optional</dt><dd><p>Whether rankings should be done based on gene expression or region accessibilty. Default: ‘region’</p>
+</dd>
+<dt>seed: int, optional</dt><dd><p>Random seed to ensure reproducibility of the rankings when there are ties</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="return">
+<h4>Return<a class="headerlink" href="#return" title="Permalink to this headline"></a></h4>
+<blockquote>
+<div><dl class="simple">
+<dt>CistopicImputedFeatures</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">CistopicImputedFeatures</span></code> containing with ranking values rather than scores.</p>
+</dd>
+</dl>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="module-scenicplus.cistromes.score_cistromes">
+<span id="score-cistromes"></span><h3>score_cistromes<a class="headerlink" href="#module-scenicplus.cistromes.score_cistromes" title="Permalink to this headline"></a></h3>
+<p>Get enrichment of a region signature in cells  using AUCell (Van de Sande et al., 2020)</p>
+<div class="section" id="id2">
+<h4>Parameters<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>scplus_obj: <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with motif enrichment results from pycistarget (<cite>scplus_obj.menr</cite>).</p>
+</dd>
+<dt>rankings: CistopicImputedFeatures</dt><dd><p>A CistopicImputedFeatures object with ranking values</p>
+</dd>
+<dt>cistromes_key: str, optional</dt><dd><p>Key to store where cistromes are stored. Cistromes will retrieved from <cite>scplus_obj.uns[‘Cistromes’][siganture_key]</cite>
+and AUC values will be stored in <cite>scplus_obj.uns[‘Cistromes_AUC’][cistromes_key]</cite>.</p>
+</dd>
+<dt>enrichment_type: str</dt><dd><p>Whether features are genes or regions</p>
+</dd>
+<dt>auc_threshold: float</dt><dd><p>The fraction of the ranked genome to take into account for the calculation of the Area Under the recovery Curve. Default: 0.05</p>
+</dd>
+<dt>normalize: bool</dt><dd><p>Normalize the AUC values to a maximum of 1.0 per regulon. Default: False</p>
+</dd>
+<dt>num_workers: int</dt><dd><p>The number of cores to use. Default: 1</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="references">
+<h4>References<a class="headerlink" href="#references" title="Permalink to this headline"></a></h4>
+<p>Van de Sande, B., Flerin, C., Davie, K., De Waegeneer, M., Hulselmans, G., Aibar, S., … &amp; Aerts, S. (2020). A scalable SCENIC workflow for single-cell gene 
+regulatory network analysis. Nature Protocols, 15(7), 2247-2276.</p>
+</div>
+</div>
+<div class="section" id="module-scenicplus.cistromes.generate_pseudobulks">
+<span id="generate-pseudobulks"></span><h3>generate_pseudobulks<a class="headerlink" href="#module-scenicplus.cistromes.generate_pseudobulks" title="Permalink to this headline"></a></h3>
+<p>Generate pseudobulks based on the cistrome AUC matrix and gene expression</p>
+<div class="section" id="id3">
+<h4>Parameters<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>scplus_obj: <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with scored cistromes (<cite>scplus_obj.uns[‘Cistromes_AUC’][cistromes_key]</cite>)</p>
+</dd>
+<dt>variable: str, optional</dt><dd><p>Variable to create pseudobulks by. It must ve a column in <cite>scplus_obj.metadata_cell</cite></p>
+</dd>
+<dt>cistromes_key: str, optional</dt><dd><p>Key to store where cistromes AUC values are stored. Cistromes AUC will retrieved from 
+<cite>scplus_obj.uns[‘Cistromes_AUC’][cistromes_key]</cite> and the pseudobulk matrix will be stored
+at <cite>scplus_obj.uns[‘Pseudobulk’][‘Cistromes_AUC’][variable][cistromes_key]</cite> and <cite>scplus_obj.uns[‘Pseudobulk’][variable][‘Expression’]</cite></p>
+</dd>
+<dt>nr_cells<span class="classifier">int, optional</span></dt><dd><p>Number of cells to include per pseudobulk.</p>
+</dd>
+<dt>nr_pseudobulks: int, optional</dt><dd><p>Number of pseudobulks to generate per class</p>
+</dd>
+<dt>seed: int</dt><dd><p>Seed to ensure that pseudobulk are reproducible.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.cistromes.TF_cistrome_correlation">
+<span id="tf-cistrome-correlation"></span><h3>TF_cistrome_correlation<a class="headerlink" href="#module-scenicplus.cistromes.TF_cistrome_correlation" title="Permalink to this headline"></a></h3>
+<p>Get correlation between gene expression and cistrome accessibility</p>
+<div class="section" id="id4">
+<h4>Parameters<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>scplus_obj: <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with pseudobulk matrices (<cite>scplus_obj.uns[‘Pseudobulk’]</cite>)</p>
+</dd>
+<dt>variable: str, optional</dt><dd><p>Variable used to create the pseudobulks. Must be a key in <cite>scplus_obj.uns[‘Pseudobulk’]</cite>.
+Only required if use_pseudobulk is False.</p>
+</dd>
+<dt>use_pseudobulk: bool, optional</dt><dd><p>Whether to use pseudobulk matrix or actual values.</p>
+</dd>
+<dt>cistromes_key: str, optional</dt><dd><p>Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from
+<cite>scplus_obj.uns[‘Pseudobulk’][variable][‘Cistromes_AUC’][cistromes_key]</cite> and 
+gene expression from <cite>scplus_obj.uns[‘Pseudobulk’][variable][‘Expression’]</cite>.</p>
+</dd>
+<dt>out_key<span class="classifier">str, optional</span></dt><dd><p>Ouput key. Correlations will be stored at <cite>scplus_obj.uns[‘TF_cistrome_correlation’][variable][out_key]</cite>.</p>
+</dd>
+<dt>subset: List, optional</dt><dd><p>Subset of cells to be used to calculate correlations. Default: None (All)</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.cistromes.prune_plot">
+<span id="prune-plot"></span><h3>prune_plot<a class="headerlink" href="#module-scenicplus.cistromes.prune_plot" title="Permalink to this headline"></a></h3>
+<p>Plot cistrome accessibility versus  TF expression</p>
+<div class="section" id="id5">
+<h4>Parameters<a class="headerlink" href="#id5" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>scplus_obj: <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object.</p>
+</dd>
+<dt>cistrome_name: str, optional</dt><dd><p>Cistrome to plot. The TF name (or followed by extended) is enough to quert.</p>
+</dd>
+<dt>pseudobulk_variable: str, optional</dt><dd><p>Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from
+<cite>scplus_obj.uns[‘Pseudobulk’][pseudobulk_variable][‘Cistromes_AUC’][cistromes_key]</cite> and 
+gene expression from <cite>scplus_obj.uns[‘Pseudobulk’][pseudobulk_variable][‘Expression’]</cite>.</p>
+</dd>
+<dt>cistromes_key: str, optional</dt><dd><p>Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from
+<cite>scplus_obj.uns[‘Pseudobulk’][pseudobulk_variable][‘Cistromes_AUC’][cistromes_key]</cite> and 
+gene expression from <cite>scplus_obj.uns[‘Pseudobulk’][pseudobulk_variable][‘Expression’]</cite>.</p>
+</dd>
+<dt>use_pseudobulk: bool, optional</dt><dd><p>Whether to use pseudobulk matrix or actual values.</p>
+</dd>
+<dt>show_dot_plot: bool, optional</dt><dd><p>Whether to show dots in plot</p>
+</dd>
+<dt>show_line_plot: bool, optional</dt><dd><p>Whether to show line fitting to plot</p>
+</dd>
+<dt>variable: str, optional</dt><dd><p>Variable to color plot by. Must be a columns in <cite>scplus_obj.metadata_cell</cite>.</p>
+</dd>
+<dt>color_dict: Dict, optional</dt><dd><p>Color dictionary to specify colors</p>
+</dd>
+<dt>subset: List, optional</dt><dd><p>Subset of pseudobulks/cells to use</p>
+</dd>
+<dt>seed: int</dt><dd><p>Seed to ensure that pseudobulk are reproducible.</p>
+</dd>
+<dt>ax: plt.axes, optional</dt><dd><p>matplotlib axes to plot to.</p>
+</dd>
+<dt><a href="#id6"><span class="problematic" id="id7">**</span></a>kwargs:</dt><dd><p>Parameters for seaborn plotting.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section" id="scenicplus-class">
+<h2>scenicplus_class<a class="headerlink" href="#scenicplus-class" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-scenicplus.scenicplus_class.SCENICPLUS">
+<span id="scenicplus"></span><h3>SCENICPLUS<a class="headerlink" href="#module-scenicplus.scenicplus_class.SCENICPLUS" title="Permalink to this headline"></a></h3>
+<p>An object containing: gene expression, chromatin accessbility and motif enrichment data.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> stores the data matrices <code class="xref py py-attr docutils literal notranslate"><span class="pre">X_ACC</span></code> (chromatin accessbility) and
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">X_EXP</span></code> (gene expression) together with region annotation <code class="xref py py-attr docutils literal notranslate"><span class="pre">metadata_regions</span></code>, gene annotation <code class="xref py py-attr docutils literal notranslate"><span class="pre">metadata_genes</span></code>,
+cell annotation <code class="xref py py-attr docutils literal notranslate"><span class="pre">metadata_cell</span></code> and motif enrichment data <code class="xref py py-attr docutils literal notranslate"><span class="pre">menr</span></code>.</p>
+<div class="section" id="id8">
+<h4>Parameters<a class="headerlink" href="#id8" title="Permalink to this headline"></a></h4>
+<dl>
+<dt>X_ACC</dt><dd><p>A #regions x #cells data matrix</p>
+</dd>
+<dt>X_EXP</dt><dd><p>A #cells x #genes data matrix</p>
+</dd>
+<dt>metadata_regions</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing region metadata annotation of length #regions</p>
+</dd>
+<dt>metadata_genes</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing gene metadata annotation of length #genes</p>
+</dd>
+<dt>metadata_cell</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing cell metadata annotation of lenght #cells</p>
+</dd>
+<dt>menr</dt><dd><p>A Dict containing motif enrichment results for topics of differentially accessbile regions (DARs), generate by pycistarget.
+Should take the form {‘region_set_name1’: {region_set1: result, ‘region_set2’: result},</p>
+<blockquote>
+<div><p>‘region_set_name2’: {‘region_set1’: result, ‘region_set2’: result},
+‘topic’: {‘topic1’: result, ‘topic2’: result}}</p>
+</div></blockquote>
+<p>region set names, which aren’t topics, should be columns in the <code class="xref py py-attr docutils literal notranslate"><span class="pre">metadata_cell</span></code> dataframe</p>
+</dd>
+<dt>dr_cell</dt><dd><p>A Dict containing dimmensional reduction coordinates of cells.</p>
+</dd>
+<dt>dr_region</dt><dd><p>A Dict containing dimmensional reduction coordinates of regions.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="properties">
+<h4>Properties<a class="headerlink" href="#properties" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>n_cells</dt><dd><p>Returns number of cells.</p>
+</dd>
+<dt>n_genes</dt><dd><p>Returns number of genes.</p>
+</dd>
+<dt>n_regions</dt><dd><p>Returns number of regions.</p>
+</dd>
+<dt>cell_names</dt><dd><p>Returns cell names</p>
+</dd>
+<dt>gene_names</dt><dd><p>Returns gene names</p>
+</dd>
+<dt>region_names</dt><dd><p>Returns region names</p>
+</dd>
+<dt>to_df</dt><dd><p>Returns a <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFame</span></code> containing gene expression or region accessbility data</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="functions">
+<h4>Functions<a class="headerlink" href="#functions" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>add_cell_data</dt><dd><p>Add cell metadata</p>
+</dd>
+<dt>add_region_data</dt><dd><p>Add region metadata</p>
+</dd>
+<dt>add_gene_data</dt><dd><p>Add gene metadata</p>
+</dd>
+<dt>subset </dt><dd><p>Subset object</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.scenicplus_class.create_SCENICPLUS_object">
+<span id="create-scenicplus-object"></span><h3>create_SCENICPLUS_object<a class="headerlink" href="#module-scenicplus.scenicplus_class.create_SCENICPLUS_object" title="Permalink to this headline"></a></h3>
+<p>Function to create instances of <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></p>
+<div class="section" id="id9">
+<h4>Parameters<a class="headerlink" href="#id9" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>GEX_anndata</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">AnnData</span></code> containing gene expression data and metadata.</p>
+</dd>
+<dt>cisTopic_obj</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">pycisTopic.cistopic_class.CistopicObject</span></code> containing chromatin accessibility data and metadata.</p>
+</dd>
+<dt>menr</dt><dd><p>A dict mapping annotations to motif enrichment results</p>
+</dd>
+<dt>multi_ome_mode</dt><dd><p>A boolean specifying wether data is multi-ome (i.e. combined scATAC-seq and scRNA-seq from the same cell) or not
+default: True</p>
+</dd>
+<dt>nr_metacells</dt><dd><p>For non multi_ome_mode, use this number of meta cells to link scRNA-seq and scATAC-seq
+If this is a single integer the same number of metacells will be used for all annotations.
+This can also be a mapping between an annotation and the number of metacells per annotation.
+default: None</p>
+</dd>
+<dt>nr_cells_per_metacells</dt><dd><p>For non multi_ome_mode, use this number of cells per metacell to link scRNA-seq and scATAC-seq.
+If this is a single integer the same number of cells will be used for all annotations.
+This can also be a mapping between an annotation and the number of cells per metacell per annotation.
+default: 10</p>
+</dd>
+<dt>meta_cell_split</dt><dd><p>Character which is used as seperator in metacell names
+default: ‘_’</p>
+</dd>
+<dt>key_to_group_by</dt><dd><p>For non multi_ome_mode, use this cell metadata key to generate metacells from scRNA-seq and scATAC-seq. 
+Key should be common in scRNA-seq and scATAC-seq side
+default: None</p>
+</dd>
+<dt>imputed_acc_obj</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">CistopicImputedFeatures</span></code> containing imputed chromatin accessibility.
+default: None</p>
+</dd>
+<dt>imputed_acc_kwargs</dt><dd><p>Dict with keyword arguments for imputed chromatin accessibility.
+default: {‘scale_factor’: 10**6}</p>
+</dd>
+<dt>normalize_imputed_acc</dt><dd><p>A boolean specifying wether or not to normalize imputed chromatin accessbility.
+default: False</p>
+</dd>
+<dt>normalize_imputed_acc_kwargs</dt><dd><p>Dict with keyword arguments for normalizing imputed accessibility.
+default: {‘scale_factor’: 10 ** 4}</p>
+</dd>
+<dt>cell_metadata</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code> containing extra cell metadata
+default: None</p>
+</dd>
+<dt>region_metadata</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code> containing extra region metadata
+default: None</p>
+</dd>
+<dt>gene_metadata</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code> containing extra gene metadata
+default: None</p>
+</dd>
+<dt>bc_transform_func</dt><dd><p>A function used to transform gene expression barcode layout to chromatin accessbility layout.
+default: None</p>
+</dd>
+<dt>ACC_prefix</dt><dd><p>String prefix to add to cell metadata coming from <a href="#id10"><span class="problematic" id="id11">:param:`cisTopic_obj`</span></a>
+default: “<a href="#id68"><span class="problematic" id="id69">ACC_</span></a>”</p>
+</dd>
+<dt>GEX_prefix</dt><dd><p>String prefix to add to cell metadata coming from <a href="#id12"><span class="problematic" id="id13">:param:`GEX_anndata`</span></a>
+default: “<a href="#id70"><span class="problematic" id="id71">GEX_</span></a>”</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section" id="enhancer-to-gene">
+<h2>enhancer_to_gene<a class="headerlink" href="#enhancer-to-gene" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-scenicplus.enhancer_to_gene.get_search_space">
+<span id="get-search-space"></span><h3>get_search_space<a class="headerlink" href="#module-scenicplus.enhancer_to_gene.get_search_space" title="Permalink to this headline"></a></h3>
+<p>Get search space surrounding genes to calculate enhancer to gene links</p>
+<div class="section" id="id14">
+<h4>Parameters<a class="headerlink" href="#id14" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>SCENICPLUS_obj: SCENICPLUS</dt><dd><p>a <code class="xref py py-class docutils literal notranslate"><span class="pre">pr.SCENICPLUS</span></code>.</p>
+</dd>
+<dt>species: string, optional</dt><dd><p>Name of the species (e.g. hsapiens) on whose reference genome the search space should be calculated. This will be used to retrieve gene annotations from biomart. 
+Annotations can also be manually provided using the parameter [pr_annot]. Default: None</p>
+</dd>
+<dt>assembly: string, optional</dt><dd><p>Name of the assembly (e.g. hg38) of the reference genome on which the search space should be calculated. 
+This will be used to retrieve chromosome sizes from the UCSC genome browser.
+Chromosome sizes can also be manually provided using the parameter [pr_chromsizes]. Default: None</p>
+</dd>
+<dt>pr_annot: pr.PyRanges, optional</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">pr.PyRanges</span></code> containing gene annotation, including Chromosome, Start, End, Strand (as ‘+’ and ‘-‘), Gene name
+and Transcription Start Site. Default: None</p>
+</dd>
+<dt>pr_chromsizes: pr.PyRanges, optional</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">pr.PyRanges</span></code> containing size of each chromosome, containing ‘Chromosome’, ‘Start’ and ‘End’ columns. Default: None</p>
+</dd>
+<dt>predefined_boundaries: pr.PyRanges, optional</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">pr.PyRanges</span></code> containing predefined genomic domain boundaries (e.g. TAD boundaries) to use as boundaries. If 
+given, use_gene_boundaries will be ignored.</p>
+</dd>
+<dt>use_gene_boundaries: bool, optional</dt><dd><p>Whether to use the whole search space or stop when encountering another gene. Default: False</p>
+</dd>
+<dt>upstream: List, optional</dt><dd><p>Search space upstream. The minimum (first position) means that even if there is a gene right next to it these
+bp will be taken. The second position indicates the maximum distance. Default: [1000, 100000]</p>
+</dd>
+<dt>downstream: List, optional</dt><dd><p>Search space downstream. The minimum (first position) means that even if there is a gene right next to it these
+bp will be taken. The second position indicates the maximum distance. Default: [1000, 100000]</p>
+</dd>
+<dt>extend_tss: list, optional</dt><dd><p>Space around the TSS consider as promoter. Default: [10,10]</p>
+</dd>
+<dt>remove_promoters: bool, optional</dt><dd><p>Whether to remove promoters from the search space or not. Default: False</p>
+</dd>
+<dt>implode_entries: bool, optional</dt><dd><p>When a gene has multiple start/end sites it has multiple distances and gene width. 
+If this parameter is set to True these multiple entries per region and gene will be put in a list, generating a single entry.
+If this parameter is set to False these multiple entries will be kept.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id15">
+<h4>Return<a class="headerlink" href="#id15" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>pd.DataFrame</dt><dd><p>A data frame containing regions in the search space for each gene</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.enhancer_to_gene.calculate_regions_to_genes_relationships">
+<span id="calculate-regions-to-genes-relationships"></span><h3>calculate_regions_to_genes_relationships<a class="headerlink" href="#module-scenicplus.enhancer_to_gene.calculate_regions_to_genes_relationships" title="Permalink to this headline"></a></h3>
+<p>Wrapper function for score_regions_to_genes.
+Calculates region to gene relationships using regression machine learning and correlation
+:param SCENICPLUS_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data
+:param search space: pandas data frame containing regions (stored in column ‘Name’) in the search space for each gene (stored in column ‘Gene’)
+:param genes: list of genes for which to calculate region gene scores
+:param importance_scoring_method: method used to score region to gene importances.</p>
+<blockquote>
+<div><p>Available regression analysis are: ‘RF’ (Random Forrest regression), ‘ET’ (Extra Trees regression), ‘GBM’ (Gradient Boostin regression).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">param importance_scoring_kwargs</dt>
+<dd class="field-odd"><p>arguments to pass to the importance scoring function</p>
+</dd>
+<dt class="field-even">param correlation_scoring_method</dt>
+<dd class="field-even"><p>method used to calculate region to gene correlations
+Available correlation analysis are: ‘PR’ (pearson correlation), ‘SR’ (spearman correlation).</p>
+</dd>
+<dt class="field-odd">param ray_n_cpu</dt>
+<dd class="field-odd"><p>num of cpus to use for ray multi-processing. Does not use ray when set to None</p>
+</dd>
+<dt class="field-even">returns a pandas dataframe with columns</dt>
+<dd class="field-even"><p>target, region, importance, rho</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="gsea">
+<h2>gsea<a class="headerlink" href="#gsea" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-scenicplus.gsea.run_gsea">
+<span id="run-gsea"></span><h3>run_gsea<a class="headerlink" href="#module-scenicplus.gsea.run_gsea" title="Permalink to this headline"></a></h3>
+<p>Calculates gene set enrichment score (and estimates its significance) and leading edge for the gene set in the ranked gene list using gseapy prerank.</p>
+<div class="section" id="id16">
+<h4>Parameters<a class="headerlink" href="#id16" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>ranked_gene_list: pd.Series</dt><dd><p>A :class: <cite>pd.Series</cite> containing the gene scores, with gene names as index.</p>
+</dd>
+<dt>gene_set: </dt><dd><p>A list-like object containing a set of genes which will be tested for enrichment in the top / bottom of the sorted list of genes</p>
+</dd>
+<dt>n_perm: int</dt><dd><p>Number of permutations to use to estimate the empirical p value.</p>
+</dd>
+<dt>return_res: bool</dt><dd><p>Wether or not to return the GSEAplot object. This object can then be visalised by applying the method .add_axes()</p>
+</dd>
+<dt>name: str</dt><dd><p>Name of the gene set, used as plot title.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="returns">
+<h4>Returns<a class="headerlink" href="#returns" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>NES, pval, LE_genes, (res)</dt><dd><p>Normalized enrichment score (NES), estimated p value (pval), the genes in the leading edge (LE_genes) (and the values needed to plot the random walk (res))</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.gsea.run_enrichr">
+<span id="run-enrichr"></span><h3>run_enrichr<a class="headerlink" href="#module-scenicplus.gsea.run_enrichr" title="Permalink to this headline"></a></h3>
+<p>Calculates enrichment score (and estimates its significance) and leading edge for the gene set in the ranked gene list ussing gseapy enrichr.</p>
+<div class="section" id="id17">
+<h4>Parameters<a class="headerlink" href="#id17" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>ranked_gene_list: np.array</dt><dd><p>A :class: <cite>np.array</cite> containing a sorted list of genes (highest score first).</p>
+</dd>
+<dt>gene_set: </dt><dd><p>A list-like object containing a set of genes which will be tested for enrichment in the top / bottem of the sorted list of genes</p>
+</dd>
+<dt>weights: np.array</dt><dd><p>A :class: <cite>np.array</cite> containing weights associated with each gene in ranked_gene_list. Default is None (i.e. each gene is weight equally).
+See: Subramanian et al. 2005 PNAS for more details.</p>
+</dd>
+<dt>p: float</dt><dd><p>A floating point value which will be used as exponent on the weights. Default is 0 (i.e. each gene is weight equally).
+See: Subramanian et al. 2005 PNAS for more details.</p>
+</dd>
+<dt>n_perm: int</dt><dd><p>Number of permutations to use to estimate the empirical p value.</p>
+</dd>
+<dt>return_res: bool</dt><dd><p>Wether or not to return the values to plot the random walk.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id18">
+<h4>Returns<a class="headerlink" href="#id18" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>NES, pval, LE_genes, (res)</dt><dd><p>Normalized enrichment score (NES), estimated p value (pval), the genes in the leading edge (LE_genes) (and the values needed to plot the random walk (res))</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section" id="tf-to-gene">
+<h2>TF_to_gene<a class="headerlink" href="#tf-to-gene" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-scenicplus.TF_to_gene.load_TF2G_adj_from_file">
+<span id="load-tf2g-adj-from-file"></span><h3>load_TF2G_adj_from_file<a class="headerlink" href="#module-scenicplus.TF_to_gene.load_TF2G_adj_from_file" title="Permalink to this headline"></a></h3>
+<p>Function to load TF2G adjacencies from file</p>
+<div class="section" id="id19">
+<h4>Parameters<a class="headerlink" href="#id19" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of <a class="reference internal" href="#module-scenicplus.scenicplus_class.SCENICPLUS" title="scenicplus.scenicplus_class.SCENICPLUS"><code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></a></p>
+</dd>
+<dt>f_adj</dt><dd><p>File path to TF2G adjacencies matrix</p>
+</dd>
+<dt>inplace</dt><dd><p>Boolean specifying wether or not to store adjacencies matrix in <a href="#id20"><span class="problematic" id="id21">:param:`SCENICPLUS_obj`</span></a> under slot .uns[key].
+Default: True</p>
+</dd>
+<dt>key_added</dt><dd><p>String specifying where in the .uns slot to store the adjacencies matrix in <a href="#id22"><span class="problematic" id="id23">:param:`SCENICPLUS_obj`</span></a>
+Default: “TF2G_adj”</p>
+</dd>
+<dt>rho_threshold</dt><dd><p>A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
+Default: 0.03</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.TF_to_gene.add_correlation">
+<span id="add-correlation"></span><h3>add_correlation<a class="headerlink" href="#module-scenicplus.TF_to_gene.add_correlation" title="Permalink to this headline"></a></h3>
+<p>Add correlation in expression levels between target and factor.</p>
+<div class="section" id="id24">
+<h4>Parameters<a class="headerlink" href="#id24" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>adjacencies: pd.DataFrame</dt><dd><p>The dataframe with the TF-target links.</p>
+</dd>
+<dt>ex_mtx: pd.DataFrame</dt><dd><p>The expression matrix (n_cells x n_genes).</p>
+</dd>
+<dt>rho_threshold: float</dt><dd><p>The threshold on the correlation to decide if a target gene is activated
+(rho &gt; <cite>rho_threshold</cite>) or repressed (rho &lt; -<cite>rho_threshold</cite>).</p>
+</dd>
+<dt>mask_dropouts: boolean</dt><dd><p>Do not use cells in which either the expression of the TF or the target gene is 0 when
+calculating the correlation between a TF-target pair.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id25">
+<h4>Returns<a class="headerlink" href="#id25" title="Permalink to this headline"></a></h4>
+<blockquote>
+<div><p>The adjacencies dataframe with an extra column.</p>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="module-scenicplus.TF_to_gene.calculate_TFs_to_genes_relationships">
+<span id="calculate-tfs-to-genes-relationships"></span><h3>calculate_TFs_to_genes_relationships<a class="headerlink" href="#module-scenicplus.TF_to_gene.calculate_TFs_to_genes_relationships" title="Permalink to this headline"></a></h3>
+<p>A function to calculate TF to gene relationships using arboreto and correlation</p>
+<div class="section" id="id26">
+<h4>Parameters<a class="headerlink" href="#id26" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of <a class="reference internal" href="#module-scenicplus.scenicplus_class.SCENICPLUS" title="scenicplus.scenicplus_class.SCENICPLUS"><code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code></a></p>
+</dd>
+<dt>tf_file</dt><dd><p>Path to a file specifying with genes are TFs</p>
+</dd>
+<dt>method</dt><dd><p>Whether to use Gradient Boosting Machines (GBM) or random forest (RF)</p>
+</dd>
+<dt>ray_n_cpu</dt><dd><p>Number of cpus to use</p>
+</dd>
+<dt>key</dt><dd><p>String specifying where in the .uns slot to store the adjacencies matrix in <a href="#id27"><span class="problematic" id="id28">:param:`SCENICPLUS_obj`</span></a>
+default: “TF2G_adj”</p>
+</dd>
+<dt><a href="#id29"><span class="problematic" id="id30">**</span></a>kwargs</dt><dd><p>Parameters to pass to ray.init</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section" id="grn-builder">
+<h2>grn_builder<a class="headerlink" href="#grn-builder" title="Permalink to this headline"></a></h2>
+<div class="section" id="gsea-approach">
+<h3>gsea_approach<a class="headerlink" href="#gsea-approach" title="Permalink to this headline"></a></h3>
+<div class="section" id="module-scenicplus.grn_builder.gsea_approach.build_grn">
+<span id="build-grn"></span><h4>build_grn<a class="headerlink" href="#module-scenicplus.grn_builder.gsea_approach.build_grn" title="Permalink to this headline"></a></h4>
+<p>Build GRN using GSEA approach</p>
+<div class="section" id="id31">
+<h5>Parameters<a class="headerlink" href="#id31" title="Permalink to this headline"></a></h5>
+<dl>
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of :class: <cite>~scenicplus.scenicplus_class.SCENICPLUS</cite></p>
+</dd>
+<dt>adj_key</dt><dd><p>Key under which to find TF2G adjacencies
+default: “TF2G_adj”</p>
+</dd>
+<dt>region_to_gene_key</dt><dd><p>Key under which to find R2G adjacnecies
+default: “region_to_gene”</p>
+</dd>
+<dt>gsea_n_perm</dt><dd><p>Int specifying number of gsea permutations to run for p value calculation
+default: 1000</p>
+</dd>
+<dt>quantiles</dt><dd><p>A tuple specifying the quantiles used to binarize region-to-gene links
+Default: (0.85, 0.90)</p>
+</dd>
+<dt>top_n_regionTogenes_per_gene</dt><dd><p>A tuple specifying the top n region-to-gene links to take PER GENE in order to binarize region-to-gene links.
+Default: (5, 10, 15)</p>
+</dd>
+<dt>top_n_regionTogenes_per_region</dt><dd><p>A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
+Default: ()</p>
+</dd>
+<dt>binarize_using_basc:</dt><dd><p>A boolean specifying wether or not to binarize region-to-gene links using BASC.
+See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks.</p>
+<blockquote>
+<div><p>IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.</p>
+</div></blockquote>
+<p>Defailt: False</p>
+</dd>
+<dt>min_regions_per_gene:</dt><dd><p>An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
+Default: 0</p>
+</dd>
+<dt>rho_dichotomize:</dt><dd><p>A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.
+default: True</p>
+</dd>
+<dt>keep_only_activating:</dt><dd><p>A boolean specifying wether or not to only retain region-to-gene links with a positive correlation coefficient.
+default: False</p>
+</dd>
+<dt>rho_threshold:</dt><dd><p>A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
+default: 0.03</p>
+</dd>
+<dt>NES_thr</dt><dd><p>Float specifying threshold on gsea NES value
+defaut: 0</p>
+</dd>
+<dt>adj_pval_thr</dt><dd><p>Float specifying threshold on gsea adjusted p value
+default: 0.05</p>
+</dd>
+<dt>min_target_genes</dt><dd><p>Int specifying minumum number of target genes in leading edge
+default: 5</p>
+</dd>
+<dt>inplace</dt><dd><p>Boolean specifying wether to store results in <a href="#id32"><span class="problematic" id="id33">:param:`SCENICPLUS_obj`</span></a>
+default: True</p>
+</dd>
+<dt>key_added</dt><dd><p>Key specifying in under which key to store result in <a href="#id34"><span class="problematic" id="id35">:param:`SCENICPLUS_obj`</span></a>.uns
+default: “eRegulons”</p>
+</dd>
+<dt>ray_n_cpu</dt><dd><p>Int specifying number of cores to use
+default: None</p>
+</dd>
+<dt>merge_eRegulons</dt><dd><p>Boolean specifying wether to merge eRegulons form the same TF but different thresholding approaches
+default: True</p>
+</dd>
+<dt>keep_extended_motif_annot</dt><dd><p>A boolean specifying wether or not keep extended motif annotations for further analysis.
+default: False</p>
+</dd>
+<dt><a href="#id36"><span class="problematic" id="id37">**</span></a>kwargs</dt><dd><p>Additional keyword arguments passed to <cite>ray.init</cite></p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id38">
+<h5>Returns<a class="headerlink" href="#id38" title="Permalink to this headline"></a></h5>
+<p>None if inplace is True else list of <a class="reference internal" href="#module-scenicplus.grn_builder.modules.eRegulon" title="scenicplus.grn_builder.modules.eRegulon"><code class="xref py py-class docutils literal notranslate"><span class="pre">eRegulon</span></code></a> instances.</p>
+</div>
+</div>
+</div>
+<div class="section" id="modules">
+<h3>modules<a class="headerlink" href="#modules" title="Permalink to this headline"></a></h3>
+<div class="section" id="module-scenicplus.grn_builder.modules.eRegulon">
+<span id="eregulon"></span><h4>eRegulon<a class="headerlink" href="#module-scenicplus.grn_builder.modules.eRegulon" title="Permalink to this headline"></a></h4>
+<p>An eRegulon is a gene signature that defines the target regions and genes of a Transcription Factor (TF).</p>
+<div class="section" id="id39">
+<h5>Parameters<a class="headerlink" href="#id39" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>transcription_factor</dt><dd><p>A string specifying the transcription factor of the eRegulon</p>
+</dd>
+<dt>cistrome_name</dt><dd><p>A string specifying the cistrome name</p>
+</dd>
+<dt>is_extended</dt><dd><p>A boolean specifying wether the cistromes comes from an extended annotation or not</p>
+</dd>
+<dt>regions2genes</dt><dd><p>A list of named tuples containing information on region-to-gene links 
+(region, gene, importance score, correlation coefficient)</p>
+</dd>
+<dt>context</dt><dd><p>The context in which this eRegulon was created
+(this can be different threshold, activating / repressing, …)
+default: frozenset()</p>
+</dd>
+<dt>in_leading_edge</dt><dd><p>A list specifying which genes are in the leading edge of a gsea analysis.
+default: None</p>
+</dd>
+<dt>gsea_enrichment_score</dt><dd><p>A float containing the enrichment score of a gsea analysis.
+default: None</p>
+</dd>
+<dt>gsea_pval</dt><dd><p>A float containing the p value of a gsea analysis.
+default: None</p>
+</dd>
+<dt>gsea_adj_pval</dt><dd><p>A float containing an adjusted p value of a gsea analysis.
+default: None</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id40">
+<h5>Properties<a class="headerlink" href="#id40" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>target_genes</dt><dd><p>returns a unique list of target genes.</p>
+</dd>
+<dt>target_regions</dt><dd><p>returns a unique list of target regions.</p>
+</dd>
+<dt>n_target_genes</dt><dd><p>returns an int containing the number of unique target genes.</p>
+</dd>
+<dt>n_target_regions</dt><dd><p>returns an int containing the number of unique target regions.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id41">
+<h5>Functions<a class="headerlink" href="#id41" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>subset_leading_edge</dt><dd><p>subsets eRegulon based on genes in leading edge specified by <a href="#id42"><span class="problematic" id="id43">:param:`in_leading_edge`</span></a></p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="scenicplus.grn_builder.modules.eRegulon.n_target_genes">
+<code class="sig-prename descclassname">scenicplus.grn_builder.modules.eRegulon.</code><code class="sig-name descname">n_target_genes</code><a class="headerlink" href="#scenicplus.grn_builder.modules.eRegulon.n_target_genes" title="Permalink to this definition"></a></dt>
+<dd><p>Return number of target genes.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="scenicplus.grn_builder.modules.eRegulon.n_target_regions">
+<code class="sig-prename descclassname">scenicplus.grn_builder.modules.eRegulon.</code><code class="sig-name descname">n_target_regions</code><a class="headerlink" href="#scenicplus.grn_builder.modules.eRegulon.n_target_regions" title="Permalink to this definition"></a></dt>
+<dd><p>Return number of target regions.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="scenicplus.grn_builder.modules.eRegulon.target_genes">
+<code class="sig-prename descclassname">scenicplus.grn_builder.modules.eRegulon.</code><code class="sig-name descname">target_genes</code><a class="headerlink" href="#scenicplus.grn_builder.modules.eRegulon.target_genes" title="Permalink to this definition"></a></dt>
+<dd><p>Return target genes of this eRegulon.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="scenicplus.grn_builder.modules.eRegulon.target_regions">
+<code class="sig-prename descclassname">scenicplus.grn_builder.modules.eRegulon.</code><code class="sig-name descname">target_regions</code><a class="headerlink" href="#scenicplus.grn_builder.modules.eRegulon.target_regions" title="Permalink to this definition"></a></dt>
+<dd><p>Return target regions of this eRegulon.</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="module-scenicplus.grn_builder.modules.create_emodules">
+<span id="create-emodules"></span><h4>create_emodules<a class="headerlink" href="#module-scenicplus.grn_builder.modules.create_emodules" title="Permalink to this headline"></a></h4>
+<p>A function to create e_modules of :class: ~scenicplus.grn_builder.modules.eRegulon. 
+This function will binarize region-to-gene links using various parameters and couples these links to a TF
+based on infromation in the motif enrichment (menr) field of the <code class="xref py py-attr docutils literal notranslate"><span class="pre">SCENICPLUS_obj</span></code>.</p>
+<div class="section" id="id44">
+<h5>Parameters<a class="headerlink" href="#id44" title="Permalink to this headline"></a></h5>
+<dl>
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of :class: <cite>~scenicplus.scenicplus_class.SCENICPLUS</cite>, containing motif enrichment data under the slot .menr.</p>
+</dd>
+<dt>region_to_gene_key</dt><dd><p>A key specifying under which to find region-to-gene links in the .uns slot of :param: <cite>SCENICPLUS_obj</cite>. 
+Default: “region_to_gene”</p>
+</dd>
+<dt>cistromes_key</dt><dd><p>A key specifying which cistromes to use in .uns[‘Cistromes’] slot of :param: <cite>SCENICPLUS_obj</cite></p>
+</dd>
+<dt>quantiles</dt><dd><p>A tuple specifying the quantiles used to binarize region-to-gene links
+Default: (0.85, 0.90)</p>
+</dd>
+<dt>top_n_regionTogenes_per_gene</dt><dd><p>A tuple specifying the top n region-to-gene links to take PER GENE in order to binarize region-to-gene links.
+Default: (5, 10, 15)</p>
+</dd>
+<dt>top_n_regionTogenes_per_region</dt><dd><p>A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
+Default: ()</p>
+</dd>
+<dt>binarize_using_basc:</dt><dd><p>A boolean specifying wether or not to binarize region-to-gene links using BASC.
+See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks.</p>
+<blockquote>
+<div><p>IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.</p>
+</div></blockquote>
+<p>Defailt: False</p>
+</dd>
+<dt>min_regions_per_gene:</dt><dd><p>An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
+Default: 0</p>
+</dd>
+<dt>rho_dichotomize:</dt><dd><p>A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.
+default: True</p>
+</dd>
+<dt>keep_only_activating:</dt><dd><p>A boolean specifying wether or not to only retain region-to-gene links with a positive correlation coefficient.
+default: False</p>
+</dd>
+<dt>rho_threshold:</dt><dd><p>A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
+default: 0.03</p>
+</dd>
+<dt>keep_extended_motif_annot</dt><dd><p>A boolean specifying wether or not keep extended motif annotations for further analysis.
+default: False</p>
+</dd>
+<dt>ray_n_cpu</dt><dd><p>An integer specifying the number of parallel cores to use to binarize region to gene links
+default: None (i.e. run using single core)</p>
+</dd>
+<dt><a href="#id45"><span class="problematic" id="id46">**</span></a>kwargs</dt><dd><p>Extra keyword arguments passed to ray.init function</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id47">
+<h5>Returns<a class="headerlink" href="#id47" title="Permalink to this headline"></a></h5>
+<p>A set of relevant TFs, A list of :class: <cite>~scenicplus.grn_builder.modules.eRegulon.</cite></p>
+</div>
+</div>
+<div class="section" id="module-scenicplus.grn_builder.modules.merge_emodules">
+<span id="merge-emodules"></span><h4>merge_emodules<a class="headerlink" href="#module-scenicplus.grn_builder.modules.merge_emodules" title="Permalink to this headline"></a></h4>
+<p>Function to merge list of <code class="xref py py-class docutils literal notranslate"><span class="pre">eRegulon</span></code></p>
+<div class="section" id="id48">
+<h5>Parameters<a class="headerlink" href="#id48" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of :class: <cite>~scenicplus.scenicplus_class.SCENICPLUS</cite>, containing eRegulons in slot .uns.
+default: None</p>
+</dd>
+<dt>e_modules</dt><dd><p>A list of <code class="xref py py-class docutils literal notranslate"><span class="pre">eRegulon</span></code>.
+default: None</p>
+</dd>
+<dt>e_modules_key</dt><dd><p>A string key specifying where to find a list of <code class="xref py py-class docutils literal notranslate"><span class="pre">eRegulon</span></code> under .uns slot of <a href="#id49"><span class="problematic" id="id50">:param:`SCENICPLUS_obj`</span></a>.
+default: “eRegulons”</p>
+</dd>
+<dt>rho_dichotomize</dt><dd><p>A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.
+default: True</p>
+</dd>
+<dt>key_to_add</dt><dd><p>A string key specifying where to store the list of merged <code class="xref py py-class docutils literal notranslate"><span class="pre">eRegulon</span></code> in the .uns slot of <a href="#id51"><span class="problematic" id="id52">:param:`SCENICPLUS_obj`</span></a>.</p>
+</dd>
+<dt>inplace</dt><dd><p>A boolean if set to True update the <a href="#id53"><span class="problematic" id="id54">:param:`SCENICPLUS_obj`</span></a> otherwise return list of merged <code class="xref py py-class docutils literal notranslate"><span class="pre">eRegulon</span></code></p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="plotting">
+<h2>plotting<a class="headerlink" href="#plotting" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-scenicplus.plotting.coverageplot.coverage_plot">
+<span id="coverage-plot"></span><h3>coverage_plot<a class="headerlink" href="#module-scenicplus.plotting.coverageplot.coverage_plot" title="Permalink to this headline"></a></h3>
+<p>Inspired by: <a class="reference external" href="https://satijalab.org/signac/reference/coverageplot">https://satijalab.org/signac/reference/coverageplot</a></p>
+<p>Generates a figure showing chromatin accessibility coverage tracks, gene expression violin plots and region to gene interactions.</p>
+<div class="section" id="id55">
+<h4>Parameters<a class="headerlink" href="#id55" title="Permalink to this headline"></a></h4>
+<dl class="simple">
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of class <cite>~scenicplus.scenicplus_class.SCENICPLUS</cite>.</p>
+</dd>
+<dt>bw_dict</dt><dd><p>A dict containing celltype annotations/cell groups as keys and paths to bigwig files as values.</p>
+</dd>
+<dt>region</dt><dd><p>A string specifying the region of interest, in chr:start-end format.</p>
+</dd>
+<dt>genes</dt><dd><p>A list or string specifying for which gene(s) to plot gene expression violin plots.
+default: None</p>
+</dd>
+<dt>gene_height</dt><dd><p>An int specifying the size of non-exon parts of a gene (shown underneath the coverage plot).
+default: 1</p>
+</dd>
+<dt>exon_height</dt><dd><p>An int specifying the size of nexon parts of a gene (shown underneath the coverage plot).
+default: 2</p>
+</dd>
+<dt>meta_data_key</dt><dd><p>A key specifying were to find annotations corresponding to the keys in <cite>bw_dict</cite> in <cite>SCENICPLUS_obj.metadata_cell</cite>
+default: None</p>
+</dd>
+<dt>pr_consensus_bed</dt><dd><p>An instance of class <cite>pyranges.PyRanges</cite> containing consensus peaks. Names of these peaks should correspond to annotations.
+default: None</p>
+</dd>
+<dt>region_bed_height</dt><dd><p>An int specifying with which height to draw lines corresponding to regions in <cite>pr_consensus_bed</cite>
+default: 1</p>
+</dd>
+<dt>pr_gtf</dt><dd><p>An instance of class <cite>pyranges.PyRanges</cite> containing gtf-formatted information about gene structure.
+default: None</p>
+</dd>
+<dt>pr_interact</dt><dd><p>An instance of class <cite>pyranges.PyRanges</cite> containing region to gene link information in ucsc interact format (use <cite>scenicplus.utils.get_interaction_pr</cite> to create such an object).
+default: None</p>
+</dd>
+<dt>bw_ymax</dt><dd><p>A float specifying the maximum height at which to draw coverage plots.
+default: None</p>
+</dd>
+<dt>color_dict</dt><dd><p>A dict specifying colors for each key in <cite>bw_dict</cite>.
+default: None</p>
+</dd>
+<dt>cmap</dt><dd><p>A string specifying a <cite>matplotlib.cm</cite> colormap to use for coloring coverage plots.
+default: ‘tab20’</p>
+</dd>
+<dt>plot_order</dt><dd><p>A list specifying the order to use for plotting coverage plots and violin plots.
+default: None</p>
+</dd>
+<dt>figsize</dt><dd><p>A tuple specifying the fig size/
+default: (6, 8)</p>
+</dd>
+<dt>fontsize_dict</dt><dd><p>A dictionary specifying the fontsize of various labels in the plot.
+default: {‘bigwig_label’: 9, ‘gene_label’: 9, ‘violinplots_xlabel’: 9, ‘title’: 12, ‘bigwig_tick_label’: 5}</p>
+</dd>
+<dt>gene_label_offset</dt><dd><p>The y-offset of the label underneath each gene.
+default: 3</p>
+</dd>
+<dt>arc_rad</dt><dd><p>The amount of radians the region-to-gene arc should be bend.
+default: 0.5</p>
+</dd>
+<dt>arc_lw</dt><dd><p>The linewidth of the region-to-gene arcs.
+default: 1</p>
+</dd>
+<dt>cmap_violinplots</dt><dd><p>A string specifying a <cite>matplotlib.cm</cite> colormap to use for coloring violinplots. 
+default: ‘Greys’</p>
+</dd>
+<dt>violinplots_means_color</dt><dd><p>A string specifying which color to use to indicate the mean value in violinplots.
+default: ‘black’</p>
+</dd>
+<dt>violinplots_edge_color</dt><dd><p>A string specifying which color to use for the edge of the violinplots.
+default: ‘black’</p>
+</dd>
+<dt>violoinplots_alpha</dt><dd><p>The alpha value of the violinplots facecolor.
+default: 1</p>
+</dd>
+<dt>width_ratios_dict</dt><dd><p>A dict specifying the ratio in vertical direction each part of the plot should use.
+default: {‘bigwig’: 3, ‘violinplots’: 1}</p>
+</dd>
+<dt>height_ratios_dict</dt><dd><p>A dict specifying the ratio in horizontal direction each part of the plot should use.
+default: {‘bigwig_violin’: 1, ‘genes’: 0.5, ‘arcs’: 5}</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id56">
+<h4>Returns:<a class="headerlink" href="#id56" title="Permalink to this headline"></a></h4>
+<p>plt.Figure</p>
+</div>
+</div>
+<div class="section" id="dotplot">
+<h3>dotplot<a class="headerlink" href="#dotplot" title="Permalink to this headline"></a></h3>
+<div class="section" id="module-scenicplus.plotting.dotplot.generate_dotplot_df_motif_enrichment">
+<span id="generate-dotplot-df-motif-enrichment"></span><h4>generate_dotplot_df_motif_enrichment<a class="headerlink" href="#module-scenicplus.plotting.dotplot.generate_dotplot_df_motif_enrichment" title="Permalink to this headline"></a></h4>
+<p>Function to generate dotplot dataframe from motif enrichment results</p>
+<div class="section" id="id57">
+<h5>Parameters<a class="headerlink" href="#id57" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>scplus_obj: <cite>class::SCENICPLUS</cite></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with motif enrichment results from pycistarget (<cite>scplus_obj.menr</cite>).</p>
+</dd>
+<dt>enrichment_key: str</dt><dd><p>Key of the motif enrichment result to use.</p>
+</dd>
+<dt>group_variable: str, optional</dt><dd><p>Group variable to use to calculate TF expression per group. Levels of this variable should match with the entries in the
+selected motif enrichment dictionary. Only required if barcode groups is not provided.</p>
+</dd>
+<dt>barcode_groups: Dict, optional</dt><dd><p>A dictionary containing cell barcodes per class to calculate TF expression per group. Keys of the dictionary should match
+the keys in the selected motif enrichment dictionary. Only required if group_variable is not provided.</p>
+</dd>
+<dt>subset: list, optional</dt><dd><p>Subset of classes to use. Default: None (use all)</p>
+</dd>
+<dt>subset_TFs: list, optional</dt><dd><p>List of TFs to use. Default: None (use all)</p>
+</dd>
+<dt>use_pseudobulk: bool, optional</dt><dd><p>Whether to use pseudobulk to calculate gene expression. Only available if there is pseudobulk profiles for group_variable.
+Default: False</p>
+</dd>
+<dt>use_only_direct: bool, optional</dt><dd><p>Whether to only use NES values of directly annotated motifs. Default: False</p>
+</dd>
+<dt>normalize_expression: bool, optional</dt><dd><p>Whether to log(CPM) normalize gene expression. Default: True</p>
+</dd>
+<dt>standardize_expression: bool, optional</dt><dd><p>Wheter to standarize gene expression between o and 1. Default: False</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id58">
+<h5>Returns<a class="headerlink" href="#id58" title="Permalink to this headline"></a></h5>
+<blockquote>
+<div><p>A data frame with enrichment values per TF and cell group to use as input for <cite>dotplot()</cite>.</p>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="module-scenicplus.plotting.dotplot.generate_dotplot_df_cistrome_AUC">
+<span id="generate-dotplot-df-cistrome-auc"></span><h4>generate_dotplot_df_cistrome_AUC<a class="headerlink" href="#module-scenicplus.plotting.dotplot.generate_dotplot_df_cistrome_AUC" title="Permalink to this headline"></a></h4>
+<p>Function to generate dotplot dataframe from cistrome AUC enrichment</p>
+<div class="section" id="id59">
+<h5>Parameters<a class="headerlink" href="#id59" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>scplus_obj: <cite>class::SCENICPLUS</cite></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SCENICPLUS</span></code> object with motif enrichment results from pycistarget (<cite>scplus_obj.menr</cite>).</p>
+</dd>
+<dt>enrichment_key: str</dt><dd><p>Key of the motif enrichment result to use.</p>
+</dd>
+<dt>group_variable: str</dt><dd><p>Group variable to use to calculate TF expression per group. Levels of this variable should match with the entries in the
+selected motif enrichment dictionary.</p>
+</dd>
+<dt>subset: list, optional</dt><dd><p>Subset of classes to use. Default: None (use all)</p>
+</dd>
+<dt>subset_cistromes: list, optional</dt><dd><p>List of cistromes to use. Default: None (use all)</p>
+</dd>
+<dt>use_pseudobulk: bool, optional</dt><dd><p>Whether to use pseudobulk to calculate gene expression. Only available if there is pseudobulk profiles for group_variable.
+Default: False</p>
+</dd>
+<dt>normalize_expression: bool, optional</dt><dd><p>Whether to log(CPM) normalize gene expression. Default: True</p>
+</dd>
+<dt>standardize_expression: bool, optional</dt><dd><p>Wheter to standarize gene expression between o and 1. Default: False</p>
+</dd>
+<dt>standardize_auc: bool, optional</dt><dd><p>Wheter to standarize AUC values between o and 1. Default: False</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="id60">
+<h5>Returns<a class="headerlink" href="#id60" title="Permalink to this headline"></a></h5>
+<blockquote>
+<div><p>A data frame with enrichment values per TF and cell group to use as input for <cite>dotplot()</cite>.</p>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="id61">
+<h4>dotplot<a class="headerlink" href="#id61" title="Permalink to this headline"></a></h4>
+<span class="target" id="module-scenicplus.plotting.dotplot.dotplot"></span><p>Function to generate dotplot</p>
+<div class="section" id="id62">
+<h5>Parameters<a class="headerlink" href="#id62" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>df_dotplot: pd.DataFrame</dt><dd><p>A pd.DataFrame with a column Group and varaibles to use for the dotplot</p>
+</dd>
+<dt>ax: plt.axes</dt><dd><p>An ax object, only require if use_plotly == False.</p>
+</dd>
+<dt>enrichment_variable: str, optional</dt><dd><p>Variable to use for motif/TF enrichment. Default: ‘Cistrome_AUC;</p>
+</dd>
+<dt>region_set_key: str, optional</dt><dd><p>Name of the column where TF/cistromes are. Default: ‘Cistrome’</p>
+</dd>
+<dt>size_var: str, optional</dt><dd><p>Variable in df_dotplot to code the dot size with. Default: ‘Cistrome_AUC’</p>
+</dd>
+<dt>color_var: str, optional</dt><dd><p>Variable in df_dotplot to code the dot color with. Default: ‘Cistrome_AUC’</p>
+</dd>
+<dt>order_group: list, optional</dt><dd><p>Order to plot the groups by. Default: None (given)</p>
+</dd>
+<dt>order_cistromes: list, optional</dt><dd><p>Order to plot the cistromes by. Default: None (given)</p>
+</dd>
+<dt>order_cistromes_by_max: str, optional</dt><dd><p>Variable to order the cistromes with by values in group, to form a diagonal. Default: None</p>
+</dd>
+<dt>cluster: str, optional</dt><dd><p>Whether to cluster cistromes (or TFs)/groups. It will be overwritten if order_cistromes/order_group/order_cistromes_by_max
+are specified.</p>
+</dd>
+<dt>n_clust: int, optional</dt><dd><p>Number of clusters to form if cluster is specified. Default: 2</p>
+</dd>
+<dt>min_point_size: int, optional</dt><dd><p>Minimal point size. Only available with Cistrome AUC values.</p>
+</dd>
+<dt>max_point_size: int, optional</dt><dd><p>Maximum point size. Only available with Cistrome AUC values.</p>
+</dd>
+<dt>cmap: str, optional</dt><dd><p>Color map to use.</p>
+</dd>
+<dt>vmin: int, optional</dt><dd><p>Minimal color value.</p>
+</dd>
+<dt>vmax: int, optional</dt><dd><p>Maximum color value</p>
+</dd>
+<dt>x_tick_rotation: int, optional</dt><dd><p>Rotation of the x-axis label. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>fontsize: int, optional</dt><dd><p>Labels fontsize</p>
+</dd>
+<dt>z_score_expr: bool, optional</dt><dd><p>Whether to z-normalize expression values</p>
+</dd>
+<dt>z_score_enr: bool, optional</dt><dd><p>Whether to z-normalize enrichment values</p>
+</dd>
+<dt>grid_color: str, optional</dt><dd><p>Color for grid. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>grid_lw: float, optional</dt><dd><p>Line width of grid. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>highlight: list, optional</dt><dd><p>Whether to highlight specific TFs/cistromes. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>highlight_lw: float, optional</dt><dd><p>Line width of highlight. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>highlight_lc: str, optional</dt><dd><p>Color of highlight. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>figsize: tuple, optional</dt><dd><p>Figure size. Only if <cite>use_plotly = False</cite></p>
+</dd>
+<dt>use_plotly: bool, optional</dt><dd><p>Whether to use plotly for plotting. Default: True</p>
+</dd>
+<dt>plotly_height: int, optional</dt><dd><p>Height of the plotly plot. Width will be adjusted accordingly</p>
+</dd>
+<dt>save: str, optional</dt><dd><p>Path to save dotplot as file</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section" id="grn-plot">
+<h3>grn_plot<a class="headerlink" href="#grn-plot" title="Permalink to this headline"></a></h3>
+<div class="section" id="module-scenicplus.plotting.grn_plot.draw_grn">
+<span id="draw-grn"></span><h4>draw_grn<a class="headerlink" href="#module-scenicplus.plotting.grn_plot.draw_grn" title="Permalink to this headline"></a></h4>
+<p>Draws eGRN with TFs in the middle, regions forming a cirle and target genes forming a concentric circle around the regions</p>
+<div class="section" id="id63">
+<h5>Parameters<a class="headerlink" href="#id63" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>G</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">networkx.DiGraph</span></code> directed graph</p>
+</dd>
+<dt>ax</dt><dd><p>An instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">matplotlib.pyplot.axes</span></code></p>
+</dd>
+<dt>dist_genes</dt><dd><p>A float specifying how far the target genes should be pushed away from the regions
+default: 1</p>
+</dd>
+<dt>dist_TF</dt><dd><p>A float specifying how far the TFs should be pushed away from the regions
+default: 0.1</p>
+</dd>
+<dt>d</dt><dd><p>A float specifying until which distance (calculated from the regions) a straight line should be drawn from TF to regions
+default: 0.05</p>
+</dd>
+<dt>distance_threshold</dt><dd><p>Threshold on AgglomerativeClustering function to define region clusters in space
+default: 4</p>
+</dd>
+<dt>arrowstyle</dt><dd><p>Style of the arrows drawn by networkx draw function
+default: ‘-&gt;’</p>
+</dd>
+<dt>mutation_scale</dt><dd><p>Scale factor of the arrows
+default: 6</p>
+</dd>
+<dt>TFs_to_highlight</dt><dd><p>List specifying which TF to highlight
+default: []</p>
+</dd>
+<dt>all_target_genes_need_to_be_targeted_by_TF</dt><dd><p>If set to True only highlight a target gene when it is only targetted by TFs in the list <a href="#id64"><span class="problematic" id="id65">:param:`TFs_to_highlight`</span></a>
+default: False</p>
+</dd>
+<dt>label_font_color</dt><dd><p>Font color of the labels
+default: ‘#FAA916’</p>
+</dd>
+<dt>return_pos</dt><dd><p>Boolean specifying wether or not to return calculated node positions
+default: True</p>
+</dd>
+<dt>pos</dt><dd><p>Parameter to provide precomputed positions.
+Default: None</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="preprocessing">
+<h2>preprocessing<a class="headerlink" href="#preprocessing" title="Permalink to this headline"></a></h2>
+<div class="section" id="filtering">
+<h3>filtering<a class="headerlink" href="#filtering" title="Permalink to this headline"></a></h3>
+<div class="section" id="module-scenicplus.preprocessing.filtering.filter_genes">
+<span id="filter-genes"></span><h4>filter_genes<a class="headerlink" href="#module-scenicplus.preprocessing.filtering.filter_genes" title="Permalink to this headline"></a></h4>
+<p>Filter scenciplus object genes</p>
+<div class="section" id="id66">
+<h5>Parameters<a class="headerlink" href="#id66" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of :class: <cite>~scenicplus.scenicplus_class.SCENICPLUS</cite>.</p>
+</dd>
+<dt>min_pct</dt><dd><p>only keep genes which are expressed in at least <cite>min_pct</cite> of cells.
+default: 0</p>
+</dd>
+<dt>max_pct</dt><dd><p>only keep genes which are expressed in maximal <cite>max_pct</cite> of cells.
+default: 100</p>
+</dd>
+<dt>return_copy</dt><dd><p>If set to True a new SCENICPLUS object will be generated containing filtered data.
+default: False</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="module-scenicplus.preprocessing.filtering.filter_regions">
+<span id="filter-regions"></span><h4>filter_regions<a class="headerlink" href="#module-scenicplus.preprocessing.filtering.filter_regions" title="Permalink to this headline"></a></h4>
+<p>Filter scenciplus object regions</p>
+<div class="section" id="id67">
+<h5>Parameters<a class="headerlink" href="#id67" title="Permalink to this headline"></a></h5>
+<dl class="simple">
+<dt>SCENICPLUS_obj</dt><dd><p>An instance of :class: <cite>~scenicplus.scenicplus_class.SCENICPLUS</cite>.</p>
+</dd>
+<dt>min_pct</dt><dd><p>only keep regions which are accessible in at least <cite>min_pct</cite> of cells.
+default: 0</p>
+</dd>
+<dt>max_pct</dt><dd><p>only keep regions which are accessible in maximal <cite>max_pct</cite> of cells.
+default: 100</p>
+</dd>
+<dt>return_copy</dt><dd><p>If set to True a new SCENICPLUS object will be generated containing filtered data.
+default: False</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="install.html" class="btn btn-neutral float-left" title="Install" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tutorials.html" class="btn btn-neutral float-right" title="Tutorial" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
