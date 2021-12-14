@@ -513,7 +513,7 @@ def dotplot(df_dotplot: 'pd.DataFrame',
     else:
         import plotly
         import plotly.express as px
-        df = dotplot_df.copy()
+        df = df_dotplot.copy()
         if min_point_size != 0 and enrichment_variable == 'Cistrome_AUC':
             df[enrichment_variable][df[enrichment_variable] != 0] = min_point_size + (df[enrichment_variable][df[enrichment_variable] != 0]- s_min) * ((max_point_size - min_point_size) / (s_max - s_min))
         if color_var == 'TF_expression' and size_var == enrichment_variable:
