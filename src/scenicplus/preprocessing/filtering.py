@@ -13,6 +13,23 @@ def filter_genes(SCENICPLUS_obj: SCENICPLUS,
                  min_pct: int = 0,
                  max_pct: int = 100,
                  return_copy = False) -> SCENICPLUS:
+    """
+    Filter scenciplus object genes
+
+    Parameters
+    ----------
+    SCENICPLUS_obj
+        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`.
+    min_pct
+        only keep genes which are expressed in at least `min_pct` of cells.
+        default: 0
+    max_pct
+        only keep genes which are expressed in maximal `max_pct` of cells.
+        default: 100
+    return_copy
+        If set to True a new SCENICPLUS object will be generated containing filtered data.
+        default: False
+    """
     percent_of_cell_gene_expressed = np.array((SCENICPLUS_obj.X_EXP > 0).sum(0) / SCENICPLUS_obj.n_cells).flatten()
     genes_to_keep = SCENICPLUS_obj.gene_names[
         np.logical_and(percent_of_cell_gene_expressed > (min_pct / 100),
@@ -27,6 +44,23 @@ def filter_regions(SCENICPLUS_obj: SCENICPLUS,
                    min_pct: int = 0,
                    max_pct: int = 100,
                    return_copy = False) -> SCENICPLUS:
+    """
+    Filter scenciplus object regions
+
+    Parameters
+    ----------
+    SCENICPLUS_obj
+        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`.
+    min_pct
+        only keep regions which are accessible in at least `min_pct` of cells.
+        default: 0
+    max_pct
+        only keep regions which are accessible in maximal `max_pct` of cells.
+        default: 100
+    return_copy
+        If set to True a new SCENICPLUS object will be generated containing filtered data.
+        default: False
+    """
     percent_of_cells_region_accessible = np.array((SCENICPLUS_obj.X_ACC > 0).sum(1) / SCENICPLUS_obj.n_cells).flatten()
     regions_to_keep = SCENICPLUS_obj.region_names[
         np.logical_and(percent_of_cells_region_accessible > (min_pct / 100),
