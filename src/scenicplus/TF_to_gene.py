@@ -24,7 +24,7 @@ COLUMN_NAME_REGULATION = "regulation"
 COLUMN_NAME_CORRELATION = "rho"
 COLUMN_NAME_TF = "TF"
 COLUMN_NAME_SCORE_1 = "importance_x_rho"
-COLUMN_NAME_SCORE_2 = "importance_x_|rho|"
+COLUMN_NAME_SCORE_2 = "importance_x_abs_rho"
 RHO_THRESHOLD = 0.03
 
 #Create logger
