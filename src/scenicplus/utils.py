@@ -778,3 +778,32 @@ def get_interaction_pr(SCENICPLUS_obj,
         SCENICPLUS_obj.uns[key_to_add] = pr_interact
     else:
         return pr_interact
+        
+def format_egrns(scplus_obj,
+            eregulons_key: str = 'eRegulons',
+            TF2G_key: str = 'TF2G_adj',
+            key_added: str = 'eRegulon_metadata'):
+            
+    """
+    A function to format eRegulons to a pandas dataframe
+    """
+    
+    egrn_list = scplus_obj.uns[eregulons_key]
+    TF = [egrn_list[x].transcription_factor for x in range(len(egrn_list))]
+    is_extended = [str(egrn_list[x].is_extended) for x in range(len(egrn_list))]
+    context = [', '.join(map(str, list(egrn_list[x].context))) for x in range(len(egrn_list))]
+    r2g_data = [pd.DataFrame.from_records(egrn_list[x].regions2genes, columns=['Region', 'Gene', 'R2G_importance', 'R2G_rho', 'R2G_importance_x_rho', 'R2G_importance_x_abs_rho']) for x in range(len(egrn_list))]
+    egrn_name = [TF[x] + '_extended' if is_extended[x] == 'True' else TF[x] for x in range(len(egrn_list))]
+    region_signature_name = [egrn_name[x] + '_(' + str(len(set(r2g_data[x].Region))) + 'r)' for x in range(len(egrn_list))]
+    gene_signature_name = [egrn_name[x] + '_(' + str(len(set(r2g_data[x].Gene))) + 'g)' for x in range(len(egrn_list))]
+
+    for x in range(len(egrn_list)):
+        r2g_data[x].insert (0, "TF", TF[x])
+        r2g_data[x].insert (1, "is_extended", is_extended[x])
+        r2g_data[x].insert(0, "Gene_signature_name", gene_signature_name[x])
+        r2g_data[x].insert(0, "Region_signature_name", region_signature_name[x])
+
+    tf2g_data = scplus_obj.uns[TF2G_key]
+    tf2g_data.columns = ['TF', 'Gene', 'TF2G_importance', 'TF2G_regulation', 'TF2G_rho', 'TF2G_importance_x_abs_rho', 'TF2G_importance_x_rho']
+    egrn_metadata = pd.concat([pd.merge(r2g_data[x], tf2g_data[tf2g_data.TF == r2g_data[x].TF[0]], on=['TF', 'Gene']) for x in range(len(egrn_list))])
+    scplus_obj.uns[key_added] = egrn_metadata
