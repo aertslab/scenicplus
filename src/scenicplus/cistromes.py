@@ -206,9 +206,9 @@ def score_cistromes(scplus_obj: 'SCENICPLUS',
 def generate_pseudobulks(scplus_obj: 'SCENICPLUS', 
                          variable: str,
                          normalize_expression: bool = True,
-                         auc_key: str = 'Cistromes_AUC'
+                         auc_key: str = 'Cistromes_AUC',
                          signature_key: str = 'Unfiltered',
-                         nr_cells: int = 10,
+                         nr_cells: inmyqut = 10,
                          nr_pseudobulks: int = 100,
                          seed: int = 555):
     """
