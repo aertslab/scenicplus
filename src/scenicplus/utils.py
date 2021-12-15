@@ -791,11 +791,12 @@ def format_egrns(scplus_obj,
     egrn_list = scplus_obj.uns[eregulons_key]
     TF = [egrn_list[x].transcription_factor for x in range(len(egrn_list))]
     is_extended = [str(egrn_list[x].is_extended) for x in range(len(egrn_list))]
-    context = [', '.join(map(str, list(egrn_list[x].context))) for x in range(len(egrn_list))]
     r2g_data = [pd.DataFrame.from_records(egrn_list[x].regions2genes, columns=['Region', 'Gene', 'R2G_importance', 'R2G_rho', 'R2G_importance_x_rho', 'R2G_importance_x_abs_rho']) for x in range(len(egrn_list))]
     egrn_name = [TF[x] + '_extended' if is_extended[x] == 'True' else TF[x] for x in range(len(egrn_list))]
     region_signature_name = [egrn_name[x] + '_(' + str(len(set(r2g_data[x].Region))) + 'r)' for x in range(len(egrn_list))]
+    region_signature_name = [region_signature_name[x] + '_+' if 'positive tf2g' in egrn_list[x].context else region_signature_name[x] + '_-' for x in range(len(egrn_list))]
     gene_signature_name = [egrn_name[x] + '_(' + str(len(set(r2g_data[x].Gene))) + 'g)' for x in range(len(egrn_list))]
+    gene_signature_name = [gene_signature_name[x] + '_+' if 'positive tf2g' in egrn_list[x].context else gene_signature_name[x] + '_-' for x in range(len(egrn_list))]
 
     for x in range(len(egrn_list)):
         r2g_data[x].insert (0, "TF", TF[x])

@@ -451,10 +451,10 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
     corr, _ = pearsonr(tf_expr, cistromes_auc_tf)
     if ax is None:
         plt.xlabel('TF_Expression\nCorrelation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
-        plt.title(cistrome_name)
+        plt.title(name)
     else:
         ax.set_xlabel('TF_Expression\nCorrelation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
-        ax.set_title(cistrome_name)
+        ax.set_title(name)
     if ax is None:
         plt.show()
     
