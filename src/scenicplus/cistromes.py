@@ -208,7 +208,7 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
                          normalize_expression: bool = True,
                          auc_key: str = 'Cistromes_AUC',
                          signature_key: str = 'Unfiltered',
-                         nr_cells: inmyqut = 10,
+                         nr_cells: int = 10,
                          nr_pseudobulks: int = 100,
                          seed: int = 555):
     """
@@ -268,7 +268,7 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
 def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
                             variable: str = None,
                             use_pseudobulk: bool = True,
-                            auc_key: str = 'Cistromes_AUC'
+                            auc_key: str = 'Cistromes_AUC',
                          	signature_key: str = 'Unfiltered',
                             out_key: str = 'Unfiltered',
                             subset: List[str] = None):
@@ -336,7 +336,7 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
 def prune_plot(scplus_obj: 'SCENICPLUS',
                name: str,
                pseudobulk_variable: str = None, 
-               auc_key: str = 'Cistromes_AUC'
+               auc_key: str = 'Cistromes_AUC',
                signature_key: str = 'Unfiltered',
                use_pseudobulk: bool = True,
                show_dot_plot: bool = True,
