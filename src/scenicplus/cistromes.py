@@ -206,7 +206,8 @@ def score_cistromes(scplus_obj: 'SCENICPLUS',
 def generate_pseudobulks(scplus_obj: 'SCENICPLUS', 
                          variable: str,
                          normalize_expression: bool = True,
-                         cistromes_key: str = 'Unfiltered',
+                         auc_key: str = 'Cistromes_AUC'
+                         signature_key: str = 'Unfiltered',
                          nr_cells: int = 10,
                          nr_pseudobulks: int = 100,
                          seed: int = 555):
@@ -231,7 +232,7 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
         Seed to ensure that pseudobulk are reproducible.
     """
     cell_data = scplus_obj.metadata_cell
-    cistromes_auc = scplus_obj.uns['Cistromes_AUC'][cistromes_key]
+    cistromes_auc = scplus_obj.uns[auc_key][signature_key]
     cell_data = cell_data.loc[cistromes_auc.index,:]
     dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
     categories = list(set(cell_data.loc[:,variable]))
@@ -260,14 +261,15 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
     if not variable in scplus_obj.uns['Pseudobulk'].keys():
         scplus_obj.uns['Pseudobulk'][variable] = {}
     scplus_obj.uns['Pseudobulk'][variable]['Expression'] = dgem_agg
-    if not 'Cistromes_AUC' in scplus_obj.uns['Pseudobulk'][variable].keys():
-        scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'] = {}
-    scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key] = cistrome_auc_agg 
+    if not auc_key in scplus_obj.uns['Pseudobulk'][variable].keys():
+        scplus_obj.uns['Pseudobulk'][variable][auc_key] = {}
+    scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key] = cistrome_auc_agg 
     
 def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
                             variable: str = None,
                             use_pseudobulk: bool = True,
-                            cistromes_key: str = 'Unfiltered',
+                            auc_key: str = 'Cistromes_AUC'
+                         	signature_key: str = 'Unfiltered',
                             out_key: str = 'Unfiltered',
                             subset: List[str] = None):
     """
@@ -293,10 +295,10 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
     """
     if use_pseudobulk:
         dgem_agg = scplus_obj.uns['Pseudobulk'][variable]['Expression']
-        cistromes_auc_agg = scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key]
+        cistromes_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key]
     else:
         dgem_agg = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
-        cistromes_auc_agg = scplus_obj.uns['Cistromes_AUC'][cistromes_key].copy().T
+        cistromes_auc_agg = scplus_obj.uns[auc_key][signature_key].copy().T
 
     if subset is not None:
         cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc_agg.columns], 
@@ -332,9 +334,10 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
     scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df 
     
 def prune_plot(scplus_obj: 'SCENICPLUS',
-               cistrome_name: str,
+               name: str,
                pseudobulk_variable: str = None, 
-               cistromes_key: str = 'Unfiltered',
+               auc_key: str = 'Cistromes_AUC'
+               signature_key: str = 'Unfiltered',
                use_pseudobulk: bool = True,
                show_dot_plot: bool = True,
                show_line_plot: bool = False,
@@ -345,7 +348,7 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
                ax:plt.axes = None,
                **kwargs):
     """
-    Plot cistrome accessibility versus  TF expression
+    Plot cistrome accessibility versus TF expression
     
     Parameters
     ---------
@@ -383,21 +386,21 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
     """
     if use_pseudobulk:
         dgem = scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Expression'].copy()
-        cistromes_auc = scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Cistromes_AUC'][cistromes_key].copy()
+        cistromes_auc = scplus_obj.uns['Pseudobulk'][pseudobulk_variable][auc_key][signature_key].copy()
         cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc.columns], index=cistromes_auc.columns).iloc[:,0]
     else:
         dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
-        cistromes_auc = scplus_obj.uns['Cistromes_AUC'][cistromes_key].copy().T
+        cistromes_auc = scplus_obj.uns[auc_key][signature_key].copy().T
         cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns,variable]
     if subset is None:
-        tf_expr = dgem.loc[re.sub('_extended', '',cistrome_name),:]
-        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(cistrome_name + '_\(')][0]
+        tf_expr = dgem.loc[re.sub('_extended', '',name),:]
+        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_\(')][0]
         cistromes_auc_tf = cistromes_auc.loc[tf_acc,:]
     else:
         subset_cells = cell_data[cell_data.isin(subset)].index.tolist()
         cell_data = cell_data.loc[subset_cells]
-        tf_expr = dgem.loc[re.sub('_extended', '',cistrome_name), subset_cells]
-        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(cistrome_name + '_\(')][0]
+        tf_expr = dgem.loc[re.sub('_extended', '',name), subset_cells]
+        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_\(')][0]
         cistromes_auc_tf = cistromes_auc.loc[tf_acc,subset_cells]
     random.seed(seed)
     if cell_data is not None:
@@ -414,8 +417,8 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
             patchList.append(data_key)
         if show_dot_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
-                                columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
-            sns.scatterplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
+                                columns=['TF_Expression', auc_key, 'Variable'])
+            sns.scatterplot(x="TF_Expression", y=auc_key, data=data, 
                         hue='Variable', palette=color_dict, ax = ax,  **kwargs)
             if ax is None:
                 plt.legend(handles=patchList, bbox_to_anchor=(
@@ -425,8 +428,8 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
                                         1.04, 1), loc="upper left")
         if show_line_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
-                                columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
-            sns.regplot(x="TF_Expression", y="Cistrome_AUC", data=data, 
+                                columns=['TF_Expression', auc_key, 'Variable'])
+            sns.regplot(x="TF_Expression", y=auc_key, data=data, 
                         scatter_kws={'color': color}, ax = ax, **kwargs)
             if ax is None:
                 plt.legend(handles=patchList, bbox_to_anchor=(
@@ -437,12 +440,12 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
     else:
         if show_dot_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
-                                columns=['TF_Expression', 'Cistrome_AUC', 'Variable'])
-            sns.scatterplot(x="TF_Expression", y="Cistrome_AUC", data=data, ax = ax,  **kwargs)
+                                columns=['TF_Expression', auc_key, 'Variable'])
+            sns.scatterplot(x="TF_Expression", y=auc_key, data=data, ax = ax,  **kwargs)
         if show_line_plot:
             data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf)), 
-                                columns=['TF_Expression', 'Cistrome_AUC'])
-            sns.regplot(x="TF_Expression", y="Cistrome_AUC",
+                                columns=['TF_Expression', auc_key])
+            sns.regplot(x="TF_Expression", y=auc_key,
              data=data, ax = ax, **kwargs)
         
     corr, _ = pearsonr(tf_expr, cistromes_auc_tf)
