@@ -269,7 +269,7 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
                             variable: str = None,
                             use_pseudobulk: bool = True,
                             auc_key: str = 'Cistromes_AUC',
-                         	signature_key: str = 'Unfiltered',
+                             signature_key: str = 'Unfiltered',
                             out_key: str = 'Unfiltered',
                             subset: List[str] = None):
     """
@@ -310,9 +310,9 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
     for tf in cistromes_auc_agg.index:
         # Handle _extended
         tf_rna = tf.split('_')[0]
-        if re.sub('_extended', '',tf_rna) in dgem_agg.index:
+        if tf_rna in dgem_agg.index:
             cistromes_auc_tf = cistromes_auc_agg.loc[tf,:]
-            tf_expr = dgem_agg.loc[re.sub('_extended', '',tf_rna),:]
+            tf_expr = dgem_agg.loc[tf_rna,:]
             # Exception in case TF is only expressed in 1 cell
             # TFs expressed in few cells could be filtered too
             try:
@@ -393,14 +393,14 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
         cistromes_auc = scplus_obj.uns[auc_key][signature_key].copy().T
         cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns,variable]
     if subset is None:
-        tf_expr = dgem.loc[re.sub('_extended', '',name),:]
-        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_\(')][0]
+        tf_expr = dgem.loc[name.split('_')[0],:]
+        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_(', regex=False)][0]
         cistromes_auc_tf = cistromes_auc.loc[tf_acc,:]
     else:
         subset_cells = cell_data[cell_data.isin(subset)].index.tolist()
         cell_data = cell_data.loc[subset_cells]
-        tf_expr = dgem.loc[re.sub('_extended', '',name), subset_cells]
-        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_\(')][0]
+        tf_expr = dgem.loc[name.split('_')[0], subset_cells]
+        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_(', regex=False)][0]
         cistromes_auc_tf = cistromes_auc.loc[tf_acc,subset_cells]
     random.seed(seed)
     if cell_data is not None:
