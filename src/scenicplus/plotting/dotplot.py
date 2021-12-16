@@ -162,7 +162,8 @@ def generate_dotplot_df_motif_enrichment(scplus_obj: 'SCENICPLUS',
     dotplot_df = dotplot_df.replace(np.nan,0)
     return dotplot_df
     
-def generate_dotplot_df_cistrome_AUC(scplus_obj: 'SCENICPLUS',
+def generate_dotplot_df_AUC(scplus_obj: 'SCENICPLUS',
+                       auc_key: str,
                        enrichment_key: str,
                        group_variable: str,
                        subset: list = None,
@@ -205,13 +206,13 @@ def generate_dotplot_df_cistrome_AUC(scplus_obj: 'SCENICPLUS',
     ## If using pseudobulk
     if use_pseudobulk:
         dgem = scplus_obj.uns['Pseudobulk'][group_variable]['Expression'].copy()
-        cistromes_auc = scplus_obj.uns['Pseudobulk'][group_variable]['Cistromes_AUC'][enrichment_key].copy()
+        cistromes_auc = scplus_obj.uns['Pseudobulk'][group_variable][auc_key][enrichment_key].copy()
         cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc.columns], 
                                  index=cistromes_auc.columns).iloc[:,0]
     ## If using all
     else:
         dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
-        cistromes_auc = scplus_obj.uns['Cistromes_AUC'][enrichment_key].copy().T
+        cistromes_auc = scplus_obj.uns[auc_key][enrichment_key].copy().T
         cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns, group_variable]
     ## Should gene expression be normalized?
     if normalize_expression:
@@ -219,7 +220,7 @@ def generate_dotplot_df_cistrome_AUC(scplus_obj: 'SCENICPLUS',
         dgem = np.log1p(dgem).T
     ## Check for cistrome subsets   
     if subset_cistromes is None:
-        subset_cistromes = scplus_obj.uns['Cistromes'][enrichment_key].keys()
+        subset_cistromes = cistromes_auc.index.tolist()
     ## Check that cistromes are in the AUC matrix
     subset_cistromes = set(subset_cistromes).intersection(cistromes_auc.index.tolist())
     ## Take TF names
@@ -260,12 +261,12 @@ def generate_dotplot_df_cistrome_AUC(scplus_obj: 'SCENICPLUS',
         cistromes_auc_tf_mean=(cistromes_auc_tf_mean-cistromes_auc_tf_mean.min()+0.00000001)/(cistromes_auc_tf_mean.max()-cistromes_auc_tf_mean.min())
         cistromes_auc_tf_mean = cistromes_auc_tf_mean.T
     cistromes_auc_tf_mean = cistromes_auc_tf_mean.stack().reset_index()
-    cistromes_auc_tf_mean.columns = ['Cistrome', 'Group', 'Cistrome_AUC']
-    cistromes_auc_tf_mean['TF'] = cistromes_auc_tf_mean['Cistrome'].replace('_.*', '', regex=True)
+    cistromes_auc_tf_mean.columns = ['Name', 'Group', auc_key]
+    cistromes_auc_tf_mean['TF'] = cistromes_auc_tf_mean['Name'].replace('_.*', '', regex=True)
     # Merge by column
     dotplot_df = pd.merge(tf_expr_mean, cistromes_auc_tf_mean, how = 'outer', on = ['TF', 'Group'])
     return dotplot_df
-    
+        
 def _cluster_labels_to_idx(labels):
     """
     A helper function to convert cluster labels to idx
@@ -281,8 +282,7 @@ def _cluster_labels_to_idx(labels):
 
 def dotplot(df_dotplot: 'pd.DataFrame',
              ax: plt.axes = None,
-             enrichment_variable: str = 'Cistrome_AUC',
-             region_set_key: str = 'Cistrome',
+             region_set_key: str = 'Name',
              size_var: str = 'TF_expression',
              color_var: str = 'Cistrome_AUC',
              order_group: list = None,
@@ -377,8 +377,8 @@ def dotplot(df_dotplot: 'pd.DataFrame',
     
     
     # Seperate dotsize data (motif_enrichment) and dot color data (mean expr)
-    dotsizes = df_dotplot[['Group', region_set_key, enrichment_variable]].pivot_table(index = 'Group', columns = region_set_key).fillna(0)[enrichment_variable]
-    dotcolors = df_dotplot[['Group', region_set_key, 'TF_expression']].pivot_table(index = 'Group', columns = region_set_key).fillna(0)['TF_expression']
+    dotsizes = df_dotplot[['Group', region_set_key, size_var]].pivot_table(index = 'Group', columns = region_set_key).fillna(0)[size_var]
+    dotcolors = df_dotplot[['Group', region_set_key, color_var]].pivot_table(index = 'Group', columns = region_set_key).fillna(0)[color_var]
     
     category_orders = {}
     
@@ -397,16 +397,16 @@ def dotplot(df_dotplot: 'pd.DataFrame',
         category_orders[region_set_key] = dotsizes.columns
 
     # If order TFs/cistromes by max         
-    if order_cistromes_by_max == enrichment_variable:
-        df = dotsizes.idxmax(axis=0)
-        order_cistromes = pd.concat([df[df == x] for x in  dotsizes.index.tolist() if len(df[df == x]) > 0]).index.tolist()
+    if order_cistromes_by_max == color_var:
+        df = dotcolors.idxmax(axis=0)
+        order_cistromes = pd.concat([df[df == x] for x in  dotcolors.index.tolist() if len(df[df == x]) > 0]).index.tolist()
         dotsizes = dotsizes.loc[:,order_cistromes[::-1]]
         dotcolors = dotcolors.loc[:, order_cistromes[::-1]]
         category_orders[region_set_key] = order_cistromes
-        
-    if order_cistromes_by_max == 'TF_expression':
-        df = dotcolors.idxmax(axis=0)
-        order_cistromes = pd.concat([df[df == x] for x in  dotcolors.index.tolist() if len(df[df == x]) > 0]).index.tolist()
+
+    if order_cistromes_by_max == size_var:
+        df = dotsizes.idxmax(axis=0)
+        order_cistromes = pd.concat([df[df == x] for x in  dotsizes.index.tolist() if len(df[df == x]) > 0]).index.tolist()
         dotsizes = dotsizes.loc[:,order_cistromes[::-1]]
         dotcolors = dotcolors.loc[:, order_cistromes[::-1]]
         category_orders[region_set_key] = order_cistromes
@@ -420,13 +420,6 @@ def dotplot(df_dotplot: 'pd.DataFrame',
         dotsizes = dotsizes.loc[:,order_cistromes[::-1]]
         dotcolors = dotcolors.loc[:, order_cistromes[::-1]]
         category_orders[region_set_key] = order_cistromes
-    
-    # Get dot sizes
-    if color_var == enrichment_variable and size_var == 'TF_expression':
-        x = dotcolors
-        y = dotsizes
-        dotcolors = y
-        dotsizes = x
         
     # Scale dotsizes
     s = dotsizes.to_numpy().flatten('F')
@@ -514,13 +507,9 @@ def dotplot(df_dotplot: 'pd.DataFrame',
         import plotly
         import plotly.express as px
         df = df_dotplot.copy()
-        if min_point_size != 0 and enrichment_variable == 'Cistrome_AUC':
-            df[enrichment_variable][df[enrichment_variable] != 0] = min_point_size + (df[enrichment_variable][df[enrichment_variable] != 0]- s_min) * ((max_point_size - min_point_size) / (s_max - s_min))
-        if color_var == 'TF_expression' and size_var == enrichment_variable:
-            fig = px.scatter(df, y=region_set_key, x="Group", color="TF_expression", size=enrichment_variable,
-                           size_max=max_point_size, category_orders = category_orders, color_continuous_scale=cmap)
-        else:
-            fig = px.scatter(df, y=region_set_key, x="Group", color= enrichment_variable, size="TF_expression",
+        if min_point_size != 0 and size_var != 'NES' and size_var != 'LogFC':
+            df[size_var][df[size_var] != 0] = min_point_size + (df[size_var][df[size_var] != 0]- s_min) * ((max_point_size - min_point_size) / (s_max - s_min))
+        fig = px.scatter(df, y=region_set_key, x="Group", color=color_var, size=size_var,
                            size_max=max_point_size, category_orders = category_orders, color_continuous_scale=cmap)
 
         fig.update_layout(
