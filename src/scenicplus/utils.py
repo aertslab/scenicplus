@@ -686,6 +686,7 @@ def get_interaction_pr(SCENICPLUS_obj,
     #add chromosome for each gene to region_to_gene_df
     region_to_gene_df = region_to_gene_df.join(gene_to_chrom, on = 'Gene')
 
+    region_to_gene_df.dropna(axis = 0, how = 'any', inplace = True)
     arr = region_names_to_coordinates(region_to_gene_df['region']).to_numpy()
     chrom, chromStart, chromEnd = np.split(arr, 3, 1)
     chrom = chrom[:, 0]
