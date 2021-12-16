@@ -59,6 +59,7 @@ def ray_run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
 
 def build_grn(SCENICPLUS_obj: SCENICPLUS,
              adj_key = 'TF2G_adj',
+             cistromes_key = 'Unfiltered',
              region_to_gene_key = 'region_to_gene',
              order_regions_to_genes_by = 'importance',
              order_TFs_to_genes_by = 'importance',
@@ -176,6 +177,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         order_regions_to_genes_by = order_regions_to_genes_by,
         disable_tqdm=disable_tqdm,
         ray_n_cpu=ray_n_cpu,
+        cistromes_key=cistromes_key,
         **kwargs)
     
     log.info('Subsetting TF2G adjacencies for TF with motif.')
