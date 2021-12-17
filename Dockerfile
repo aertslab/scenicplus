@@ -75,6 +75,9 @@ RUN mkdir -p /usr/share/man/man1 && \
 COPY --from=compile-image /opt/venv /opt/venv
 COPY --from=compile-image /tmp/Mallet /opt/mallet
 
+# Force to reinstall ray
+RUN pip install --no-cache-dir ray==1.8.0
+
 # Make sure we use the virtualenv:
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PATH="/opt/mallet/bin:$PATH"
