@@ -500,8 +500,15 @@ def create_SCENICPLUS_object(
 
         ACC_cell_names = list(cisTopic_obj.cell_names.copy())
         ACC_cell_metadata = cisTopic_obj.cell_data.copy(deep = True)
-        ACC_dr_cell = cisTopic_obj.projections['cell'].copy()
-        ACC_dr_region = cisTopic_obj.projections['region'].copy()
+        
+        if 'cell' in cisTopic_obj.projections.keys():
+            ACC_dr_cell = cisTopic_obj.projections['cell'].copy()
+        else:
+            ACC_dr_cell = {}
+        if 'region' in cisTopic_obj.projections.keys():
+            ACC_dr_region = cisTopic_obj.projections['region'].copy()
+        else:
+            ACC_dr_region = {}
 
         #get cells with high quality (HQ cells) chromatin accessbility AND gene expression profile
         common_cells = list( set(GEX_cell_names) & set(ACC_cell_names) )
@@ -551,7 +558,7 @@ def create_SCENICPLUS_object(
             metadata_genes = GEX_gene_metadata,
             metadata_cell = ACC_GEX_cell_metadata,
             menr = menr,
-            dr_cell = dr_cell,
+            dr_cell = dr_cell if len(dr_cell.keys()) > 0 else None,
             dr_region = ACC_dr_region if len(ACC_dr_region.keys()) > 0 else None)
 
     else:
