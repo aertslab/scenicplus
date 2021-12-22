@@ -500,7 +500,7 @@ def target_to_overlapping_query(target: Union[pr.PyRanges, List[str]],
         join_pr.Overlap_target =  join_pr.Overlap/(join_pr.End - join_pr.Start)
         join_pr = join_pr[(join_pr.Overlap_query > fraction_overlap) | (join_pr.Overlap_target > fraction_overlap)]
         join_pr = join_pr[['Chromosome', 'Start', 'End']]
-        return join_pr 
+        return join_pr.drop_duplicate_positions()
     else:
         return pr.PyRanges()
     
