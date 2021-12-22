@@ -805,7 +805,7 @@ def format_egrns(scplus_obj,
         r2g_data[x].insert(0, "Gene_signature_name", gene_signature_name[x])
         r2g_data[x].insert(0, "Region_signature_name", region_signature_name[x])
 
-    tf2g_data = scplus_obj.uns[TF2G_key]
+    tf2g_data = scplus_obj.uns[TF2G_key].copy()
     tf2g_data.columns = ['TF', 'Gene', 'TF2G_importance', 'TF2G_regulation', 'TF2G_rho', 'TF2G_importance_x_abs_rho', 'TF2G_importance_x_rho']
     egrn_metadata = pd.concat([pd.merge(r2g_data[x], tf2g_data[tf2g_data.TF == r2g_data[x].TF[0]], on=['TF', 'Gene']) for x in range(len(egrn_list))])
     scplus_obj.uns[key_added] = egrn_metadata
