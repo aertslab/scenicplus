@@ -391,7 +391,7 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
     else:
         dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
         cistromes_auc = scplus_obj.uns[auc_key][signature_key].copy().T
-        cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns,variable]
+        cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns,pseudobulk_variable]
     if subset is None:
         tf_expr = dgem.loc[name.split('_')[0],:]
         tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_(', regex=False)][0]
