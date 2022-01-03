@@ -417,6 +417,7 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
                reduction_name: str,
                auc_key: Optional[str] = 'eRegulon_AUC', 
                signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
+               normalize_tf_expression: Optional[bool] = True,
                cmap: Optional[Union[str, 'matplotlib.cm']] = cm.viridis,
                dot_size: Optional[int] = 10,
                alpha: Optional[Union[float, int]] = 1,
@@ -438,7 +439,9 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
     auc_key: str, optional
             Key to extract AUC values from. Default: 'eRegulon_AUC'
     signature_keys: List, optional
-            Keys to extract AUC values from. Default: ['Gene_based', 'Region_based']     
+            Keys to extract AUC values from. Default: ['Gene_based', 'Region_based'] 
+    normalize_tf_expression: bool, optional
+            Whether logCPM normalize TF expression. Default: True    
     cmap: str or 'matplotlib.cm', optional
             For continuous variables, color map to use for the legend color bar. Default: cm.viridis
     dot_size: int, optional
@@ -487,7 +490,12 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
 
     fig = plt.figure(figsize=figsize)
 
-    dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
+    dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy()
+    
+    if normalize_tf_expression:
+        dgem = dgem.T / dgem.T.sum(0) * 10**6
+        dgem = np.log1p(dgem).T
+    dgem = dgem.T
     data_mat = data_mat.T.fillna(0)
     for regulon in selected_regulons:
         tf_name = regulon.split('_')[0]
