@@ -622,7 +622,7 @@ def create_SCENICPLUS_object(
             l_nr_cells = [nr_cells_per_metacells[k] for k in grouper_EXP.keys] #for this we need the assertion above
         
         log.info('Generating pseudo multi-ome data')
-        meta_X_ACC = generate_pseudocells_for_numpy(X = imputed_acc_obj.mtx.toarray(),
+        meta_X_ACC = generate_pseudocells_for_numpy(X = imputed_acc_obj.mtx if isinstance(imputed_acc_obj.mtx, np.ndarray) else imputed_acc_obj.mtx.toarray(),
                                                     grouper = grouper_ACC,
                                                     nr_cells = l_nr_cells,
                                                     nr_pseudobulks = l_nr_metacells,
