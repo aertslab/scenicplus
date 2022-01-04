@@ -111,7 +111,7 @@ def run_eRegulons_tsne(scplus_obj: 'SCENICPLUS',
     scplus_obj: `class::SCENICPLUS`
             A SCENICPLUS object with eRegulons AUC computed.
     scale: bool, optional
-            Whether to scale the cell-topic or topic-regions contributions prior to the dimensionality reduction. Default: False
+            Whether to scale the enrichments prior to the dimensionality reduction. Default: False
     auc_key: str, optional
             Key to extract AUC values from. Default: 'eRegulon_AUC'
     signature_keys: List, optional
