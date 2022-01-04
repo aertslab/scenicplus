@@ -524,7 +524,7 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
                     vmax=np.array(tf_expr).max())
             plt.xlabel(embedding_plot.columns[0])
             plt.ylabel(embedding_plot.columns[1])
-            plt.title(tf_name)
+            plt.title(tf_name+'_expression')
             # setup the colorbar
             scalarmappaple = cm.ScalarMappable(norm=normalize, cmap=cmap)
             scalarmappaple.set_array(tf_expr)
