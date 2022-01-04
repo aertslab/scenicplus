@@ -1,4 +1,3 @@
-
 from typing import Mapping
 import pyBigWig
 import numpy as np
@@ -364,7 +363,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
             vln_plot_part = ax.violinplot(expr_vals_sub, vert = False, showmeans = True, showextrema = False)
             for i, pc in enumerate(vln_plot_part['bodies']):
                 facecolor = mapper.to_rgba(i)
-                pc.set_facecolor(facecolor)
+                pc.set_facecolor(color_dict[annotation])
                 pc.set_edgecolor(violinplots_edge_color)
                 pc.set_alpha(violoinplots_alpha)
             vln_plot_part['cmeans'].set_edgecolor(violinplots_means_color)

@@ -804,6 +804,7 @@ def format_egrns(scplus_obj,
     r2g_data = [pd.DataFrame.from_records(egrn_list[x].regions2genes, columns=['Region', 'Gene', 'R2G_importance', 'R2G_rho', 'R2G_importance_x_rho', 'R2G_importance_x_abs_rho']) for x in range(len(egrn_list))]
     egrn_name = [TF[x] + '_extended' if is_extended[x] == 'True' else TF[x] for x in range(len(egrn_list))]
     egrn_name = [egrn_name[x] + '_+' if 'positive tf2g' in egrn_list[x].context else egrn_name[x] + '_-' for x in range(len(egrn_list))]
+    egrn_name = [egrn_name[x] + '_+' if 'positive r2g' in egrn_list[x].context else egrn_name[x] + '_-' for x in range(len(egrn_list))]
     region_signature_name = [egrn_name[x] + '_(' + str(len(set(r2g_data[x].Region))) + 'r)' for x in range(len(egrn_list))]
     gene_signature_name = [egrn_name[x] + '_(' + str(len(set(r2g_data[x].Gene))) + 'g)' for x in range(len(egrn_list))]
     
@@ -814,7 +815,7 @@ def format_egrns(scplus_obj,
         r2g_data[x].insert(0, "Gene_signature_name", gene_signature_name[x])
         r2g_data[x].insert(0, "Region_signature_name", region_signature_name[x])
 
-    tf2g_data = scplus_obj.uns[TF2G_key]
+    tf2g_data = scplus_obj.uns[TF2G_key].copy()
     tf2g_data.columns = ['TF', 'Gene', 'TF2G_importance', 'TF2G_regulation', 'TF2G_rho', 'TF2G_importance_x_abs_rho', 'TF2G_importance_x_rho']
     egrn_metadata = pd.concat([pd.merge(r2g_data[x], tf2g_data[tf2g_data.TF == r2g_data[x].TF[0]], on=['TF', 'Gene']) for x in range(len(egrn_list))])
     scplus_obj.uns[key_added] = egrn_metadata

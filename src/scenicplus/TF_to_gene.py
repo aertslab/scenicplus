@@ -7,11 +7,6 @@ import logging
 import time
 import sys
 
-from arboreto.utils import load_tf_names
-from arboreto.algo import genie3, grnboost2, _prepare_input
-from arboreto.core import SGBM_KWARGS, RF_KWARGS, EARLY_STOP_WINDOW_LENGTH
-from arboreto.core import to_tf_matrix, infer_partial_network
-
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
@@ -132,9 +127,35 @@ def add_correlation(
             COLUMN_NAME_CORRELATION: rhos,
         }
     )
+    
+def run_infer_partial_network(target_gene_name,
+                             gene_names,
+                             ex_matrix,
+                             method_params,
+                             tf_matrix,
+                             tf_matrix_gene_names):
+    """
+    A function to call arboreto 
+    """
+    from arboreto import core as arboreto_core
+    
+    target_gene_name_index = get_position_index([target_gene_name], gene_names)
+    target_gene_expression = ex_matrix[:, target_gene_name_index].ravel()
+
+    n = arboreto_core.infer_partial_network(
+        regressor_type=method_params[0],
+        regressor_kwargs=method_params[1],
+        tf_matrix=tf_matrix,
+        tf_matrix_gene_names=tf_matrix_gene_names,
+        target_gene_name=target_gene_name,
+        target_gene_expression=target_gene_expression,
+        include_meta=False,
+        early_stop_window_length=arboreto_core.EARLY_STOP_WINDOW_LENGTH,
+        seed=666)
+    return( n )
 
 @ray.remote
-def run_infer_partial_network(target_gene_name,
+def run_infer_partial_network_ray(target_gene_name,
                              gene_names,
                              ex_matrix,
                              method_params,
@@ -143,20 +164,14 @@ def run_infer_partial_network(target_gene_name,
     """
     A function to call arboreto with ray
     """
-    target_gene_name_index = get_position_index([target_gene_name], gene_names)
-    target_gene_expression = ex_matrix[:, target_gene_name_index].ravel()
+    
+    return run_infer_partial_network(target_gene_name,
+                             gene_names,
+                             ex_matrix,
+                             method_params,
+                             tf_matrix,
+                             tf_matrix_gene_names)
 
-    n = infer_partial_network(
-        regressor_type=method_params[0],
-        regressor_kwargs=method_params[1],
-        tf_matrix=tf_matrix,
-        tf_matrix_gene_names=tf_matrix_gene_names,
-        target_gene_name=target_gene_name,
-        target_gene_expression=target_gene_expression,
-        include_meta=False,
-        early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
-        seed=666)
-    return( n )
 
 def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
                                         tf_file: str,
@@ -183,6 +198,11 @@ def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
     **kwargs
         Parameters to pass to ray.init
     """
+    from arboreto.utils import load_tf_names
+    from arboreto.algo import _prepare_input
+    from arboreto.core import SGBM_KWARGS, RF_KWARGS, EARLY_STOP_WINDOW_LENGTH
+    from arboreto.core import to_tf_matrix
+    
     if(method == 'GBM'):
         method_params = [
             'GBM',      # regressor_type
@@ -208,7 +228,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
     try:
         jobs = []
         for gene in tqdm(gene_names, total = len(gene_names), desc = 'initializing'):
-            jobs.append(run_infer_partial_network.remote(gene,
+            jobs.append(run_infer_partial_network_ray.remote(gene,
                                      gene_names, 
                                      ex_matrix,
                                      method_params,
