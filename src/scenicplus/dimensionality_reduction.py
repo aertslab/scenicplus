@@ -34,6 +34,10 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
     ---------
     scplus_obj: `class::SCENICPLUS`
             A SCENICPLUS object with eRegulons AUC computed.
+    auc_key: str, optional
+            Key to extract AUC values from. Default: 'eRegulon_AUC'
+    signature_keys: List, optional
+            Keys to extract AUC values from. Default: ['Gene_based', 'Region_based']
     k: int, optional
             Number of neighbours in the k-neighbours graph. Default: 10
     res: float, optional
@@ -41,7 +45,7 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
     seed: int, optional
             Seed parameter for the leiden algorithm step. Default: 555
     scale: bool, optional
-            Whether to scale the cell-topic or topic-regions contributions prior to the clustering. Default: False
+            Whether to scale the enrichment prior to the clustering. Default: False
     prefix: str, optional
             Prefix to add to the clustering name when adding it to the correspondent metadata attribute. Default: ''
     selected_regulons: list, optional
