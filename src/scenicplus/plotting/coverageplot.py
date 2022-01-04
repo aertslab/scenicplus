@@ -36,6 +36,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                   fontsize_dict = {'bigwig_label': 9,
                                    'gene_label': 9,
                                    'violinplots_xlabel': 9,
+                                   'violinplots_ylabel': 9,
                                    'title': 12,
                                    'bigwig_tick_label': 5},
                   gene_label_offset = 3,
@@ -49,7 +50,10 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                                        'violinplots': 1},
                   height_ratios_dict = {'bigwig_violin': 1,
                                         'genes': 0.5,
-                                        'arcs': 5}) -> plt.Figure:
+                                        'arcs': 5,
+                                        'custom_ax': 2},
+                  sort_vln_plots: bool = False,
+                  add_custom_ax: int = None) -> plt.Figure:
     """
     Inspired by: https://satijalab.org/signac/reference/coverageplot
 
@@ -137,10 +141,20 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
     --------
     plt.Figure
     """
-    fig_nrows = len(bw_dict.keys()) + 2
+    fig_nrows = len(bw_dict.keys())
+    if pr_interact is not None:
+        fig_nrows += 1
+    if pr_gtf is not None:
+        fig_nrows += 1
+    if add_custom_ax:
+        fig_nrows += add_custom_ax
     height_ratios = [height_ratios_dict['bigwig_violin'] for i in range(len(bw_dict.keys()))]
-    height_ratios += [height_ratios_dict['genes']]
-    height_ratios += [height_ratios_dict['arcs']]
+    if pr_gtf is not None:
+        height_ratios += [height_ratios_dict['genes']]
+    if pr_interact is not None:
+        height_ratios += [height_ratios_dict['arcs']]
+    if add_custom_ax is not None:
+        height_ratios += [height_ratios_dict['custom_ax'] for i in range(add_custom_ax)]
 
     if genes is not None:
         ncols = 2
@@ -204,11 +218,19 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         ax.set_xlim([x.min(), x.max()])
         ax.set_ylim([-2, bw_ymax]) if pr_consensus_bed is not None else ax.set_ylim([0, bw_ymax])
         ax.set_xticks([])
-        #ax.set_yticks([])
         ax.tick_params(axis='both', which='major', labelsize=fontsize_dict['bigwig_tick_label'])
 
+        #remove negative yticks
+        y_ticks = ax.get_yticks()
+        #y_tick_labels = ax.get_yticklabels()
+        y_ticks_to_keep = np.where(y_ticks >= 0)[0]
+        y_ticks = y_ticks[y_ticks_to_keep]
+        #y_tick_labels = [y_tick_labels[i] for i in y_ticks_to_keep]
+        ax.set_yticks(y_ticks)
+        #ax.set_yticklabels(list(y_tick_labels))
+
         ax.text(x = x.min(), y = bw_ymax + 1, s = key, fontsize = fontsize_dict['bigwig_label'])
-        ax.hlines(y = 0, xmin = x.min(), xmax = x.max(), color = color_dict[key], lw = 0.5)
+        
         sns.despine(top=True, right=True, left=True, bottom=True, ax=ax)
         
         if pr_consensus_bed is not None:
@@ -246,10 +268,13 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         ax = axs_bw[subplot_idx]
         subplot_idx += 1
         genes_in_window = set(gtf_region_intersect.gene_name)
-        for _genes in genes_in_window:
+        for _gene in genes_in_window:
+            #don't plot non-protein coding transcripts (e.g. nonsense_mediated_decay)
+            if not all(gtf_region_intersect.df.loc[gtf_region_intersect.df['gene_name'] == _gene, 'transcript_type'].dropna() == 'protein_coding'):
+                continue
             # plot the gene parts (gene body and gene exon)
             # iterate over all parts to plot them
-            for _, part in gtf_region_intersect.df.iterrows():
+            for _, part in gtf_region_intersect.df.loc[gtf_region_intersect.df['gene_name'] == _gene].iterrows():
                 # make exons thick
                 if part['Feature'] == 'exon':
                     exon_start = part['Start']
@@ -263,7 +288,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                     gene_end = part['End']
                     rect=mpatches.Rectangle((gene_start,gene_bottom),gene_end-gene_start,gene_height,fill=True,color="k",linewidth=0)
                     ax.add_patch(rect)
-                ax.text(gene_start, gene_bottom - gene_label_offset, _genes, fontsize = fontsize_dict['gene_label'])
+                ax.text(gene_start, gene_bottom - gene_label_offset, _gene, fontsize = fontsize_dict['gene_label'])
             # figure settings
             ax.set_ylim([exon_bottom, -exon_bottom])
             #ax.set_xlabel(gene, fontsize=10)
@@ -328,6 +353,11 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
             cells = np.where(annotations == annotation)
             expr_vals_sub = expr_vals[cells]
 
+            if sort_vln_plots:
+                idx_sorted = np.argsort(expr_vals_sub.mean(0))[::-1]
+                expr_vals_sub = expr_vals_sub[:, idx_sorted]
+                genes = np.array(list(genes))[idx_sorted]
+
             expr_min = min(expr_min, expr_vals_sub.min())
             expr_max = max(expr_max, expr_vals_sub.max())
 
@@ -340,7 +370,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
             vln_plot_part['cmeans'].set_edgecolor(violinplots_means_color)
             n_labels = 1 if type(genes) == str else len(genes)
             ax.set_yticks(ticks = np.arange(1, n_labels + 1))
-            ax.set_yticklabels(genes)
+            ax.set_yticklabels(genes, fontsize = fontsize_dict['violinplots_ylabel'])
             ax.set_xlim(xmin = round(expr_min), xmax = round(expr_max + 0.5))
             if idx < len(bw_dict.keys()) - 1:
                 sns.despine(top=True, right=True, left=True, bottom=True, ax=ax)
@@ -362,5 +392,8 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
     label = f'{region} ({length} kb)'
     
     fig.suptitle(label, fontsize = fontsize_dict['title'])
-
-    return fig
+    
+    if add_custom_ax:
+        return axs[axs.shape[0] - add_custom_ax: axs.shape[0]], fig
+    else:
+        return fig
