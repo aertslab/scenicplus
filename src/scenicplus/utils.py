@@ -223,7 +223,8 @@ def eRegulons_tbl_to_genesig(df_eRegulons, mode = 'target_genes'):
 def annotate_regions(pr_regions,
                      species,
                      extend_tss = [10, 10], 
-                     exon_fraction_overlap = 0.7):
+                     exon_fraction_overlap = 0.7,
+                     biomart_host = 'http://www.ensembl.org'):
     # Create logger
     level    = logging.INFO
     format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
@@ -236,19 +237,27 @@ def annotate_regions(pr_regions,
 
     import pybiomart as pbm
     dataset_name = '{}_gene_ensembl'.format(species)
-    server = pbm.Server(host = 'http://www.ensembl.org', use_cache = False)
+    server = pbm.Server(host = biomart_host, use_cache = False)
     mart = server['ENSEMBL_MART_ENSEMBL']
     if dataset_name not in mart.list_datasets()['name'].to_numpy():
          raise Exception('{} could not be found as a dataset in biomart. Check species name or consider manually providing gene annotations!')
     else:
         log.info("Downloading gene annotation from biomart dataset: {}".format(dataset_name))
         dataset = mart[dataset_name]
+        if 'external_gene_name' not in dataset.attributes.keys():
+            external_gene_name_query = 'hgnc_symbol'
+        else:
+            external_gene_name_query = 'external_gene_name'
+        if 'transcription_start_site' not in dataset.attributes.keys():
+            transcription_start_site_query = 'transcript_start'
+        else:
+            transcription_start_site_query = 'transcription_start_site'
         annot = dataset.query(attributes=['chromosome_name', 
                                           'start_position', 
                                           'end_position', 
                                           'strand', 
-                                          'external_gene_name', 
-                                          'transcription_start_site', 
+                                          external_gene_name_query, 
+                                          transcription_start_site_query, 
                                           'transcript_biotype',
                                           'exon_chrom_start',
                                           'exon_chrom_end',
