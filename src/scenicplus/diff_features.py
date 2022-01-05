@@ -6,7 +6,7 @@ import logging
 import pandas as pd
 pd.options.mode.chained_assignment = None
 
-def format_df(df, key):
+def format_df(df, key, adjpval_thr, log2fc_thr):
     """
     A helper function to format differential test results
     """
@@ -15,11 +15,19 @@ def format_df(df, key):
     df.columns = ['Log2FC', 'Adjusted_pval']
     df['Contrast'] = key
     df.index.name = None
+    df = df.loc[df['Adjusted_pval'] <= adjpval_thr]
+    df = df.loc[df['Log2FC'] >= log2fc_thr]
+    df = df.sort_values(
+        ['Log2FC', 'Adjusted_pval'], ascending=[False, True]
+    )
     return df
 
 def get_differential_features(scplus_obj: 'SCENICPLUS',
                              variable,
-                             contrast_type: Optional[List] = ['DARs', 'DEGs']):
+                             contrast_type: Optional[List] = ['DARs', 'DEGs'],
+                             adjpval_thr: Optional[float] = 0.05,
+                             log2fc_thr: Optional[float] = np.log2(1.5)
+                             ):
     
     """
     Get DARs of DEGs given reference variable. 
@@ -50,7 +58,7 @@ def get_differential_features(scplus_obj: 'SCENICPLUS',
         sc.pp.log1p(adata)
         sc.tl.rank_genes_groups(adata, variable, method='wilcoxon')
         groups = adata.uns['rank_genes_groups']['names'].dtype.names
-        diff_dict = {group: format_df(sc.get.rank_genes_groups_df(adata, group=group), group) for group in groups}
+        diff_dict = {group: format_df(sc.get.rank_genes_groups_df(adata, group=group), group, adjpval_thr, log2fc_thr) for group in groups}
         if contrast not in scplus_obj.uns.keys():
             scplus_obj.uns[contrast] = {} 
         scplus_obj.uns[contrast][variable] = diff_dict
