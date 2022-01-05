@@ -56,9 +56,11 @@ def get_differential_features(scplus_obj: 'SCENICPLUS',
         if contrast == 'DARs':
             adata = anndata.AnnData(X=scplus_obj.X_ACC.T, obs=pd.DataFrame(index=scplus_obj.cell_names), var=pd.DataFrame(index=scplus_obj.region_names))
         adata.obs = scplus_obj.metadata_cell
+        sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
         if use_hvg:
             sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            adata.raw = adata
             adata = adata[:, adata.var.highly_variable]
         sc.tl.rank_genes_groups(adata, variable, method='wilcoxon')
         groups = adata.uns['rank_genes_groups']['names'].dtype.names
