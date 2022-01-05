@@ -53,15 +53,19 @@ def get_differential_features(scplus_obj: 'SCENICPLUS',
         log.info('Calculating ' + contrast + ' for variable ' + variable)
         if contrast == 'DEGs':
             adata = anndata.AnnData(X=scplus_obj.X_EXP, obs=pd.DataFrame(index=scplus_obj.cell_names), var=pd.DataFrame(index=scplus_obj.gene_names))
+            min_disp=0.5
         if contrast == 'DARs':
             adata = anndata.AnnData(X=scplus_obj.X_ACC.T, obs=pd.DataFrame(index=scplus_obj.cell_names), var=pd.DataFrame(index=scplus_obj.region_names))
+            min_disp=0.05
         adata.obs = scplus_obj.metadata_cell
         sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
         if use_hvg:
-            sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
-            adata = adata[:, adata.var.highly_variable]
-        sc.tl.rank_genes_groups(adata, variable, method='wilcoxon')
+            sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=min_disp, max_disp = np.inf)
+            var_features = adata.var.highly_variable[adata.var.highly_variable].index.tolist()
+            adata = adata[:, var_features]
+            log.info('There are ' + str(len(var_features)) + ' variable features')
+        sc.tl.rank_genes_groups(adata, variable, method='wilcoxon', corr_method='bonferroni')
         groups = adata.uns['rank_genes_groups']['names'].dtype.names
         diff_dict = {group: format_df(sc.get.rank_genes_groups_df(adata, group=group), group, adjpval_thr, log2fc_thr) for group in groups}
         if contrast not in scplus_obj.uns.keys():
