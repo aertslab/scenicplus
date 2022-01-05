@@ -59,6 +59,7 @@ def get_differential_features(scplus_obj: 'SCENICPLUS',
         sc.pp.log1p(adata)
         if use_hvg:
             sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            adata = adata[:, adata.var.highly_variable]
         sc.tl.rank_genes_groups(adata, variable, method='wilcoxon')
         groups = adata.uns['rank_genes_groups']['names'].dtype.names
         diff_dict = {group: format_df(sc.get.rank_genes_groups_df(adata, group=group), group, adjpval_thr, log2fc_thr) for group in groups}
