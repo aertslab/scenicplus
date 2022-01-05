@@ -3,7 +3,9 @@ import anndata
 import scanpy as sc
 from typing import Union, Dict, Sequence, Optional, List
 import logging
+import numpy as np
 import pandas as pd
+import sys
 pd.options.mode.chained_assignment = None
 
 def format_df(df, key, adjpval_thr, log2fc_thr):
@@ -39,8 +41,14 @@ def get_differential_features(scplus_obj: 'SCENICPLUS',
         A SCENICPLUS object.
     variable: str
         Variable to compute DARs/DEGs by (has to be included in scplus_obj.metadata_cell)
+    use_hvg: bool, optional
+    	Whether to use only highly variable genes/regions
     contrast_type: list, optional
         Wheter to compute DARs and/or DEGs per variable
+    adjpval_thr: float, optional
+    	P-value threshold
+    log2fc_thr
+    	Log2FC threshold
     """
     # Create logger
     level = logging.INFO
