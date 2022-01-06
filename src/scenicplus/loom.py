@@ -17,6 +17,7 @@ import os
 from sklearn.feature_extraction.text import CountVectorizer
 from itertools import repeat, chain, islice
 import loompy as lp
+import re
 
 def export_to_loom(scplus_obj: 'SCENICPLUS',
                    signature_key: str, 
@@ -135,12 +136,12 @@ def export_to_loom(scplus_obj: 'SCENICPLUS',
         feature_names = feature_names.tolist() + tf_names
     
     # Format regulons
-    regulons = scplus_obj.uns[eRegulon_metadata_key]
     if signature_key == 'Gene_based':
         regulons = {re.sub('_\(.*\)', '', x): ' '.join(list(set(scplus_obj.uns[eRegulon_metadata_key][scplus_obj.uns[eRegulon_metadata_key].Gene_signature_name == x]['Gene']))) for x in list(set(scplus_obj.uns[eRegulon_metadata_key].Gene_signature_name))}
+        cv = CountVectorizer(lowercase=False)
     else:
         regulons = {re.sub('_\(.*\)', '', x): ' '.join(list(set(scplus_obj.uns[eRegulon_metadata_key][scplus_obj.uns[eRegulon_metadata_key].Region_signature_name == x]['Region']))) for x in list(set(scplus_obj.uns[eRegulon_metadata_key].Region_signature_name))}   
-    cv = CountVectorizer(lowercase=False)
+        cv = CountVectorizer(lowercase=False, token_pattern=r'(?u)\b\w\w+\b:\b\w\w+\b-\b\w\w+\b')
     regulon_mat = cv.fit_transform(regulons.values())
     regulon_mat = pd.DataFrame(regulon_mat.todense(), columns=cv.get_feature_names(), index=regulons.keys())
     regulon_mat = regulon_mat.reindex(columns=feature_names, fill_value=0).T
