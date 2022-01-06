@@ -15,6 +15,7 @@ import leidenalg as la
 from sklearn.neighbors import kneighbors_graph
 from typing import Dict, List, Tuple
 from typing import Optional, Union
+from sklearn.decomposition import PCA
 
 def find_clusters(scplus_obj: 'SCENICPLUS',
                   auc_key: Optional[str] = 'eRegulon_AUC', 
@@ -227,6 +228,71 @@ def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
         columns=[
             'UMAP_1',
             'UMAP_2'])
+    scplus_obj.dr_cell[reduction_name] = dr
+
+def run_eRegulons_pca(scplus_obj: 'SCENICPLUS',
+             scale: Optional[bool] = True,
+             auc_key: Optional[str] = 'eRegulon_AUC', 
+             signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
+             reduction_name: Optional[str] = 'eRegulons_PCA',
+             random_state: Optional[int] = 555,
+             selected_regulons: Optional[List[int]] = None,
+             selected_cells: Optional[List[str]] = None,
+             n_pcs: Optional[int]= 50,
+             **kwargs):
+    """
+    Run UMAP and add it to the dimensionality reduction dictionary.
+    
+    Parameters
+    ---------
+    scplus_obj: `class::SCENICPLUS`
+            A SCENICPLUS object with eRegulons AUC computed.
+    scale: bool, optional
+            Whether to scale the cell-topic or topic-regions contributions prior to the dimensionality reduction. Default: False
+    auc_key: str, optional
+            Key to extract AUC values from. Default: 'eRegulon_AUC'
+    signature_keys: List, optional
+            Keys to extract AUC values from. Default: ['Gene_based', 'Region_based']
+    reduction_name: str, optional
+            Key used to store dimensionality reduction in scplud_obj.dr_cell. Default: eRegulon_AUC.
+    random_state: int, optional
+            Seed parameter for running UMAP. Default: 555
+    selected_regulons: list, optional
+            A list with selected regulons to be used for clustering. Default: None (use all regulons)
+    selected_cels: list, optional
+            A list with selected features cells to cluster. Default: None (use all cells)
+    **kwargs
+            Parameters to pass to umap.UMAP.
+    """
+
+
+    if scale:
+        data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
+            scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys])
+    else:
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys]).T
+    data_names = data_mat.columns.tolist()
+
+    if selected_regulons is not None:
+        selected_regulons = [x for x in selected_regulons if x in data_mat.index]
+        data_mat = data_mat.loc[selected_regulons]
+    if selected_cells is not None:
+        data_mat = data_mat[selected_cells]
+        data_names = selected_cells
+
+    if scale:
+        data_mat = pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
+            data_mat), index=data_mat.index.to_list(), columns=data_mat.columns)
+
+    data_mat = data_mat.T.fillna(0)
+    
+    reducer = PCA(n_components = n_pcs, random_state=random_state)
+    embedding = reducer.fit_transform(data_mat)
+
+    dr = pd.DataFrame(
+        embedding,
+        index=data_names,
+        columns=[f'PC_{i}' for i in range(n_pcs)])
     scplus_obj.dr_cell[reduction_name] = dr
     
 def plot_metadata(scplus_obj: 'SCENICPLUS',
