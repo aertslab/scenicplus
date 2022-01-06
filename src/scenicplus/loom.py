@@ -162,8 +162,16 @@ def export_to_loom(scplus_obj: 'SCENICPLUS',
                     cell_data[var] = cell_data[var].astype('str')
     metrics = pd.concat(metrics, axis=1).fillna(0)
     annotations = pd.concat(annotations, axis=1)
+    
     # Embeddings. Cell embeddings in this case
     embeddings = scplus_obj.dr_cell
+    
+    # Add linked_gene information
+    if signature_key == 'Gene_based':
+        linked_gene = None
+    else:
+        linked_gene = scplus_obj.uns[eRegulon_metadata_key][['Region', 'Gene']].groupby('Region').agg(lambda x: '; '.join(set(x)))
+        linked_gene = linkedGene.reindex(index=feature_names, fill_value='').loc[feature_names]
 
     # Create minimal loom
     log.info('Creating minimal loom')
@@ -178,7 +186,8 @@ def export_to_loom(scplus_obj: 'SCENICPLUS',
                        nomenclature = nomenclature,
                        embeddings = embeddings,
                        auc_mtx = auc_mtx,
-                       auc_thresholds = auc_thresholds)
+                       auc_thresholds = auc_thresholds,
+                       linked_gene = linked_gene)
     
 
     # Add annotations
@@ -234,6 +243,7 @@ def export_minimal_loom(
     auc_mtx = None,
     auc_thresholds = None,
     compress: bool = False,
+    linked_gene = None
 ):
     """
     An internal function to create a minimal loom file
@@ -302,11 +312,17 @@ def export_minimal_loom(
         'Embeddings_X': create_structure_array(embeddings_X),
         'Embeddings_Y': create_structure_array(embeddings_Y),
     }
-    row_attrs = {
-        "Gene": np.array(feature_names),
-        "Regulons": create_structure_array(regulons),
-    }
-
+    if linked_gene is None:
+        row_attrs = {
+            "Gene": np.array(feature_names),
+            "Regulons": create_structure_array(regulons),
+        }
+    else:
+        row_attrs = {
+            "Gene": np.array(feature_names),
+            "Regulons": create_structure_array(regulons),
+            "linkedGene": np.array(linked_gene['Gene'])
+        }
     def fetch_logo(context):
         for elem in context:
             if elem.endswith('.png'):
