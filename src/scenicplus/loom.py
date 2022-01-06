@@ -168,11 +168,12 @@ def export_to_loom(scplus_obj: 'SCENICPLUS',
     
     # Add linked_gene information
     if signature_key == 'Gene_based':
-        linked_gene = None
+        linked_gene = scplus_obj.uns[eRegulon_metadata_key][['Region', 'Gene']].groupby('Gene').agg(lambda x: '; '.join(set(x)))
+        linked_gene = linked_gene.reindex(index=feature_names, fill_value='').loc[feature_names]
     else:
         linked_gene = scplus_obj.uns[eRegulon_metadata_key][['Region', 'Gene']].groupby('Region').agg(lambda x: '; '.join(set(x)))
-        linked_gene = linkedGene.reindex(index=feature_names, fill_value='').loc[feature_names]
-
+        linked_gene = linked_gene.reindex(index=feature_names, fill_value='').loc[feature_names]
+    linked_gene.columns = ['0']
     # Create minimal loom
     log.info('Creating minimal loom')
     export_minimal_loom(ex_mtx = ex_mtx,
@@ -321,7 +322,7 @@ def export_minimal_loom(
         row_attrs = {
             "Gene": np.array(feature_names),
             "Regulons": create_structure_array(regulons),
-            "linkedGene": np.array(linked_gene['Gene'])
+            "linkedGene": np.array(linked_gene['0'])
         }
     def fetch_logo(context):
         for elem in context:
