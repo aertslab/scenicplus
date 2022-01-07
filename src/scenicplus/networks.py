@@ -5,6 +5,7 @@ import scanpy as sc
 import random
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import networkx as nx
 from matplotlib.colors import to_rgba, to_hex
 import numpy as np
 
