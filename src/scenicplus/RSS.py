@@ -134,7 +134,7 @@ def plot_rss(scplus_obj: 'SCENICPLUS',
         ax.set_xlabel('')
         adjust_text(ax.texts, autoalign='xy', ha='right', va='bottom', arrowprops=dict(arrowstyle='-',color='lightgrey'), precision=0.001 )
         if num_columns == 1:
-            fig.text(0.5, 0.0, 'eRegulon', ha='center', va='center', size='x-large')
+            fig.text(0.5, 0.0, 'eRegulon rank', ha='center', va='center', size='x-large')
             fig.text(0.00, 0.5, 'eRegulon specificity score (eRSS)', ha='center', va='center', rotation='vertical', size='x-large')
             plt.tight_layout()
             plt.rcParams.update({
