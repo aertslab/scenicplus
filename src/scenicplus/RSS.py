@@ -4,6 +4,7 @@ from scipy.spatial.distance import jensenshannon
 from math import sqrt
 from math import ceil, floor
 import matplotlib.pyplot as plt
+import matplotlib
 from typing import Dict, List, Tuple
 from typing import Optional, Union
 from adjustText import adjust_text
