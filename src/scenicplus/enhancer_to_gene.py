@@ -18,6 +18,12 @@ from scipy.stats import pearsonr, spearmanr
 from .scenicplus_class import SCENICPLUS
 
 from tqdm import tqdm
+from .utils import Groupby
+
+from matplotlib import cm
+from matplotlib.colors import Normalize
+
+flatten_list = lambda t: [item for sublist in t for item in sublist]
 
 RANDOM_SEED = 666
 
@@ -162,7 +168,6 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
     
 
     #get regions
-    #TODO: Add option to select subset of regions? (e.g. highly variable, ...)?
     pr_regions = pr.PyRanges(region_names_to_coordinates(SCENICPLUS_obj.region_names))
 
     #set region names
@@ -737,8 +742,12 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
                             ucsc_description = 'interaction file for region to gene', 
                             cmap_neg = 'Reds', 
                             cmap_pos = 'Blues',
+                            key_for_color = 'importance',
                             vmin = 0,
-                            vmax = 1000):
+                            vmax = 1,
+                            scale_by_gene = True,
+                            subset_for_eRegulons_regions = True,
+                            eRegulons_key = 'eRegulons'):
     """
     Exports interaction dataframe to UCSC interaction file and (optionally) UCSC bigInteract file.
     :param region_to_gene_df: interaction dataframe obtained from calculate_regions_to_genes_relationships function.
@@ -754,6 +763,7 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
                            These scaled values are used to calculate color codes.
     :param cmap_neg: matplotlib colormap for coloring importance scores where the correlation coefficient is negative.
     :param cmap_pos: matplotlib colormap for coloring importance scores where the correlation coefficient is positive.
+    :param key_for_color: region_to_gene score to color by.
     """
     # Create logger
     level    = logging.INFO
@@ -767,11 +777,15 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     
     region_to_gene_df = SCENICPLUS_obj.uns[region_to_gene_key].copy()
 
+    if subset_for_eRegulons_regions:
+        if eRegulons_key not in SCENICPLUS_obj.uns.keys():
+            raise ValueError(f'key {eRegulons_key} not found in SCENICPLUS_obj.uns.keys()')
+        eRegulon_regions = list(set(flatten_list([ereg.target_regions for ereg in SCENICPLUS_obj.uns[eRegulons_key]])))
+        region_to_gene_df.index = region_to_gene_df['region']
+        region_to_gene_df = region_to_gene_df.loc[eRegulon_regions].reset_index(drop = True)
+
     #Rename columns to be in line with biomart annotation
     region_to_gene_df.rename(columns = {'target': 'Gene'}, inplace = True)
-
-    #threshold
-    region_to_gene_df = region_to_gene_df.loc[region_to_gene_df['selected']]
 
     # Get TSS annotation (end-point for links)
     log.info('Downloading gene annotation from biomart, using dataset: {}'.format(species+'_gene_ensembl'))
@@ -808,6 +822,7 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     region_to_gene_df = region_to_gene_df.join(gene_to_chrom, on = 'Gene')
     
     #get chrom, chromStart, chromEnd
+    region_to_gene_df.dropna(axis = 0, how = 'any', inplace = True)
     arr = region_names_to_coordinates(region_to_gene_df['region']).to_numpy()
     chrom, chromStart, chromEnd = np.split(arr, 3, 1)
     chrom = chrom[:, 0]
@@ -824,24 +839,44 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     targetStart = region_to_gene_df['TSS_Gene'].values
     targetEnd   = list(map(str,np.array(list(map(int, targetStart))) + np.array([1 if strand == '+' else -1 for strand in region_to_gene_df['Strand'].values])))
 
-
     #get color
-    from matplotlib import cm
-    from matplotlib.colors import Normalize
     norm = Normalize(vmin = vmin, vmax = vmax)
-    # map postive correlation values to color
-    region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = [','.join(map(str, color_list)) 
-                                                                                 for color_list 
-                                                                                 in getattr(cm, cmap_pos)(
-                                                                                     norm(region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'importance']), bytes = True)[:,0:3]]
+    if scale_by_gene:
+        grouper = Groupby(region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'Gene'].to_numpy())
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_pos)
+        def _value_to_color(scores):
+            S = (scores - scores.min()) / (scores.max() - scores.min())
+            return [','.join([str(x) for x in mapper.to_rgba(s, bytes = True)][0:3]) for s in S]
+        
+        colors_pos = np.zeros(len(scores), dtype='object')
+        for idx in grouper.indices:
+            colors_pos[idx] = _value_to_color(scores[idx])
+        
+        grouper = Groupby(region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'Gene'].to_numpy())
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] < 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_neg)
+        def _value_to_color(scores):
+            S = (scores - scores.min()) / (scores.max() - scores.min())
+            return [','.join([str(x) for x in mapper.to_rgba(s, bytes = True)][0:3]) for s in S]
+        
+        colors_neg = np.zeros(len(scores), dtype='object')
+        for idx in grouper.indices:
+            colors_neg[idx] = _value_to_color(scores[idx])
+
+    else:
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_pos)
+        color_pos = [','.join([str(x) for x in mapper.to_rgba(s, bytes = True)][0:3]) for s in scores]
+
+        scores = region_to_gene_df.loc[region_to_gene_df['rho'] < 0, key_for_color].to_numpy()
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_neg)
+        color_neg = [','.join([str(x) for x in mapper.to_rgba(s, bytes = True)][0:3]) for s in scores]
     
-    # map negative correlation values to color
-    region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'color'] = [','.join(map(str, color_list)) 
-                                                                                for color_list 
-                                                                                in getattr(cm, cmap_neg)(
-                                                                                    norm(region_to_gene_df.loc[region_to_gene_df['rho'] < 0, 'importance']), bytes = True)[:,0:3]]
-    #set color to gray where correlation coef equals nan
+    region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = colors_pos
+    region_to_gene_df.loc[region_to_gene_df['rho'] < 0,  'color'] = colors_neg
     region_to_gene_df['color'] = region_to_gene_df['color'].fillna('55,55,55')
+
     #get name for regions (add incremental number to gene in range of regions linked to gene)
     counter = 1
     previous_gene = region_to_gene_df['Gene'].values[0]
