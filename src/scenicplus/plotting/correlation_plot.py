@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple
 from typing import Optional, Union
 import sklearn
 import matplotlib.pyplot as plt
+from itertools import combinations
 
 def correlation_heatmap(scplus_obj: 'SCENICPLUS',
                         auc_key: Optional[str] = 'eRegulon_AUC', 
@@ -106,6 +107,105 @@ def correlation_heatmap(scplus_obj: 'SCENICPLUS',
             ax = ax,
             robust = True,
             cbar_kws={"shrink": .50, 'label': 'Correlation'},
+            xticklabels=False)
+        if save is not None:
+            fig.tight_layout()
+            fig.savefig(save)
+        plt.show()
+        plt.close(fig)
+
+def jaccard(signature1, signature2):
+    s_signature1 = set(signature1)
+    s_signature2 = set(signature2)
+    intersect = len(s_signature1 & s_signature2)
+    union = len(s_signature1) + len(s_signature2) - intersect
+    return intersect / union
+
+def jaccard_heatmap(scplus_obj: 'SCENICPLUS',
+                    gene_or_region_based: str = 'Gene_based',
+                    signature_key: Optional[str] = 'eRegulon_signatures',
+                    selected_regulons: Optional[List[int]] = None,
+                    linkage_method: Optional[str] = 'average',
+                    fcluster_threshold: Optional[float] = 0.1,
+                    cmap: Optional[str] = 'viridis',
+                    plotly_height: Optional[int] = 1000,
+                    fontsize: Optional[int] = 3,
+                    save: Optional[str] = None,
+                    use_plotly: Optional[int] = True,
+                    figsize: Optional[Tuple[int, int]] = (20, 20)
+    ):
+    """
+    Plot jaccard index of regions/genes
+
+    Parameters
+    ---------
+    scplus_obj: `class::SCENICPLUS`
+        A SCENICPLUS object with eRegulon signatures.
+    gene_or_region_based: str
+        Gene_based or Region_based eRegulon signatures to use.
+    signature_key: List, optional
+        Key to extract eRegulon signatures from
+    selected_regulons: list, optional
+        A list with selected regulons to be used for clustering. Default: None (use all regulons)
+    linkage_method: str, optional
+        Linkage method to use for clustering. See `scipy.cluster.hierarchy.linkage`.
+    fcluster_threshold: float, optional
+        Threshold to use to divide hierarchical clustering into clusters. See `scipy.cluster.hierarchy.fcluster`.
+    cmap: str or 'matplotlib.cm', optional
+        For continuous variables, color map to use for the legend color bar. Default: cm.viridis
+    plotly_height: int, optional
+        Height of the plotly plot. Width will be adjusted accordingly
+    fontsize: int, optional
+        Labels fontsize
+    save: str, optional
+        Path to save heatmap as file
+    use_plotly: bool, optional
+        Use plotly or seaborn to generate the image
+    figsize: tupe, optional
+        Matplotlib figsize, used only if use_plotly == False
+    """
+    signatures = scplus_obj.uns[signature_key][gene_or_region_based]
+    if selected_regulons is not None:
+        signatures = {k: signatures[k] for k in signatures.keys() if k in selected_regulons}
+    signatures_names = list(signatures.keys())
+    sign_combinations = list(combinations(signatures_names, 2))
+    n_signatures = len(signatures_names)
+    jaccards = np.zeros((n_signatures, n_signatures))
+
+    for signature_1, signature_2 in sign_combinations:
+        idx_1 = signatures_names.index(signature_1)
+        idx_2 = signatures_names.index(signature_2)
+        jaccards[idx_1, idx_2] = jaccard(signatures[signature_1], signatures[signature_2])
+        jaccards[idx_2, idx_1] = jaccard(signatures[signature_1], signatures[signature_2])
+    np.fill_diagonal(jaccards, 1)
+    similarity = 1 - jaccards
+    Z = linkage(squareform(similarity), linkage_method)
+    # Clusterize the data
+    labels = fcluster(Z, fcluster_threshold)
+    # Keep the indices to sort labels
+    labels_order = np.argsort(labels)
+    clustered_jaccard_df = pd.DataFrame(jaccards, index = signatures_names, columns = signatures_names).iloc[labels_order, labels_order]
+    if use_plotly:
+        fig = px.imshow(clustered_jaccard_df, color_continuous_scale=cmap)
+        fig.update_layout(
+            height=plotly_height,  # Added parameter
+            legend= {'itemsizing': 'trace'},
+            plot_bgcolor='rgba(0,0,0,0)',
+            yaxis = dict(tickfont = dict(size=fontsize)),
+            xaxis = dict(tickfont = dict(size=fontsize)),
+        )
+        if save is not None:
+            fig.write_image(save)
+        fig.show()
+    else:
+        fig, ax = plt.subplots(figsize = figsize)
+        sns.heatmap(
+            data = clustered_jaccard_df,
+            cmap = cmap,
+            square = True,
+            ax = ax,
+            robust = True,
+            cbar_kws={"shrink": .50, 'label': 'Jaccard'},
             xticklabels=False)
         if save is not None:
             fig.tight_layout()
