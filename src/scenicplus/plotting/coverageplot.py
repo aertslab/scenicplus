@@ -19,7 +19,7 @@ region_to_chrom_start_end = lambda x: [    x.replace(':', '-').split('-')[0],
 def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                   bw_dict: Mapping[str, str],
                   region: str,
-                  genes: Union[str, List] = None,
+                  genes_violin_plot: Union[str, List] = None,
                   gene_height: int = 1,
                   exon_height: int = 2,
                   meta_data_key: str = None,
@@ -66,7 +66,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         A dict containing celltype annotations/cell groups as keys and paths to bigwig files as values.
     region
         A string specifying the region of interest, in chr:start-end format.
-    genes
+    genes_violin_plot
         A list or string specifying for which gene(s) to plot gene expression violin plots.
         default: None
     gene_height
@@ -155,7 +155,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
     if add_custom_ax is not None:
         height_ratios += [height_ratios_dict['custom_ax'] for i in range(add_custom_ax)]
 
-    if genes is not None:
+    if genes_violin_plot is not None:
         ncols = 2
         width_ratios = [width_ratios_dict['bigwig'], width_ratios_dict['violinplots']]
     else:
@@ -166,7 +166,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                             gridspec_kw = {'height_ratios': height_ratios, 'width_ratios':width_ratios}, 
                             figsize = figsize)
     axs_bw = axs[:, 0]
-    if genes is not None:
+    if genes_violin_plot is not None:
         axs_vln = axs[:, 1]
     
     subplot_idx = 0
@@ -324,7 +324,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         ax.set_xticks([])
         ax.set_yticks([])
     
-    if genes is not None:
+    if genes_violin_plot is not None:
         #plot expression of gene/genes
         
         if meta_data_key not in SCENICPLUS_obj.metadata_cell.columns:
@@ -340,7 +340,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         mtx = np.log1p( (SCENICPLUS_obj.X_EXP.T / SCENICPLUS_obj.X_EXP.sum(1) * (10 ** 4)).T )
         
         #get expression values for gene/genes
-        idx_gene = list(SCENICPLUS_obj.gene_names).index(genes) if type(genes) == str else [list(SCENICPLUS_obj.gene_names).index(g) for g in genes]
+        idx_gene = list(SCENICPLUS_obj.gene_names).index(genes_violin_plot) if type(genes_violin_plot) == str else [list(SCENICPLUS_obj.gene_names).index(g) for g in genes_violin_plot]
         expr_vals = mtx[:, idx_gene]
 
         norm = matplotlib.colors.Normalize(vmin = 0, vmax = len(plot_order))
@@ -355,7 +355,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
             if sort_vln_plots:
                 idx_sorted = np.argsort(expr_vals_sub.mean(0))[::-1]
                 expr_vals_sub = expr_vals_sub[:, idx_sorted]
-                genes = np.array(list(genes))[idx_sorted]
+                genes_violin_plot = np.array(list(genes_violin_plot))[idx_sorted]
 
             expr_min = min(expr_min, expr_vals_sub.min())
             expr_max = max(expr_max, expr_vals_sub.max())
@@ -367,9 +367,9 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                 pc.set_edgecolor(violinplots_edge_color)
                 pc.set_alpha(violoinplots_alpha)
             vln_plot_part['cmeans'].set_edgecolor(violinplots_means_color)
-            n_labels = 1 if type(genes) == str else len(genes)
+            n_labels = 1 if type(genes_violin_plot) == str else len(genes_violin_plot)
             ax.set_yticks(ticks = np.arange(1, n_labels + 1))
-            ax.set_yticklabels(genes, fontsize = fontsize_dict['violinplots_ylabel'])
+            ax.set_yticklabels(genes_violin_plot, fontsize = fontsize_dict['violinplots_ylabel'])
             ax.set_xlim(xmin = round(expr_min), xmax = round(expr_max + 0.5))
             if idx < len(plot_order) - 1:
                 sns.despine(top=True, right=True, left=True, bottom=True, ax=ax)
