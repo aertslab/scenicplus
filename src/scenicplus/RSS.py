@@ -118,7 +118,7 @@ def plot_rss(scplus_obj: 'SCENICPLUS',
     if (save is not None) & (num_columns == 1):
         pdf = matplotlib.backends.backend_pdf.PdfPages(save)
     
-    for c,num in zip(cats, range(1,len(cats)+1)):
+    for c in cats:
         x=data_mat.T[c]
         if num_columns > 1:
             ax = fig.add_subplot(num_rows, num_columns, i)
@@ -164,8 +164,8 @@ def plot_rss(scplus_obj: 'SCENICPLUS',
         if save is not None:
             fig.savefig(save, bbox_inches='tight')
         plt.show()
-        if (save is not None) & (num_columns == 1):
-            pdf = pdf.close()
+    if (save is not None) & (num_columns == 1):
+        pdf = pdf.close()
 
 def plot_rss_internal(rss, cell_type, top_n=5, max_n=None, ax=None):
     """
