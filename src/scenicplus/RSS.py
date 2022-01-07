@@ -8,6 +8,7 @@ import matplotlib
 from typing import Dict, List, Tuple
 from typing import Optional, Union
 from adjustText import adjust_text
+import sklearn
 
 def regulon_specificity_scores(scplus_obj: 'SCENICPLUS',
                         variable: str, 
@@ -38,7 +39,7 @@ def regulon_specificity_scores(scplus_obj: 'SCENICPLUS',
         data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
             scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys]).T
     else:
-        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys])
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys], axis = 1)
     
     if selected_regulons is not None:
         subset = [x for x in selected_regulons if x in data_mat.columns]
