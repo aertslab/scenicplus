@@ -332,8 +332,8 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         
         #check that bw_dict keys is a subset of scplus_obj.metadata_cell[meta_data_key]
         annotations = SCENICPLUS_obj.metadata_cell[meta_data_key].to_numpy()
-        if len( set(bw_dict.keys()) - set(annotations) ) != 0:
-            not_found = set(bw_dict.keys()) - set(annotations)
+        if len( set(plot_order) - set(annotations) ) != 0:
+            not_found = set(plot_order) - set(annotations)
             raise ValueError(f'Following keys were not found in SCENICPLUS_obj.metadata_cell[{meta_data_key}]\n{", ".join(not_found)}')
 
         #normalize scores
@@ -343,11 +343,11 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         idx_gene = list(SCENICPLUS_obj.gene_names).index(genes) if type(genes) == str else [list(SCENICPLUS_obj.gene_names).index(g) for g in genes]
         expr_vals = mtx[:, idx_gene]
 
-        norm = matplotlib.colors.Normalize(vmin = 0, vmax = len(bw_dict.keys()))
+        norm = matplotlib.colors.Normalize(vmin = 0, vmax = len(plot_order))
         mapper = cm.ScalarMappable(norm = norm, cmap = cmap_violinplots)
         expr_min = np.Inf
         expr_max = np.NINF
-        for idx, annotation in enumerate(bw_dict.keys()):
+        for idx, annotation in enumerate(plot_order):
             ax = axs_vln[idx]
             cells = np.where(annotations == annotation)
             expr_vals_sub = expr_vals[cells]
@@ -371,7 +371,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
             ax.set_yticks(ticks = np.arange(1, n_labels + 1))
             ax.set_yticklabels(genes, fontsize = fontsize_dict['violinplots_ylabel'])
             ax.set_xlim(xmin = round(expr_min), xmax = round(expr_max + 0.5))
-            if idx < len(bw_dict.keys()) - 1:
+            if idx < len(plot_order) - 1:
                 sns.despine(top=True, right=True, left=True, bottom=True, ax=ax)
                 ax.set_xticks([])
             else:
