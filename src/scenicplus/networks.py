@@ -4,6 +4,7 @@ import anndata
 import scanpy as sc
 import random
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from matplotlib.colors import to_rgba, to_hex
 import numpy as np
 
