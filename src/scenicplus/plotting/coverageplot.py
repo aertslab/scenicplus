@@ -21,7 +21,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                   region: str,
                   genes_violin_plot: Union[str, List] = None,
                   gene_height: int = 1,
-                  exon_height: int = 2,
+                  exon_height: int = 4,
                   meta_data_key: str = None,
                   pr_consensus_bed: pr.PyRanges = None,
                   region_bed_height: int = 1,
@@ -254,8 +254,6 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
     ## draw the genes of interest, from our gtf
     # intersect genes gtf with the region of interest
     if pr_gtf is not None:
-        gene_bottom = -gene_height/2
-        exon_bottom = -exon_height/2
         #intersect gtf with region and get first 9 columns
         gtf_region_intersect = pr_gtf.intersect(pr_region)
         #only keep exon and gene info
@@ -267,7 +265,12 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         ax = axs_bw[subplot_idx]
         subplot_idx += 1
         genes_in_window = set(gtf_region_intersect.gene_name)
-        for _gene in genes_in_window:
+        n_genes_in_window = len(genes_in_window)
+        for idx, _gene in enumerate(genes_in_window):
+            _gene_height = gene_height / n_genes_in_window
+            _gene_bottom = -gene_height/2 + _gene_height * idx
+            _exon_bottom = _gene_bottom - (((exon_height / n_genes_in_window) / 2) - _gene_height)
+            _exon_height = (((exon_height / n_genes_in_window) / 2) - _gene_height) + _gene_height + (((exon_height / n_genes_in_window) / 2) - _gene_height)
             #don't plot non-protein coding transcripts (e.g. nonsense_mediated_decay)
             if not all(gtf_region_intersect.df.loc[gtf_region_intersect.df['gene_name'] == _gene, 'transcript_type'].dropna() == 'protein_coding'):
                 continue
@@ -277,19 +280,19 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                 # make exons thick
                 if part['Feature'] == 'exon':
                     exon_start = part['Start']
-                    exon_end = part['End']                
+                    exon_end = part['End']
                     # draw rectangle for exon
-                    rect=mpatches.Rectangle((exon_start,exon_bottom),exon_end-exon_start,exon_height,fill=True,color="k",linewidth=0)
+                    rect=mpatches.Rectangle((exon_start,_exon_bottom),exon_end-exon_start,_exon_height,fill=True,color="k",linewidth=0)
                     ax.add_patch(rect)   
                 # make the gene body a thin line, drawn at the end so it will always display on top
                 elif part['Feature'] == 'gene':
                     gene_start = part['Start']
                     gene_end = part['End']
-                    rect=mpatches.Rectangle((gene_start,gene_bottom),gene_end-gene_start,gene_height,fill=True,color="k",linewidth=0)
+                    rect=mpatches.Rectangle((gene_start,_gene_bottom),gene_end-gene_start,_gene_height,fill=True,color="k",linewidth=0)
                     ax.add_patch(rect)
-                ax.text(gene_start, gene_bottom - gene_label_offset, _gene, fontsize = fontsize_dict['gene_label'])
+                ax.text(gene_start, _gene_bottom - gene_label_offset, _gene, fontsize = fontsize_dict['gene_label'])
             # figure settings
-            ax.set_ylim([exon_bottom, -exon_bottom])
+            ax.set_ylim([-exon_height/2, exon_height/2])
             #ax.set_xlabel(gene, fontsize=10)
             ax.set_xlim([x.min(), x.max()])
             sns.despine(top=True, right=True, left=True, bottom=True, ax=ax)
