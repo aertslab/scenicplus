@@ -20,6 +20,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                   bw_dict: Mapping[str, str],
                   region: str,
                   genes_violin_plot: Union[str, List] = None,
+                  genes_arcs: Union[str, List] = None,
                   gene_height: int = 1,
                   exon_height: int = 4,
                   meta_data_key: str = None,
@@ -69,6 +70,9 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
     genes_violin_plot
         A list or string specifying for which gene(s) to plot gene expression violin plots.
         default: None
+    genes_arcs
+        A list or string specifying for which gene(s) to plot arcs
+        default: None (i.e. all genes in window)
     gene_height
         An int specifying the size of non-exon parts of a gene (shown underneath the coverage plot).
         default: 1
@@ -308,7 +312,12 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
         pr_region = pr.PyRanges(chromosomes = [chrom], starts = [start], ends = [end])
         region_interact_intersect = pr_interact.intersect(pr_region)
         #only keep interactions to genes within window
-        region_interact_intersect = region_interact_intersect[np.isin(region_interact_intersect.targetName, list(genes_in_window))]
+        if genes_arcs is not None:
+            if type(genes_arcs) == str:
+                genes_arcs = [genes_arcs]
+            region_interact_intersect = region_interact_intersect[np.isin(region_interact_intersect.targetName, list(set(genes_in_window) & set(genes_arcs)))]
+        else:
+            region_interact_intersect = region_interact_intersect[np.isin(region_interact_intersect.targetName, list(genes_in_window))]
         for _, r2g in region_interact_intersect.df.sort_values('value').iterrows():
             posA = (int(r2g['sourceStart']), 0)
             posB = (int(r2g['targetStart']), 0)
