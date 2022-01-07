@@ -178,15 +178,12 @@ def plot_rss_internal(rss, cell_type, top_n=5, max_n=None, ax=None):
     data = rss.T[cell_type].sort_values(ascending=False)[0:max_n]
     ax.plot(np.arange(len(data)), data, '.')
     ax.set_ylim([floor(data.min() * 100.0) / 100.0, ceil(data.max() * 100.0) / 100.0])
-    ax.set_ylabel('RSS')
-    ax.set_xlabel('Regulon')
     ax.set_title(cell_type)
     ax.set_xticklabels([])
 
     font = {
         'color': 'red',
-        'weight': 'normal',
-        'size': 4,
+        'weight': 'normal'
     }
 
     for idx, (regulon_name, rss_val) in enumerate(zip(data[0:top_n].index, data[0:top_n].values)):
