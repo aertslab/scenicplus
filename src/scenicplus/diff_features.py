@@ -1,11 +1,13 @@
-# Getting DEGs
 import anndata
 import scanpy as sc
-from typing import Union, Dict, Sequence, Optional, List
+from typing import Optional, List
 import logging
 import numpy as np
 import pandas as pd
 import sys
+
+from .scenicplus_class import SCENICPLUS
+
 pd.options.mode.chained_assignment = None
 
 def format_df(df, key, adjpval_thr, log2fc_thr):
@@ -24,7 +26,7 @@ def format_df(df, key, adjpval_thr, log2fc_thr):
     )
     return df
 
-def get_differential_features(scplus_obj: 'SCENICPLUS',
+def get_differential_features(scplus_obj: SCENICPLUS,
                              variable,
                              use_hvg: Optional[bool] = True,
                              contrast_type: Optional[List] = ['DARs', 'DEGs'],
