@@ -321,8 +321,7 @@ def export_minimal_loom(
         # Create a numpy structured array
         return np.array([tuple(row) for row in df.values], dtype=np.dtype(list(zip(df.columns, df.dtypes))))
 
-    default_embedding = next(iter(embeddings.values())).copy()
-    default_embedding.columns = ['_X', '_Y']
+    default_embedding = pd.DataFrame([embeddings_X.iloc[:,0], embeddings_Y.iloc[:,0]], columns=ex_mtx.index, index=['_X', '_Y']).T
     column_attrs = {
         "CellID": np.array(cell_names),
         "Embedding": create_structure_array(default_embedding),
