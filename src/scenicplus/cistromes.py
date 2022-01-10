@@ -9,6 +9,7 @@ from random import sample
 import seaborn as sns
 from scipy.stats import pearsonr
 from typing import List, Union
+from .utils import region_names_to_coordinates, target_to_overlapping_query, p_adjust_bh
 
 from .scenicplus_class import SCENICPLUS
 
@@ -158,7 +159,6 @@ def make_rankings(scplus_obj: 'SCENICPLUS',
             )
 
     return imputed_acc_ranking
-
 
 def score_cistromes(scplus_obj: 'SCENICPLUS',
                     ranking: 'CistopicImputedFeatures',
@@ -458,59 +458,5 @@ def prune_plot(scplus_obj: 'SCENICPLUS',
         plt.show()
     
 
-# Utils
-def region_names_to_coordinates(region_names):
-    """
-    Convert region names (list, UCSC format) to a coordinate dataframe
-    """
-    chrom=pd.DataFrame([i.split(':', 1)[0] for i in region_names if ':' in i])
-    coor = [i.split(':', 1)[1] for i in region_names if ':' in i]
-    start=pd.DataFrame([int(i.split('-', 1)[0]) for i in coor])
-    end=pd.DataFrame([int(i.split('-', 1)[1]) for i in coor])
-    regiondf=pd.concat([chrom, start, end], axis=1, sort=False)
-    regiondf.index=[i for i in region_names if ':' in i]
-    regiondf.columns=['Chromosome', 'Start', 'End']
-    return(regiondf)
-
-def target_to_overlapping_query(target: Union[pr.PyRanges, List[str]],
-         query: Union[pr.PyRanges, List[str]],
-         fraction_overlap: float = 0.4):
-    """
-    Return mapping between two sets of regions
-    """
-    #Read input
-    if isinstance(target, str):
-        target_pr=pr.read_bed(target)
-    if isinstance(target, list):
-        target_pr=pr.PyRanges(region_names_to_coordinates(target))
-    if isinstance(target, pr.PyRanges):
-        target_pr=target
-    # Read input
-    if isinstance(query, str):
-        query_pr=pr.read_bed(query)
-    if isinstance(query, list):
-        query_pr=pr.PyRanges(region_names_to_coordinates(query))
-    if isinstance(query, pr.PyRanges):
-        query_pr=query
-    
-    join_pr = target_pr.join(query_pr, report_overlap = True)
-    if len(join_pr) > 0:
-        join_pr.Overlap_query =  join_pr.Overlap/(join_pr.End_b - join_pr.Start_b)
-        join_pr.Overlap_target =  join_pr.Overlap/(join_pr.End - join_pr.Start)
-        join_pr = join_pr[(join_pr.Overlap_query > fraction_overlap) | (join_pr.Overlap_target > fraction_overlap)]
-        join_pr = join_pr[['Chromosome', 'Start', 'End']]
-        return join_pr.drop_duplicate_positions()
-    else:
-        return pr.PyRanges()
-    
-# Function for adjusting p-value
-def p_adjust_bh(p: float):
-    """Benjamini-Hochberg p-value correction for multiple hypothesis testing."""
-    p = np.asfarray(p)
-    by_descend = p.argsort()[::-1]
-    by_orig = by_descend.argsort()
-    steps = float(len(p)) / np.arange(len(p), 0, -1)
-    q = np.minimum(1, np.minimum.accumulate(steps * p[by_descend]))
-    return q[by_orig]
 
 
