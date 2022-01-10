@@ -1,13 +1,10 @@
 import pandas as pd
 import numpy as np
-import os, glob
-import pickle
 import ray
 import logging
 import time
 import sys
 
-from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
 from .scenicplus_class import SCENICPLUS
@@ -29,7 +26,7 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level = level, format = format, handlers = handlers)
 log = logging.getLogger('TF2G')
 
-def load_TF2G_adj_from_file(SCENICPLUS_obj: 'SCENICPLUS', 
+def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS, 
                             f_adj: str, 
                             inplace = True, 
                             key= 'TF2G_adj', 
@@ -173,7 +170,7 @@ def run_infer_partial_network_ray(target_gene_name,
                              tf_matrix_gene_names)
 
 
-def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
+def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
                                         tf_file: str,
                                         method: str = 'GBM',
                                         ray_n_cpu: int = 1,
@@ -200,7 +197,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: 'SCENICPLUS',
     """
     from arboreto.utils import load_tf_names
     from arboreto.algo import _prepare_input
-    from arboreto.core import SGBM_KWARGS, RF_KWARGS, EARLY_STOP_WINDOW_LENGTH
+    from arboreto.core import SGBM_KWARGS, RF_KWARGS
     from arboreto.core import to_tf_matrix
     
     if(method == 'GBM'):
