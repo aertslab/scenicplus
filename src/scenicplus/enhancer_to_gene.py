@@ -1,29 +1,22 @@
 import pandas as pd
 import numpy  as np
 import ray
-import warnings
 import logging
 import time
 import sys
 import os
 import subprocess
 import pyranges as pr
-from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b, calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
-from .utils import coord_to_region_names, region_names_to_coordinates, ASM_SYNONYMS
-from .scenicplus_class import SCENICPLUS
-
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
 from scipy.stats import pearsonr, spearmanr
-
-from .scenicplus_class import SCENICPLUS
-
 from tqdm import tqdm
-from .utils import Groupby
-
 from matplotlib import cm
 from matplotlib.colors import Normalize
 
-flatten_list = lambda t: [item for sublist in t for item in sublist]
+from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b
+from .utils import calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
+from .utils import  coord_to_region_names, region_names_to_coordinates, ASM_SYNONYMS, Groupby, flatten_list
+from .scenicplus_class import SCENICPLUS
 
 RANDOM_SEED = 666
 
