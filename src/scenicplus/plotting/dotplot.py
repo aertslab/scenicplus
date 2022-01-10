@@ -1,19 +1,16 @@
 import pandas as pd
 import numpy as np
-import scipy.stats as stats
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from sklearn.cluster import AgglomerativeClustering
-import scanpy as sc
 from matplotlib.cm import ScalarMappable
-import plotly
-import pycistarget
-import kaleido
 import matplotlib.backends.backend_pdf
 from typing import Dict, List, Tuple
-from typing import Optional, Union
+from typing import Optional
 import re
 from pycistarget.motif_enrichment_dem import DEM
+
+from ..scenicplus_class import SCENICPLUS
 
 ## Utils
 def flatten(A):
@@ -27,7 +24,7 @@ def flatten(A):
     return rt
 
 # For motif enrichment
-def generate_dotplot_df_motif_enrichment(scplus_obj: 'SCENICPLUS',
+def generate_dotplot_df_motif_enrichment(scplus_obj: SCENICPLUS,
                        enrichment_key: str,
                        group_variable: str = None,
                        barcode_groups: dict = None,
@@ -162,7 +159,7 @@ def generate_dotplot_df_motif_enrichment(scplus_obj: 'SCENICPLUS',
     dotplot_df = dotplot_df.replace(np.nan,0)
     return dotplot_df
     
-def generate_dotplot_df_AUC(scplus_obj: 'SCENICPLUS',
+def generate_dotplot_df_AUC(scplus_obj: SCENICPLUS,
                        auc_key: str,
                        enrichment_key: str,
                        group_variable: str,
@@ -280,7 +277,7 @@ def _cluster_labels_to_idx(labels):
     idx = [np.where(order == i)[0][0] for i, _ in enumerate(order)]
     return idx
 
-def dotplot(df_dotplot: 'pd.DataFrame',
+def dotplot(df_dotplot: pd.DataFrame,
              ax: plt.axes = None,
              region_set_key: str = 'Name',
              size_var: str = 'TF_expression',
@@ -504,7 +501,6 @@ def dotplot(df_dotplot: 'pd.DataFrame',
         plt.show()
     
     else:
-        import plotly
         import plotly.express as px
         df = df_dotplot.copy()
         if min_point_size != 0 and size_var != 'NES' and size_var != 'LogFC':
