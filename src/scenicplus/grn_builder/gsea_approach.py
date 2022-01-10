@@ -75,7 +75,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
              keep_only_activating = False,
              rho_threshold = RHO_THRESHOLD,
              NES_thr = 0,
-             adj_pval_thr = 0.05,
+             adj_pval_thr = 1,
              min_target_genes = 5,
              inplace = True,
              key_added = 'eRegulons',
@@ -131,7 +131,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         defaut: 0
     adj_pval_thr
         Float specifying threshold on gsea adjusted p value
-        default: 0.05
+        default: 1
     min_target_genes
         Int specifying minumum number of target genes in leading edge
         default: 5
