@@ -84,7 +84,7 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
 
 # Score cistromes in cells
 def score_cistromes(scplus_obj: SCENICPLUS,
-                    ranking: 'CistopicImputedFeatures',
+                    ranking: CistopicImputedFeatures,
                     cistromes_key: str = 'Unfiltered',
                     enrichment_type: str = 'region',
                     auc_threshold: float = 0.05,
@@ -263,7 +263,6 @@ def prune_plot(scplus_obj: SCENICPLUS,
                use_pseudobulk: bool = True,
                show_dot_plot: bool = True,
                show_line_plot: bool = False,
-               variable: str = None,
                color_dict = None,
                subset = None,
                seed=555,
@@ -292,8 +291,6 @@ def prune_plot(scplus_obj: SCENICPLUS,
         Whether to show dots in plot
     show_line_plot: bool, optional
         Whether to show line fitting to plot
-    variable: str, optional
-        Variable to color plot by. Must be a columns in `scplus_obj.metadata_cell`.
     color_dict: Dict, optional
         Color dictionary to specify colors
     subset: List, optional
