@@ -17,8 +17,11 @@ from typing import Dict, List, Tuple
 from typing import Optional, Union
 from sklearn.decomposition import PCA
 
-def find_clusters(scplus_obj: 'SCENICPLUS',
-                  auc_key: Optional[str] = 'eRegulon_AUC', 
+from .scenicplus_class import SCENICPLUS
+
+
+def find_clusters(scplus_obj: SCENICPLUS,
+                  auc_key: Optional[str] = 'eRegulon_AUC',
                   signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
                   k: Optional[int] = 10,
                   res: Optional[List[float]] = [0.6],
@@ -30,7 +33,7 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
                   **kwargs):
     """
     Performing leiden cell or region clustering and add results to SCENICPLUS object's metadata.
-    
+
     Parameters
     ---------
     scplus_obj: `class::SCENICPLUS`
@@ -59,11 +62,13 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
         data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
             scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys])
     else:
-        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys]).T
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x]
+                             for x in signature_keys]).T
     data_names = data_mat.columns.tolist()
 
     if selected_regulons is not None:
-        selected_regulons = [x for x in selected_regulons if x in data_mat.index]
+        selected_regulons = [
+            x for x in selected_regulons if x in data_mat.index]
         data_mat = data_mat.loc[selected_regulons]
     if selected_cells is not None:
         data_mat = data_mat[selected_cells]
@@ -77,7 +82,7 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
     G.add_vertices(A.shape[0])
     edges = list(zip(sources, targets))
     G.add_edges(edges)
-    for C in res :
+    for C in res:
         partition = la.find_partition(
             G,
             la.RBConfigurationVertexPartition,
@@ -92,21 +97,22 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
                 str(k) +
                 '_' +
                 str(C)]).astype(str)
-        
+
         scplus_obj.add_cell_data(cluster)
 
-def run_eRegulons_tsne(scplus_obj: 'SCENICPLUS',
-             scale: Optional[bool] = True,
-             auc_key: Optional[str] = 'eRegulon_AUC', 
-             signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
-             reduction_name: Optional[str] = 'eRegulons_tSNE',
-             random_state: Optional[int] = 555,
-             selected_regulons: Optional[List[int]] = None,
-             selected_cells: Optional[List[str]] = None,
-             **kwargs):
+
+def run_eRegulons_tsne(scplus_obj: SCENICPLUS,
+                       scale: Optional[bool] = True,
+                       auc_key: Optional[str] = 'eRegulon_AUC',
+                       signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
+                       reduction_name: Optional[str] = 'eRegulons_tSNE',
+                       random_state: Optional[int] = 555,
+                       selected_regulons: Optional[List[int]] = None,
+                       selected_cells: Optional[List[str]] = None,
+                       **kwargs):
     """
     Run TSNE and add it to the dimensionality reduction dictionary.
-    
+
     Parameters
     ---------
     scplus_obj: `class::SCENICPLUS`
@@ -133,11 +139,13 @@ def run_eRegulons_tsne(scplus_obj: 'SCENICPLUS',
         data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
             scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys])
     else:
-        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys]).T
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x]
+                             for x in signature_keys]).T
     data_names = data_mat.columns.tolist()
 
     if selected_regulons is not None:
-        selected_regulons = [x for x in selected_regulons if x in data_mat.index]
+        selected_regulons = [
+            x for x in selected_regulons if x in data_mat.index]
         data_mat = data_mat.loc[selected_regulons]
     if selected_cells is not None:
         data_mat = data_mat[selected_cells]
@@ -165,18 +173,19 @@ def run_eRegulons_tsne(scplus_obj: 'SCENICPLUS',
 
     scplus_obj.dr_cell[reduction_name] = dr
 
-def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
-             scale: Optional[bool] = True,
-             auc_key: Optional[str] = 'eRegulon_AUC', 
-             signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
-             reduction_name: Optional[str] = 'eRegulons_UMAP',
-             random_state: Optional[int] = 555,
-             selected_regulons: Optional[List[int]] = None,
-             selected_cells: Optional[List[str]] = None,
-             **kwargs):
+
+def run_eRegulons_umap(scplus_obj: SCENICPLUS,
+                       scale: Optional[bool] = True,
+                       auc_key: Optional[str] = 'eRegulon_AUC',
+                       signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
+                       reduction_name: Optional[str] = 'eRegulons_UMAP',
+                       random_state: Optional[int] = 555,
+                       selected_regulons: Optional[List[int]] = None,
+                       selected_cells: Optional[List[str]] = None,
+                       **kwargs):
     """
     Run UMAP and add it to the dimensionality reduction dictionary.
-    
+
     Parameters
     ---------
     scplus_obj: `class::SCENICPLUS`
@@ -199,16 +208,17 @@ def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
             Parameters to pass to umap.UMAP.
     """
 
-
     if scale:
         data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
             scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys])
     else:
-        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys]).T
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x]
+                             for x in signature_keys]).T
     data_names = data_mat.columns.tolist()
 
     if selected_regulons is not None:
-        selected_regulons = [x for x in selected_regulons if x in data_mat.index]
+        selected_regulons = [
+            x for x in selected_regulons if x in data_mat.index]
         data_mat = data_mat.loc[selected_regulons]
     if selected_cells is not None:
         data_mat = data_mat[selected_cells]
@@ -219,7 +229,7 @@ def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
             data_mat), index=data_mat.index.to_list(), columns=data_mat.columns)
 
     data_mat = data_mat.T.fillna(0)
-    
+
     reducer = umap.UMAP(random_state=random_state, **kwargs)
     embedding = reducer.fit_transform(data_mat)
     dr = pd.DataFrame(
@@ -230,19 +240,20 @@ def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
             'UMAP_2'])
     scplus_obj.dr_cell[reduction_name] = dr
 
-def run_eRegulons_pca(scplus_obj: 'SCENICPLUS',
-             scale: Optional[bool] = True,
-             auc_key: Optional[str] = 'eRegulon_AUC', 
-             signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
-             reduction_name: Optional[str] = 'eRegulons_PCA',
-             random_state: Optional[int] = 555,
-             selected_regulons: Optional[List[int]] = None,
-             selected_cells: Optional[List[str]] = None,
-             n_pcs: Optional[int]= 50,
-             **kwargs):
+
+def run_eRegulons_pca(scplus_obj: SCENICPLUS,
+                      scale: Optional[bool] = True,
+                      auc_key: Optional[str] = 'eRegulon_AUC',
+                      signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
+                      reduction_name: Optional[str] = 'eRegulons_PCA',
+                      random_state: Optional[int] = 555,
+                      selected_regulons: Optional[List[int]] = None,
+                      selected_cells: Optional[List[str]] = None,
+                      n_pcs: Optional[int] = 50,
+                      **kwargs):
     """
     Run UMAP and add it to the dimensionality reduction dictionary.
-    
+
     Parameters
     ---------
     scplus_obj: `class::SCENICPLUS`
@@ -265,16 +276,17 @@ def run_eRegulons_pca(scplus_obj: 'SCENICPLUS',
             Parameters to pass to umap.UMAP.
     """
 
-
     if scale:
         data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
             scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys])
     else:
-        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys]).T
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x]
+                             for x in signature_keys]).T
     data_names = data_mat.columns.tolist()
 
     if selected_regulons is not None:
-        selected_regulons = [x for x in selected_regulons if x in data_mat.index]
+        selected_regulons = [
+            x for x in selected_regulons if x in data_mat.index]
         data_mat = data_mat.loc[selected_regulons]
     if selected_cells is not None:
         data_mat = data_mat[selected_cells]
@@ -285,17 +297,18 @@ def run_eRegulons_pca(scplus_obj: 'SCENICPLUS',
             data_mat), index=data_mat.index.to_list(), columns=data_mat.columns)
 
     data_mat = data_mat.T.fillna(0)
-    
-    reducer = PCA(n_components = n_pcs, random_state=random_state)
+
+    reducer = PCA(n_components=n_pcs, random_state=random_state)
     embedding = reducer.fit_transform(data_mat)
 
     dr = pd.DataFrame(
         embedding,
         index=data_names,
-        columns=[f'PC_{i}' for i in range(n_pcs)])
+        columns=[f'PC_{i}' for i in range(n_pcs)])[['PC_0', 'PC_1']]
     scplus_obj.dr_cell[reduction_name] = dr
-    
-def plot_metadata(scplus_obj: 'SCENICPLUS',
+
+
+def plot_metadata(scplus_obj: SCENICPLUS,
                   reduction_name: str,
                   variables: List[str],
                   remove_nan: Optional[bool] = True,
@@ -313,7 +326,7 @@ def plot_metadata(scplus_obj: 'SCENICPLUS',
                   save: Optional[str] = None):
     """
     Plot categorical and continuous metadata into dimensionality reduction.
-    
+
     Parameters
     ---------
     scplus_obj: `class::SCENICPLUS`
@@ -360,7 +373,7 @@ def plot_metadata(scplus_obj: 'SCENICPLUS',
         embedding = embedding.loc[selected_cells]
 
     data_mat = data_mat.loc[embedding.index.to_list()]
-    
+
     pdf = None
     if (save is not None) & (num_columns == 1):
         pdf = matplotlib.backends.backend_pdf.PdfPages(save)
@@ -394,7 +407,9 @@ def plot_metadata(scplus_obj: 'SCENICPLUS',
             except BaseException:
                 random.seed(seed)
                 color = list(map(
-                    lambda i: "#" + "%06x" % random.randint(0, 0xFFFFFF), range(len(categories))
+                    lambda i: "#" +
+                    "%06x" % random.randint(
+                        0, 0xFFFFFF), range(len(categories))
                 ))
                 color_dict = dict(zip(categories, color))
 
@@ -478,28 +493,30 @@ def plot_metadata(scplus_obj: 'SCENICPLUS',
         plt.show()
     if (save is not None) & (num_columns == 1):
         pdf = pdf.close()
-        
+
+
 def subset_list(target_list, index_list):
     X = list(map(target_list.__getitem__, index_list))
     return X
 
-def plot_eRegulon(scplus_obj: 'SCENICPLUS',
-               reduction_name: str,
-               auc_key: Optional[str] = 'eRegulon_AUC', 
-               signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
-               normalize_tf_expression: Optional[bool] = True,
-               cmap: Optional[Union[str, 'matplotlib.cm']] = cm.viridis,
-               dot_size: Optional[int] = 10,
-               alpha: Optional[Union[float, int]] = 1,
-               scale: Optional[bool] = False,
-               selected_regulons: Optional[List[int]] = None,
-               selected_cells: Optional[List[str]] = None,
-               figsize: Optional[Tuple[float, float]] = (6.4, 4.8),
-               num_columns: Optional[int] = 3,
-               save: Optional[str] = None):
+
+def plot_eRegulon(scplus_obj: SCENICPLUS,
+                  reduction_name: str,
+                  auc_key: Optional[str] = 'eRegulon_AUC',
+                  signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
+                  normalize_tf_expression: Optional[bool] = True,
+                  cmap: Optional[Union[str, 'matplotlib.cm']] = cm.viridis,
+                  dot_size: Optional[int] = 10,
+                  alpha: Optional[Union[float, int]] = 1,
+                  scale: Optional[bool] = False,
+                  selected_regulons: Optional[List[int]] = None,
+                  selected_cells: Optional[List[str]] = None,
+                  figsize: Optional[Tuple[float, float]] = (6.4, 4.8),
+                  num_columns: Optional[int] = 3,
+                  save: Optional[str] = None):
     """
     Plot TF expression and eRegulon AUC (gene and region based) into dimensionality reduction.
-    
+
     Parameters
     ---------
     scplus_obj: `class::SCENICPLUS`
@@ -534,18 +551,19 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
     """
 
     embedding = scplus_obj.dr_cell[reduction_name].copy()
-    
+
     if scale:
         data_mat = pd.concat([pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
             scplus_obj.uns[auc_key][x].T), index=scplus_obj.uns[auc_key][x].T.index.to_list(), columns=scplus_obj.uns[auc_key][x].T.columns) for x in signature_keys])
     else:
-        data_mat = pd.concat([scplus_obj.uns[auc_key][x] for x in signature_keys]).T
+        data_mat = pd.concat([scplus_obj.uns[auc_key][x]
+                             for x in signature_keys]).T
     data_names = data_mat.columns.tolist()
-    
+
     if selected_cells is not None:
         data_mat = data_mat[selected_cells]
         data_names = selected_cells
-        
+
     if selected_regulons is None:
         selected_regulons = [x.rsplit('_', 1)[0] for x in data_mat.index]
 
@@ -560,8 +578,9 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
 
     fig = plt.figure(figsize=figsize)
 
-    dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy()
-    
+    dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names,
+                        columns=scplus_obj.gene_names).copy()
+
     if normalize_tf_expression:
         dgem = dgem.T / dgem.T.sum(0) * 10**6
         dgem = np.log1p(dgem).T
@@ -569,9 +588,12 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
     data_mat = data_mat.T.fillna(0)
     for regulon in selected_regulons:
         tf_name = regulon.split('_')[0]
-        regulon_names = data_mat.columns[data_mat.columns.str.contains(regulon + '_(', regex=False)]
-        gene_based_name = regulon_names[regulon_names.str.contains('g)', regex=False)]
-        region_based_name = regulon_names[regulon_names.str.contains('r)', regex=False)]
+        regulon_names = data_mat.columns[data_mat.columns.str.contains(
+            regulon + '_(', regex=False)]
+        gene_based_name = regulon_names[regulon_names.str.contains(
+            'g)', regex=False)]
+        region_based_name = regulon_names[regulon_names.str.contains(
+            'r)', regex=False)]
         if tf_name in dgem.index:
             # TF expression
             tf_expr = dgem.loc[tf_name]
@@ -602,7 +624,7 @@ def plot_eRegulon(scplus_obj: 'SCENICPLUS',
             if num_columns == 1:
                 if save is not None:
                     pdf.savefig(fig, bbox_inches='tight')
-                plt.show() 
+                plt.show()
             # Gene data
             if num_columns > 1:
                 plt.subplot(num_rows, num_columns, i)
