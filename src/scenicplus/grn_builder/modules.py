@@ -1,14 +1,13 @@
-from ..scenicplus_class import SCENICPLUS
 import attr
 from typing import List, Tuple
 from collections import namedtuple
 from itertools import chain
 from tqdm import tqdm
-from ..utils import  Groupby, coord_to_region_names
 import numpy as np
 import ray
 
-flatten_list = lambda t: [item for sublist in t for item in sublist]
+from ..scenicplus_class import SCENICPLUS
+from ..utils import  Groupby, coord_to_region_names, flatten_list
 
 #HARDCODED VARIABLES
 RHO_THRESHOLD = 0.03
