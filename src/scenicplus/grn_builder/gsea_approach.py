@@ -1,15 +1,14 @@
-from ..scenicplus_class import SCENICPLUS
-from .modules import create_emodules, eRegulon, TARGET_GENE_NAME, merge_emodules
-from ..gsea import run_gsea #TODO:probably better to move this into the grn_builder directory.
-from pyscenic.utils import add_correlation, COLUMN_NAME_CORRELATION
 import pandas as pd
 import numpy as np
 import logging
-from .modules import RHO_THRESHOLD
 import sys
 from tqdm import tqdm
-from ..utils import p_adjust_bh
 import ray
+
+from ..scenicplus_class import SCENICPLUS
+from ..utils import p_adjust_bh
+from .modules import create_emodules, eRegulon, merge_emodules, RHO_THRESHOLD, TARGET_GENE_NAME
+from .gsea import run_gsea 
 
 #create logger
 level    = logging.INFO
