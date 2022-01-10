@@ -4,7 +4,6 @@ from networkx.classes import Graph
 from typing import List
 import networkx as nx
 import pandas as pd
-import random
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import FancyArrowPatch
