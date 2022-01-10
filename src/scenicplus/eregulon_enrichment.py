@@ -1,9 +1,10 @@
 from pycisTopic.diff_features import *
 from pycisTopic.signature_enrichment import *
 from pyscenic.binarization import binarize
-from tqdm import tqdm
 
-def get_eRegulons_as_signatures(scplus_obj: 'SCENICPLUS',
+from .scenicplus_class import SCENICPLUS
+
+def get_eRegulons_as_signatures(scplus_obj: SCENICPLUS,
                               eRegulon_metadata_key: str ='eRegulon_metadata', 
                               key_added: str = 'eRegulon_signatures'):
     """
@@ -27,7 +28,7 @@ def get_eRegulons_as_signatures(scplus_obj: 'SCENICPLUS',
     scplus_obj.uns[key_added]['Gene_based'] = gene_signatures
     scplus_obj.uns[key_added]['Region_based'] = region_signatures 
 
-def make_rankings(scplus_obj: 'SCENICPLUS',
+def make_rankings(scplus_obj: SCENICPLUS,
                   target: str = 'region',
                   seed: int = 123):
     """
@@ -104,8 +105,8 @@ def make_rankings(scplus_obj: 'SCENICPLUS',
 
     return imputed_acc_ranking
 
-def score_eRegulons(scplus_obj: 'SCENICPLUS',
-                    ranking: 'CistopicImputedFeatures',
+def score_eRegulons(scplus_obj: SCENICPLUS,
+                    ranking: CistopicImputedFeatures,
                     eRegulon_signatures_key: str = 'eRegulon_signatures',
                     key_added: str = 'eRegulon_AUC', 
                     enrichment_type: str = 'region',
@@ -149,7 +150,7 @@ def score_eRegulons(scplus_obj: 'SCENICPLUS',
                         normalize = normalize,
                         n_cpu = n_cpu)
 
-def binarize_AUC(scplus_obj: 'SCENICPLUS', 
+def binarize_AUC(scplus_obj: SCENICPLUS, 
                  auc_key: Optional[str] = 'eRegulon_AUC', 
                  out_key: Optional[str] = 'eRegulon_AUC_thresholds', 
                  signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
