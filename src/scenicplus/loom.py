@@ -1,16 +1,13 @@
 import json
 import logging
-import loompy
 import numpy as np
 import pandas as pd
 import scipy.sparse as sparse
 import sys
 from loomxpy.loomxpy import SCopeLoom
-from pyscenic.aucell import aucell
-from pyscenic.binarization import binarize
-from operator import attrgetter
+from loomxpy.utils import compress_encode
 from pyscenic.genesig import Regulon
-from typing import Dict, List, Mapping, Optional, Sequence, Union
+from typing import Dict, List, Mapping, Optional, Sequence
 from multiprocessing import cpu_count
 from collections import OrderedDict
 import os
@@ -19,7 +16,9 @@ from itertools import repeat, chain, islice
 import loompy as lp
 import re
 
-def export_to_loom(scplus_obj: 'SCENICPLUS',
+from .scenicplus_class import SCENICPLUS
+
+def export_to_loom(scplus_obj: SCENICPLUS,
                    signature_key: str, 
                    out_fname: str,
                    eRegulon_metadata_key: Optional[str] = 'eRegulon_metadata',
@@ -30,8 +29,7 @@ def export_to_loom(scplus_obj: 'SCENICPLUS',
                    cluster_annotation: List[str] = None,
                    tree_structure: Sequence[str] = (),
                    title: str = None,
-                   nomenclature: str = "Unknown",
-                   **kwargs):
+                   nomenclature: str = "Unknown"):
     """
     Create SCope [Davie et al, 2018] compatible loom files 
     Parameters
@@ -160,8 +158,8 @@ def export_to_loom(scplus_obj: 'SCENICPLUS',
                 if len(set(cell_data[var])) < 255:
                     annotations.append(cell_data[var].astype('str'))
                     cell_data[var] = cell_data[var].astype('str')
-    metrics = pd.concat(metrics, axis=1).fillna(0)
-    annotations = pd.concat(annotations, axis=1)
+    metrics = pd.concat(metrics, axis=1).fillna(0) if len(metrics) > 0 else []
+    annotations = pd.concat(annotations, axis=1) if len(annotations) > 0 else []
     
     # Embeddings. Cell embeddings in this case
     embeddings = scplus_obj.dr_cell
