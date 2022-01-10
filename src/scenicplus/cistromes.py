@@ -14,18 +14,20 @@ from .utils import region_names_to_coordinates, target_to_overlapping_query, p_a
 from .scenicplus_class import SCENICPLUS
 
 # Generate cistromes form motif enrichment tables
+
+
 def merge_cistromes(scplus_obj: SCENICPLUS,
-                    cistromes_key: str ='Unfiltered',
+                    cistromes_key: str = 'Unfiltered',
                     subset: pr.PyRanges = None):
     """
     Generate cistromes from motif enrichment tables
-    
+
     Parameters
     ---------
     scplus_obj: :class:`SCENICPLUS`
         A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).
         Several analyses can be included in the slot (topics/DARs/other; and different methods [Homer/DEM/cistarget]).
-       cistromes_key: str, optional
+    cistromes_key: str, optional
         Key to store cistromes. Cistromes will stored at `scplus_obj.uns['Cistromes'][siganture_key]`
     subset: list
         A PyRanges containing a set of regions that regions in cistromes must overlap. This is useful when
@@ -34,55 +36,73 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     menr = scplus_obj.menr
     # Get signatures from Homer/Cistarget outputs
     signatures = {z+'__'+x+'__'+y: menr[x][y].cistromes['Region_set'][z]
-                 for x in menr.keys()
-                 if not isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM)
-                 for y in menr[x].keys()
-                 for z in menr[x][y].cistromes['Region_set']
-                 }
+                  for x in menr.keys()
+                  if not isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM)
+                  for y in menr[x].keys()
+                  for z in menr[x][y].cistromes['Region_set']
+                  }
     # For DEM results dictionary structure is different
     signatures_DEM = {z+'__'+x+'__'+y: menr[x].cistromes['Region_set'][y][z]
-                 for x in menr.keys()
-                 if isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM)
-                 for y in menr[x].cistromes['Region_set'].keys()
-                 for z in menr[x].cistromes['Region_set'][y]
-                 }
+                      for x in menr.keys()
+                      if isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM)
+                      for y in menr[x].cistromes['Region_set'].keys()
+                      for z in menr[x].cistromes['Region_set'][y]
+                      }
     # Merge dictionaries
     signatures = {**signatures, **signatures_DEM}
     tfs = list(set([x.split('_')[0] for x in signatures.keys()]))
     regions = pr.PyRanges(region_names_to_coordinates(scplus_obj.region_names))
     # Merge signatures (Direct)
-    merged_signatures_direct = {x: list(set(sum([signatures[y] for y in [name for name in [*signatures] if x + '_(' in name]],[]))) for x in tfs}
-    merged_signatures_direct = {k: pr.PyRanges(region_names_to_coordinates(merged_signatures_direct[k])) for k in list(merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
+    merged_signatures_direct = {x: list(set(sum([signatures[y] for y in [
+                                        name for name in [*signatures] if x + '_(' in name]], []))) for x in tfs}
+    merged_signatures_direct = {k: pr.PyRanges(region_names_to_coordinates(merged_signatures_direct[k])) for k in list(
+        merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
     if subset is not None:
         subset = target_to_overlapping_query(regions, subset)
-        merged_signatures_direct = {k: target_to_overlapping_query(subset, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
-        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
+        merged_signatures_direct = {k: target_to_overlapping_query(
+            subset, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
+        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(
+            merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
     else:
-        merged_signatures_direct = {k: target_to_overlapping_query(regions, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
-        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
+        merged_signatures_direct = {k: target_to_overlapping_query(
+            regions, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
+        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(
+            merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
     # Merge signatures (Extended)
-    merged_signatures_extended = {x: list(set(sum([signatures[y] for y in [name for name in [*signatures] if x + '_extended' in name]],[]))) for x in tfs}
-    merged_signatures_extended = {k + '_extended': pr.PyRanges(region_names_to_coordinates(merged_signatures_extended[k])) for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
+    merged_signatures_extended = {x: list(set(sum([signatures[y] for y in [
+                                          name for name in [*signatures] if x + '_extended' in name]], []))) for x in tfs}
+    merged_signatures_extended = {k + '_extended': pr.PyRanges(region_names_to_coordinates(
+        merged_signatures_extended[k])) for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
     if subset is not None:
         subset = target_to_overlapping_query(regions, subset)
-        merged_signatures_extended = {k: target_to_overlapping_query(subset, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
-        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
+        merged_signatures_extended = {k: target_to_overlapping_query(
+            subset, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
+        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(
+            merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
     else:
-        merged_signatures_extended = {k: target_to_overlapping_query(regions, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
-        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
+        merged_signatures_extended = {k: target_to_overlapping_query(
+            regions, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
+        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(
+            merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
     # Sort alphabetically
-    merged_signatures_direct = dict( sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()) )
-    merged_signatures_extended = dict( sorted(merged_signatures_extended.items(), key=lambda x: x[0].lower()) )
+    merged_signatures_direct = dict(
+        sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()))
+    merged_signatures_extended = dict(
+        sorted(merged_signatures_extended.items(), key=lambda x: x[0].lower()))
     # Combine
-    merged_signatures = {**merged_signatures_direct, **merged_signatures_extended}
+    merged_signatures = {**merged_signatures_direct,
+                         **merged_signatures_extended}
     # Add number of regions
-    merged_signatures = {x + '_(' + str(len(merged_signatures[x])) + 'r)': merged_signatures[x] for x in merged_signatures.keys()}
+    merged_signatures = {
+        x + '_(' + str(len(merged_signatures[x])) + 'r)': merged_signatures[x] for x in merged_signatures.keys()}
     # Store in object
     if not 'Cistromes' in scplus_obj.uns.keys():
         scplus_obj.uns['Cistromes'] = {}
     scplus_obj.uns['Cistromes'][cistromes_key] = merged_signatures
 
 # Score cistromes in cells
+
+
 def score_cistromes(scplus_obj: SCENICPLUS,
                     ranking: CistopicImputedFeatures,
                     cistromes_key: str = 'Unfiltered',
@@ -92,7 +112,7 @@ def score_cistromes(scplus_obj: SCENICPLUS,
                     n_cpu: int = 1):
     """
     Get enrichment of a region signature in cells  using AUCell (Van de Sande et al., 2020)
-    
+
     Parameters
     ---------
     scplus_obj: :class:`SCENICPLUS`
@@ -110,7 +130,7 @@ def score_cistromes(scplus_obj: SCENICPLUS,
         Normalize the AUC values to a maximum of 1.0 per regulon. Default: False
     num_workers: int
         The number of cores to use. Default: 1
-        
+
     References
     ---------
     Van de Sande, B., Flerin, C., Davie, K., De Waegeneer, M., Hulselmans, G., Aibar, S., ... & Aerts, S. (2020). A scalable SCENIC workflow for single-cell gene 
@@ -119,13 +139,15 @@ def score_cistromes(scplus_obj: SCENICPLUS,
     if not 'Cistromes_AUC' in scplus_obj.uns.keys():
         scplus_obj.uns['Cistromes_AUC'] = {}
     scplus_obj.uns['Cistromes_AUC'][cistromes_key] = signature_enrichment(ranking,
-                        scplus_obj.uns['Cistromes'][cistromes_key],
-                        enrichment_type,
-                        auc_threshold,
-                        normalize,
-                        n_cpu)
-# Create pseudobulks                    
-def generate_pseudobulks(scplus_obj: SCENICPLUS, 
+                                                                          scplus_obj.uns['Cistromes'][cistromes_key],
+                                                                          enrichment_type,
+                                                                          auc_threshold,
+                                                                          normalize,
+                                                                          n_cpu)
+# Create pseudobulks
+
+
+def generate_pseudobulks(scplus_obj: SCENICPLUS,
                          variable: str,
                          normalize_expression: bool = True,
                          auc_key: str = 'Cistromes_AUC',
@@ -135,7 +157,7 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
                          seed: int = 555):
     """
     Generate pseudobulks based on the cistrome AUC matrix and gene expression
-    
+
     Parameters
     ---------
     scplus_obj: :class:`SCENICPLUS`
@@ -155,9 +177,10 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
     """
     cell_data = scplus_obj.metadata_cell
     cistromes_auc = scplus_obj.uns[auc_key][signature_key]
-    cell_data = cell_data.loc[cistromes_auc.index,:]
-    dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
-    categories = list(set(cell_data.loc[:,variable]))
+    cell_data = cell_data.loc[cistromes_auc.index, :]
+    dgem = pd.DataFrame(
+        scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
+    categories = list(set(cell_data.loc[:, variable]))
     cistrome_auc_agg_list = list()
     dgem_agg_list = list()
     cell_names = list()
@@ -165,12 +188,13 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
         dgem = dgem.T / dgem.T.sum(0) * 10**6
         dgem = np.log1p(dgem).T
     for category in categories:
-        cells = cell_data[cell_data.loc[:,variable] == category].index.tolist()
+        cells = cell_data[cell_data.loc[:, variable]
+                          == category].index.tolist()
         for x in range(nr_pseudobulks):
             random.seed(x)
             sample_cells = sample(cells, nr_cells)
-            sub_dgem = dgem.loc[sample_cells,:].mean(axis=0)
-            sub_auc = cistromes_auc.loc[sample_cells,:].mean(axis=0)
+            sub_dgem = dgem.loc[sample_cells, :].mean(axis=0)
+            sub_auc = cistromes_auc.loc[sample_cells, :].mean(axis=0)
             cistrome_auc_agg_list.append(sub_auc)
             dgem_agg_list.append(sub_dgem)
             cell_names.append(category + '_' + str(x))
@@ -185,18 +209,19 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
     scplus_obj.uns['Pseudobulk'][variable]['Expression'] = dgem_agg
     if not auc_key in scplus_obj.uns['Pseudobulk'][variable].keys():
         scplus_obj.uns['Pseudobulk'][variable][auc_key] = {}
-    scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key] = cistrome_auc_agg 
-    
+    scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key] = cistrome_auc_agg
+
+
 def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
                             variable: str = None,
                             use_pseudobulk: bool = True,
                             auc_key: str = 'Cistromes_AUC',
-                             signature_key: str = 'Unfiltered',
+                            signature_key: str = 'Unfiltered',
                             out_key: str = 'Unfiltered',
                             subset: List[str] = None):
     """
     Get correlation between gene expression and cistrome accessibility
-    
+
     Parameters
     ---------
     scplus_obj: :class:`SCENICPLUS`
@@ -219,58 +244,61 @@ def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
         dgem_agg = scplus_obj.uns['Pseudobulk'][variable]['Expression']
         cistromes_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key]
     else:
-        dgem_agg = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
+        dgem_agg = pd.DataFrame(
+            scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
         cistromes_auc_agg = scplus_obj.uns[auc_key][signature_key].copy().T
 
     if subset is not None:
-        cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc_agg.columns], 
-                                 index=cistromes_auc_agg.columns).iloc[:,0]
+        cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc_agg.columns],
+                                 index=cistromes_auc_agg.columns).iloc[:, 0]
         subset_cells = cell_data[cell_data.isin(subset)].index.tolist()
-        cistromes_auc_agg = cistromes_auc_agg.loc[:,subset_cells]
-        dgem_agg = dgem_agg.loc[:,subset_cells]
-    corr_df = pd.DataFrame(columns = ['TF', 'Cistrome','Rho', 'P-value'])
+        cistromes_auc_agg = cistromes_auc_agg.loc[:, subset_cells]
+        dgem_agg = dgem_agg.loc[:, subset_cells]
+    corr_df = pd.DataFrame(columns=['TF', 'Cistrome', 'Rho', 'P-value'])
     for tf in cistromes_auc_agg.index:
         # Handle _extended
         tf_rna = tf.split('_')[0]
         if tf_rna in dgem_agg.index:
-            cistromes_auc_tf = cistromes_auc_agg.loc[tf,:]
-            tf_expr = dgem_agg.loc[tf_rna,:]
+            cistromes_auc_tf = cistromes_auc_agg.loc[tf, :]
+            tf_expr = dgem_agg.loc[tf_rna, :]
             # Exception in case TF is only expressed in 1 cell
             # TFs expressed in few cells could be filtered too
             try:
                 corr_1, _1 = pearsonr(tf_expr, cistromes_auc_tf)
                 x = {'TF': tf_rna,
-                'Cistrome': tf,
-                'Rho': corr_1,
-                'P-value': _1}
-                corr_df = corr_df.append(pd.DataFrame(data = x, index=[0]), ignore_index=True)
+                     'Cistrome': tf,
+                     'Rho': corr_1,
+                     'P-value': _1}
+                corr_df = corr_df.append(pd.DataFrame(
+                    data=x, index=[0]), ignore_index=True)
             except:
                 continue
     corr_df = corr_df.dropna()
     corr_df['Adjusted_p-value'] = p_adjust_bh(corr_df['P-value'])
-    
+
     if not 'TF_cistrome_correlation' in scplus_obj.uns.keys():
         scplus_obj.uns['TF_cistrome_correlation'] = {}
     if not out_key in scplus_obj.uns['TF_cistrome_correlation'].keys():
         scplus_obj.uns['TF_cistrome_correlation'][out_key] = {}
-    scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df 
-    
+    scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df
+
+
 def prune_plot(scplus_obj: SCENICPLUS,
                name: str,
-               pseudobulk_variable: str = None, 
+               pseudobulk_variable: str = None,
                auc_key: str = 'Cistromes_AUC',
                signature_key: str = 'Unfiltered',
                use_pseudobulk: bool = True,
                show_dot_plot: bool = True,
                show_line_plot: bool = False,
-               color_dict = None,
-               subset = None,
+               color_dict=None,
+               subset=None,
                seed=555,
-               ax:plt.axes = None,
+               ax: plt.axes = None,
                **kwargs):
     """
     Plot cistrome accessibility versus TF expression
-    
+
     Parameters
     ---------
     scplus_obj: :class:`SCENICPLUS`
@@ -301,82 +329,89 @@ def prune_plot(scplus_obj: SCENICPLUS,
         matplotlib axes to plot to.
     **kwargs:
         Parameters for seaborn plotting.
-        
+
     """
     if use_pseudobulk:
-        dgem = scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Expression'].copy()
-        cistromes_auc = scplus_obj.uns['Pseudobulk'][pseudobulk_variable][auc_key][signature_key].copy()
-        cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in cistromes_auc.columns], index=cistromes_auc.columns).iloc[:,0]
+        dgem = scplus_obj.uns['Pseudobulk'][pseudobulk_variable]['Expression'].copy(
+        )
+        cistromes_auc = scplus_obj.uns['Pseudobulk'][pseudobulk_variable][auc_key][signature_key].copy(
+        )
+        cell_data = pd.DataFrame([x.rsplit('_', 1)[
+                                 0] for x in cistromes_auc.columns], index=cistromes_auc.columns).iloc[:, 0]
     else:
-        dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy().T
+        dgem = pd.DataFrame(scplus_obj.X_EXP, index=scplus_obj.cell_names,
+                            columns=scplus_obj.gene_names).copy().T
         cistromes_auc = scplus_obj.uns[auc_key][signature_key].copy().T
-        cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns,pseudobulk_variable]
+        cell_data = scplus_obj.metadata_cell.loc[cistromes_auc.columns,
+                                                 pseudobulk_variable]
     if subset is None:
-        tf_expr = dgem.loc[name.split('_')[0],:]
-        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_(', regex=False)][0]
-        cistromes_auc_tf = cistromes_auc.loc[tf_acc,:]
+        tf_expr = dgem.loc[name.split('_')[0], :]
+        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(
+            name + '_(', regex=False)][0]
+        cistromes_auc_tf = cistromes_auc.loc[tf_acc, :]
     else:
         subset_cells = cell_data[cell_data.isin(subset)].index.tolist()
         cell_data = cell_data.loc[subset_cells]
         tf_expr = dgem.loc[name.split('_')[0], subset_cells]
-        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(name + '_(', regex=False)][0]
-        cistromes_auc_tf = cistromes_auc.loc[tf_acc,subset_cells]
+        tf_acc = cistromes_auc.index[cistromes_auc.index.str.contains(
+            name + '_(', regex=False)][0]
+        cistromes_auc_tf = cistromes_auc.loc[tf_acc, subset_cells]
     random.seed(seed)
     if cell_data is not None:
         categories = list(set(cell_data))
         if color_dict is None:
             color = list(map(
-                lambda i: "#" + "%06x" % random.randint(0, 0xFFFFFF), range(len(categories))
-                ))
+                lambda i: "#" +
+                "%06x" % random.randint(0, 0xFFFFFF), range(len(categories))
+            ))
             color_dict = dict(zip(categories, color))
-        color= [color_dict[x] for x in cell_data]
+        color = [color_dict[x] for x in cell_data]
         patchList = []
         for key in color_dict:
             data_key = mpatches.Patch(color=color_dict[key], label=key)
             patchList.append(data_key)
         if show_dot_plot:
-            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
+            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)),
                                 columns=['TF_Expression', auc_key, 'Variable'])
-            sns.scatterplot(x="TF_Expression", y=auc_key, data=data, 
-                        hue='Variable', palette=color_dict, ax = ax,  **kwargs)
+            sns.scatterplot(x="TF_Expression", y=auc_key, data=data,
+                            hue='Variable', palette=color_dict, ax=ax,  **kwargs)
             if ax is None:
                 plt.legend(handles=patchList, bbox_to_anchor=(
-                                        1.04, 1), loc="upper left")
+                    1.04, 1), loc="upper left")
             else:
                 ax.legend(handles=patchList, bbox_to_anchor=(
-                                        1.04, 1), loc="upper left")
+                    1.04, 1), loc="upper left")
         if show_line_plot:
-            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
+            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)),
                                 columns=['TF_Expression', auc_key, 'Variable'])
-            sns.regplot(x="TF_Expression", y=auc_key, data=data, 
-                        scatter_kws={'color': color}, ax = ax, **kwargs)
+            sns.regplot(x="TF_Expression", y=auc_key, data=data,
+                        scatter_kws={'color': color}, ax=ax, **kwargs)
             if ax is None:
                 plt.legend(handles=patchList, bbox_to_anchor=(
-                                        1.04, 1), loc="upper left")
+                    1.04, 1), loc="upper left")
             else:
                 ax.legend(handles=patchList, bbox_to_anchor=(
-                                        1.04, 1), loc="upper left")
+                    1.04, 1), loc="upper left")
     else:
         if show_dot_plot:
-            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)), 
+            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf, cell_data)),
                                 columns=['TF_Expression', auc_key, 'Variable'])
-            sns.scatterplot(x="TF_Expression", y=auc_key, data=data, ax = ax,  **kwargs)
+            sns.scatterplot(x="TF_Expression", y=auc_key,
+                            data=data, ax=ax,  **kwargs)
         if show_line_plot:
-            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf)), 
+            data = pd.DataFrame(list(zip(tf_expr, cistromes_auc_tf)),
                                 columns=['TF_Expression', auc_key])
             sns.regplot(x="TF_Expression", y=auc_key,
-             data=data, ax = ax, **kwargs)
-        
+                        data=data, ax=ax, **kwargs)
+
     corr, _ = pearsonr(tf_expr, cistromes_auc_tf)
     if ax is None:
-        plt.xlabel('TF_Expression\nCorrelation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
+        plt.xlabel('TF_Expression\nCorrelation ' + str(corr) +
+                   '\n' + 'P-value:' + str(_), fontsize=10)
         plt.title(name)
     else:
-        ax.set_xlabel('TF_Expression\nCorrelation ' + str(corr) + '\n' + 'P-value:' + str(_), fontsize=10) 
+        ax.set_xlabel('TF_Expression\nCorrelation ' + str(corr) +
+                      '\n' + 'P-value:' + str(_), fontsize=10)
         ax.set_title(name)
     if ax is None:
         plt.show()
-    
-
-
-

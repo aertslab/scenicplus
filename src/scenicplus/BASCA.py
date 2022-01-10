@@ -22,30 +22,38 @@ Steps:
 HELPER FUNCTIONS:
 """
 
+
 def MatrixZeros(rows, cols):
-    #little function to prevent importing numpy
-    return [ [ 0 for i in range(cols) ] for j in range(rows) ]
+    # little function to prevent importing numpy
+    return [[0 for i in range(cols)] for j in range(rows)]
+
 
 def ArrayZeros(l):
     return [0 for i in range(l)]
 
+
 def mean_ab(vect, a, b):
-    S = sum(vect[a:b + 1]) # + 1 because we want to calculate the sum from a to b, with b inclusive
+    # + 1 because we want to calculate the sum from a to b, with b inclusive
+    S = sum(vect[a:b + 1])
     n = b - a + 1
     return S/n
+
 
 def cost_ab(vect, a, b):
     """
     Calculates quadratic distance between original data points and mean of data points in range a to b inclusive
     """
     Yab = mean_ab(vect, a, b)
-    return sum([ (vect[i] - Yab)**2 for i in range(a, b + 1)]) # + 1 because we want to calculate the sum from a to b, with b inclusive
+    # + 1 because we want to calculate the sum from a to b, with b inclusive
+    return sum([(vect[i] - Yab)**2 for i in range(a, b + 1)])
+
 
 def initCostMatrix(vect):
     N = len(vect)
     C = MatrixZeros(N - 1, N)
     C[0] = [cost_ab(vect, i, N-1) for i in range(0, N - 1 + 1)]
     return C
+
 
 def calcJumpHeight(vect, P, i, j):
     """
@@ -55,11 +63,12 @@ def calcJumpHeight(vect, P, i, j):
     if i == 0 and j > 0:
         return mean_ab(vect, P[j][i] + 1, P[j][i + 1]) - mean_ab(vect, 0, P[j][i])
     elif i == j > 0:
-        return mean_ab(vect, P[j][i] + 1, N)           - mean_ab(vect, P[j][i - 1] + 1, P[j][i])
+        return mean_ab(vect, P[j][i] + 1, N) - mean_ab(vect, P[j][i - 1] + 1, P[j][i])
     elif i == j == 0:
-        return mean_ab(vect, P[j][i] + 1, N)           - mean_ab(vect, 0, P[j][i])
+        return mean_ab(vect, P[j][i] + 1, N) - mean_ab(vect, 0, P[j][i])
     else:
         return mean_ab(vect, P[j][i] + 1, P[j][i + 1]) - mean_ab(vect, P[j][i - 1] + 1, P[j][i])
+
 
 def calcError(vect, P, i, j):
     """
@@ -67,8 +76,9 @@ def calcError(vect, P, i, j):
     This is the sum of the quadratic distances of all data points to the threshold z defined by the i-th discontinuity
     """
     N = len(vect)
-    z = (vect[ P[j][i] ] + vect[ P[j][i] + 1 ]) / 2
-    return sum( [ (vect[i] - z)**2 for i in range(0, N)] )
+    z = (vect[P[j][i]] + vect[P[j][i] + 1]) / 2
+    return sum([(vect[i] - z)**2 for i in range(0, N)])
+
 
 def movingBlockBootstrap(v):
     N = len(v)
@@ -90,6 +100,7 @@ def movingBlockBootstrap(v):
             index += 1
     return bootstrappedValues
 
+
 def normDevMedian(v, vect):
     N = len(vect)
     median_val = floor(median(v))
@@ -97,9 +108,11 @@ def normDevMedian(v, vect):
     mean_val = mean(dev)
     return mean_val/(N-1)
 
+
 """
 MAIN FUNCTIONS
 """
+
 
 def calcCostAndIndMatrix(vect):
     """
@@ -110,8 +123,8 @@ def calcCostAndIndMatrix(vect):
     N = len(vect)
     C = initCostMatrix(vect)
     ind = MatrixZeros(N - 2, N)
-    for j in range( 1, N - 2 + 1 ):
-        for i in range( 0, N - j ):
+    for j in range(1, N - 2 + 1):
+        for i in range(0, N - j):
             cost_min = float("inf")
             d_min = -1
             for d in range(i, N - j):
@@ -140,21 +153,24 @@ def calcPMatrix(ind):
                 z = z - 1
     return P
 
+
 def calcScores(vect, P):
     """
     Calculate the score of al step function discontinuities in P
     This score is the jump height divided by the approximation error
     """
 
-    Q = MatrixZeros(len(P), len(P[0]))  #stores scores for each discontinuity
-    Q_max = ArrayZeros(len(P))          #stores the score of the discontinuity with the maximum score for each step function
-    ind_Q_max = ArrayZeros(len(P))      #stores the index of the discontinuity with the maximum score for each step function
+    Q = MatrixZeros(len(P), len(P[0]))  # stores scores for each discontinuity
+    # stores the score of the discontinuity with the maximum score for each step function
+    Q_max = ArrayZeros(len(P))
+    # stores the index of the discontinuity with the maximum score for each step function
+    ind_Q_max = ArrayZeros(len(P))
 
     for j in range(0, len(P)):
         q_max = -1
         ind_q_max = -1
         for i in range(0, j + 1):
-            #calculate jump height
+            # calculate jump height
             h = calcJumpHeight(vect, P, i, j)
             e = calcError(vect, P, i, j)
             q = h/e
@@ -166,9 +182,11 @@ def calcScores(vect, P):
         ind_Q_max[j] = ind_q_max
     return Q, Q_max, ind_Q_max
 
+
 def calcThreshold(vect, v):
     v_med = floor(median(v))
     return (vect[v_med + 1] + vect[v_med]) / 2
+
 
 def calcP(v, vect, tau, n_samples):
     nom = normDevMedian(v, vect)
@@ -186,8 +204,9 @@ def calcP(v, vect, tau, n_samples):
 
     return p
 
+
 class Result:
-    #retian nomenclatur from R version
+    # retian nomenclatur from R version
     def __init__(self, originalMeasurements, intermedSteps, intermedScores, intermedStrongSteps, BinarizedMeasurements, threshold, pVal):
         self.originalMeasurements = originalMeasurements
         self.intermediateSteps = intermedSteps
@@ -196,35 +215,35 @@ class Result:
         self.binarizedMeasurements = BinarizedMeasurements
         self.threshold = threshold
         self.pVal = pVal
-    
-def binarize(vect, tau = 0.01, n_samples = 999, calc_p = True, max_elements = 100):
-    #original step function is just the sorted vector
+
+
+def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
+    # original step function is just the sorted vector
     vect_sorted = sorted(vect)
-    
+
     # if vector is too long, only use top features (scalability)
     if len(vect_sorted) > max_elements:
         vect_sorted = vect_sorted[0:max_elements]
 
-    #step 1: Compute a series of step functions (each function minimizes the eucledian distance between the new step function and the original data)
+    # step 1: Compute a series of step functions (each function minimizes the eucledian distance between the new step function and the original data)
     _, ind = calcCostAndIndMatrix(vect_sorted)
     P = calcPMatrix(ind)
 
-    #step 2: Find strongest discontinuity in each step function
+    # step 2: Find strongest discontinuity in each step function
     Q, _, v = calcScores(vect_sorted, P)
 
-    #step 3: Estimate location and variation of the strongest discontinuities
+    # step 3: Estimate location and variation of the strongest discontinuities
     threshold = calcThreshold(vect_sorted, v)
     p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
 
     BinarizedMeasurements = [(val > threshold) * 1 for val in vect]
 
-
     return Result(
-        originalMeasurements = vect,
-        intermedSteps = P,
-        intermedScores = Q,
-        intermedStrongSteps = v,
-        BinarizedMeasurements = BinarizedMeasurements,
-        threshold = threshold,
-        pVal = p_val
+        originalMeasurements=vect,
+        intermedSteps=P,
+        intermedScores=Q,
+        intermedStrongSteps=v,
+        BinarizedMeasurements=BinarizedMeasurements,
+        threshold=threshold,
+        pVal=p_val
     )

@@ -18,8 +18,9 @@ import re
 
 from .scenicplus_class import SCENICPLUS
 
+
 def export_to_loom(scplus_obj: SCENICPLUS,
-                   signature_key: str, 
+                   signature_key: str,
                    out_fname: str,
                    eRegulon_metadata_key: Optional[str] = 'eRegulon_metadata',
                    auc_key: Optional[str] = 'eRegulon_AUC',
@@ -72,7 +73,7 @@ def export_to_loom(scplus_obj: SCENICPLUS,
     handlers = [logging.StreamHandler(stream=sys.stdout)]
     logging.basicConfig(level=level, format=log_format, handlers=handlers)
     log = logging.getLogger('SCENIC+')
-    
+
     log.info('Formatting data')
     # Check-up
     if auc_key not in scplus_obj.uns.keys():
@@ -81,33 +82,36 @@ def export_to_loom(scplus_obj: SCENICPLUS,
         log.error('Compute ' + auc_thr_key + 'first!')
     if eRegulon_metadata_key not in scplus_obj.uns.keys():
         log.error('Compute ' + eRegulon_metadata_key + 'first!')
-    
+
     # Set keys and subset if needed
     if signature_key == 'Gene_based':
         markers_key = 'DEGs'
         if selected_features is not None or selected_cells is not None:
-            scplus_obj = scplus_obj.subset(scplus_obj, cells = selected_cells, genes = selected_features, return_copy = True)
+            scplus_obj = scplus_obj.subset(
+                scplus_obj, cells=selected_cells, genes=selected_features, return_copy=True)
         ex_mtx = scplus_obj.X_EXP.T
         feature_names = scplus_obj.gene_names
         cell_names = scplus_obj.cell_names
     else:
         markers_key = 'DARs'
         if selected_features is not None or selected_cells is not None:
-            scplus_obj = scplus_obj.subset(scplus_obj, cells = selected_cells, regions = selected_features, return_copy = True)
+            scplus_obj = scplus_obj.subset(
+                scplus_obj, cells=selected_cells, regions=selected_features, return_copy=True)
         ex_mtx = scplus_obj.X_ACC
         feature_names = scplus_obj.region_names
         cell_names = scplus_obj.cell_names
-        
-    if markers_key in scplus_obj.uns.keys():  
+
+    if markers_key in scplus_obj.uns.keys():
         cluster_markers = scplus_obj.uns[markers_key]
         if cluster_annotation is None:
             cluster_annotation = list(cluster_markers.keys())
         else:
-            cluster_annotation = list(set(sum([cluster_annotation, list(cluster_markers.keys())], [])))
-            
+            cluster_annotation = list(
+                set(sum([cluster_annotation, list(cluster_markers.keys())], [])))
+
     else:
         cluster_markers = None
-    
+
     # Extract cell data
     cell_data = scplus_obj.metadata_cell
 
@@ -122,26 +126,33 @@ def export_to_loom(scplus_obj: SCENICPLUS,
 
     # eGRN AUC values
     auc_mtx = scplus_obj.uns[auc_key][signature_key].loc[cell_names]
-    auc_mtx.columns = [re.sub('_\(.*\)', '', x) for x in auc_mtx.columns.tolist()]
+    auc_mtx.columns = [re.sub('_\(.*\)', '', x)
+                       for x in auc_mtx.columns.tolist()]
     auc_thresholds = scplus_obj.uns[auc_thr_key][signature_key]
-    auc_thresholds.index = [re.sub('_\(.*\)', '', x) for x in auc_thresholds.index.tolist()]
-    
+    auc_thresholds.index = [re.sub('_\(.*\)', '', x)
+                            for x in auc_thresholds.index.tolist()]
+
     # Add TF expression in Region_based
     if signature_key == 'Region_based':
         tf_names = list(set([x.split('_')[0] for x in auc_mtx.columns]))
         tf_mat = scplus_obj.to_df('EXP')[tf_names].T
-        ex_mtx = sparse.vstack([ex_mtx, sparse.csr_matrix(tf_mat.values)], format='csr')
+        ex_mtx = sparse.vstack(
+            [ex_mtx, sparse.csr_matrix(tf_mat.values)], format='csr')
         feature_names = feature_names.tolist() + tf_names
-    
+
     # Format regulons
     if signature_key == 'Gene_based':
-        regulons = {re.sub('_\(.*\)', '', x): ' '.join(list(set(scplus_obj.uns[eRegulon_metadata_key][scplus_obj.uns[eRegulon_metadata_key].Gene_signature_name == x]['Gene']))) for x in list(set(scplus_obj.uns[eRegulon_metadata_key].Gene_signature_name))}
+        regulons = {re.sub('_\(.*\)', '', x): ' '.join(list(set(scplus_obj.uns[eRegulon_metadata_key][scplus_obj.uns[eRegulon_metadata_key].Gene_signature_name == x]['Gene']))) for x in list(
+            set(scplus_obj.uns[eRegulon_metadata_key].Gene_signature_name))}
         cv = CountVectorizer(lowercase=False)
     else:
-        regulons = {re.sub('_\(.*\)', '', x): ' '.join(list(set(scplus_obj.uns[eRegulon_metadata_key][scplus_obj.uns[eRegulon_metadata_key].Region_signature_name == x]['Region']))) for x in list(set(scplus_obj.uns[eRegulon_metadata_key].Region_signature_name))}   
-        cv = CountVectorizer(lowercase=False, token_pattern=r'(?u)\b\w\w+\b:\b\w\w+\b-\b\w\w+\b')
+        regulons = {re.sub('_\(.*\)', '', x): ' '.join(list(set(scplus_obj.uns[eRegulon_metadata_key][scplus_obj.uns[eRegulon_metadata_key].Region_signature_name == x]['Region']))) for x in list(
+            set(scplus_obj.uns[eRegulon_metadata_key].Region_signature_name))}
+        cv = CountVectorizer(
+            lowercase=False, token_pattern=r'(?u)\b\w\w+\b:\b\w\w+\b-\b\w\w+\b')
     regulon_mat = cv.fit_transform(regulons.values())
-    regulon_mat = pd.DataFrame(regulon_mat.todense(), columns=cv.get_feature_names(), index=regulons.keys())
+    regulon_mat = pd.DataFrame(regulon_mat.todense(
+    ), columns=cv.get_feature_names(), index=regulons.keys())
     regulon_mat = regulon_mat.reindex(columns=feature_names, fill_value=0).T
 
     # Cell annotations and metrics
@@ -159,35 +170,39 @@ def export_to_loom(scplus_obj: SCENICPLUS,
                     annotations.append(cell_data[var].astype('str'))
                     cell_data[var] = cell_data[var].astype('str')
     metrics = pd.concat(metrics, axis=1).fillna(0) if len(metrics) > 0 else []
-    annotations = pd.concat(annotations, axis=1) if len(annotations) > 0 else []
-    
+    annotations = pd.concat(annotations, axis=1) if len(
+        annotations) > 0 else []
+
     # Embeddings. Cell embeddings in this case
     embeddings = scplus_obj.dr_cell
-    
+
     # Add linked_gene information
     if signature_key == 'Gene_based':
-        linked_gene = scplus_obj.uns[eRegulon_metadata_key][['Region', 'Gene']].groupby('Gene').agg(lambda x: '; '.join(set(x)))
-        linked_gene = linked_gene.reindex(index=feature_names, fill_value='').loc[feature_names]
+        linked_gene = scplus_obj.uns[eRegulon_metadata_key][[
+            'Region', 'Gene']].groupby('Gene').agg(lambda x: '; '.join(set(x)))
+        linked_gene = linked_gene.reindex(
+            index=feature_names, fill_value='').loc[feature_names]
     else:
-        linked_gene = scplus_obj.uns[eRegulon_metadata_key][['Region', 'Gene']].groupby('Region').agg(lambda x: '; '.join(set(x)))
-        linked_gene = linked_gene.reindex(index=feature_names, fill_value='').loc[feature_names]
+        linked_gene = scplus_obj.uns[eRegulon_metadata_key][['Region', 'Gene']].groupby(
+            'Region').agg(lambda x: '; '.join(set(x)))
+        linked_gene = linked_gene.reindex(
+            index=feature_names, fill_value='').loc[feature_names]
     linked_gene.columns = ['0']
     # Create minimal loom
     log.info('Creating minimal loom')
-    export_minimal_loom(ex_mtx = ex_mtx,
-                       cell_names = cell_names,
-                       feature_names = feature_names,
-                       out_fname = out_fname,
-                       regulons = regulon_mat,
-                       cell_annotations = None,
-                       tree_structure = tree_structure,
-                       title = title,
-                       nomenclature = nomenclature,
-                       embeddings = embeddings,
-                       auc_mtx = auc_mtx,
-                       auc_thresholds = auc_thresholds,
-                       linked_gene = linked_gene)
-    
+    export_minimal_loom(ex_mtx=ex_mtx,
+                        cell_names=cell_names,
+                        feature_names=feature_names,
+                        out_fname=out_fname,
+                        regulons=regulon_mat,
+                        cell_annotations=None,
+                        tree_structure=tree_structure,
+                        title=title,
+                        nomenclature=nomenclature,
+                        embeddings=embeddings,
+                        auc_mtx=auc_mtx,
+                        auc_thresholds=auc_thresholds,
+                        linked_gene=linked_gene)
 
     # Add annotations
     log.info('Adding annotations')
@@ -219,14 +234,16 @@ def export_to_loom(scplus_obj: SCENICPLUS,
         # Keep genes in data
         for y in cluster_markers:
             cluster_markers[y] = {
-                x: cluster_markers[y][x][cluster_markers[y][x].index.isin(feature_names)]
+                x: cluster_markers[y][x][cluster_markers[y]
+                                         [x].index.isin(feature_names)]
                 for x in cluster_markers[y].keys()
             }
         add_markers(loom, cluster_markers)
 
     log.info('Exporting')
     loom.export(out_fname)
-    
+
+
 def export_minimal_loom(
     ex_mtx: sparse.csr_matrix,
     cell_names: List[str],
@@ -239,10 +256,10 @@ def export_minimal_loom(
     nomenclature: str = "Unknown",
     num_workers: int = cpu_count(),
     embeddings: Mapping[str, pd.DataFrame] = {},
-    auc_mtx = None,
-    auc_thresholds = None,
+    auc_mtx=None,
+    auc_thresholds=None,
     compress: bool = False,
-    linked_gene = None
+    linked_gene=None
 ):
     """
     An internal function to create a minimal loom file
@@ -268,27 +285,31 @@ def export_minimal_loom(
         if len(df_embedding.columns) != 2:
             raise Exception('The embedding should have two columns.')
 
-        embedding_id = idx - 1  # Default embedding must have id == -1 for SCope.
+        # Default embedding must have id == -1 for SCope.
+        embedding_id = idx - 1
         id2name[embedding_id] = name
 
         embedding = df_embedding.copy()
         embedding.columns = ['_X', '_Y']
         embeddings_X = pd.merge(
             embeddings_X,
-            embedding['_X'].to_frame().rename(columns={'_X': str(embedding_id)}),
+            embedding['_X'].to_frame().rename(
+                columns={'_X': str(embedding_id)}),
             left_index=True,
             right_index=True,
         )
         embeddings_Y = pd.merge(
             embeddings_Y,
-            embedding['_Y'].to_frame().rename(columns={'_Y': str(embedding_id)}),
+            embedding['_Y'].to_frame().rename(
+                columns={'_Y': str(embedding_id)}),
             left_index=True,
             right_index=True,
         )
 
     # Encode cell type clusters.
     # The name of the column should match the identifier of the clustering.
-    name2idx = dict(map(reversed, enumerate(sorted(set(cell_annotations.values())))))
+    name2idx = dict(map(reversed, enumerate(
+        sorted(set(cell_annotations.values())))))
     clusterings = (
         pd.DataFrame(data=cell_names, index=cell_names, columns=['0'])
         .replace(cell_annotations)
@@ -322,6 +343,7 @@ def export_minimal_loom(
             "Regulons": create_structure_array(regulons),
             "linkedGene": np.array(linked_gene['0'])
         }
+
     def fetch_logo(context):
         for elem in context:
             if elem.endswith('.png'):
@@ -369,7 +391,8 @@ def export_minimal_loom(
 
     # Compress MetaData global attribute
     if compress:
-        general_attrs["MetaData"] = compress_encode(value=general_attrs["MetaData"])
+        general_attrs["MetaData"] = compress_encode(
+            value=general_attrs["MetaData"])
 
     # Create loom file for use with the SCope tool.
     lp.create(
@@ -528,8 +551,10 @@ def add_markers(loom: SCopeLoom,
         # Populate
         for i in range(0, num_clusters):
             try:
-                gene_names = markers_dict[cluster_name][cluster_description[i]].index.tolist()
-                pvals_adj = markers_dict[cluster_name][cluster_description[i]]['Adjusted_pval']
+                gene_names = markers_dict[cluster_name][cluster_description[i]].index.tolist(
+                )
+                pvals_adj = markers_dict[cluster_name][cluster_description[i]
+                                                       ]['Adjusted_pval']
                 logfoldchanges = markers_dict[cluster_name][cluster_description[i]]['Log2FC']
                 i = str(i)
                 num_genes = len(gene_names)
