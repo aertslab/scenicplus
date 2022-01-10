@@ -14,7 +14,7 @@ from .utils import region_names_to_coordinates, target_to_overlapping_query, p_a
 from .scenicplus_class import SCENICPLUS
 
 # Generate cistromes form motif enrichment tables
-def merge_cistromes(scplus_obj: 'SCENICPLUS',
+def merge_cistromes(scplus_obj: SCENICPLUS,
                     cistromes_key: str ='Unfiltered',
                     subset: pr.PyRanges = None):
     """
@@ -83,7 +83,7 @@ def merge_cistromes(scplus_obj: 'SCENICPLUS',
     scplus_obj.uns['Cistromes'][cistromes_key] = merged_signatures
 
 # Score cistromes in cells
-def score_cistromes(scplus_obj: 'SCENICPLUS',
+def score_cistromes(scplus_obj: SCENICPLUS,
                     ranking: 'CistopicImputedFeatures',
                     cistromes_key: str = 'Unfiltered',
                     enrichment_type: str = 'region',
@@ -125,7 +125,7 @@ def score_cistromes(scplus_obj: 'SCENICPLUS',
                         normalize,
                         n_cpu)
 # Create pseudobulks                    
-def generate_pseudobulks(scplus_obj: 'SCENICPLUS', 
+def generate_pseudobulks(scplus_obj: SCENICPLUS, 
                          variable: str,
                          normalize_expression: bool = True,
                          auc_key: str = 'Cistromes_AUC',
@@ -187,7 +187,7 @@ def generate_pseudobulks(scplus_obj: 'SCENICPLUS',
         scplus_obj.uns['Pseudobulk'][variable][auc_key] = {}
     scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key] = cistrome_auc_agg 
     
-def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
+def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
                             variable: str = None,
                             use_pseudobulk: bool = True,
                             auc_key: str = 'Cistromes_AUC',
@@ -255,7 +255,7 @@ def TF_cistrome_correlation(scplus_obj: 'SCENICPLUS',
         scplus_obj.uns['TF_cistrome_correlation'][out_key] = {}
     scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df 
     
-def prune_plot(scplus_obj: 'SCENICPLUS',
+def prune_plot(scplus_obj: SCENICPLUS,
                name: str,
                pseudobulk_variable: str = None, 
                auc_key: str = 'Cistromes_AUC',
