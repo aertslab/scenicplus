@@ -3,7 +3,7 @@ from numpy.lib.function_base import iterable
 import scipy.sparse as sparse
 import pandas as pd
 import numpy as np
-from typing import Union, List, Mapping, Any, Callable
+from typing import Mapping, Any, Callable, Union
 from pycisTopic.diff_features import CistopicImputedFeatures, impute_accessibility, normalize_scores
 from pycisTopic.cistopic_class import CistopicObject
 from scanpy import AnnData
