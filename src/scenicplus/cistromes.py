@@ -6,10 +6,9 @@ from pycisTopic.diff_features import *
 from pycisTopic.signature_enrichment import *
 import pyranges as pr
 from random import sample
-import re
 import seaborn as sns
-from scipy.stats import pearsonr, spearmanr
-from typing import Dict, List, Sequence, Union
+from scipy.stats import pearsonr
+from typing import List, Union
 
 from .scenicplus_class import SCENICPLUS
 
