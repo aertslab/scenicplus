@@ -2,14 +2,14 @@ from typing import Mapping
 import pyBigWig
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 from matplotlib import cm
 import pyranges as pr
 import seaborn as sns
 import matplotlib.patches as mpatches
 import matplotlib
-from ..scenicplus_class import SCENICPLUS
 from typing import Union, List
+
+from ..scenicplus_class import SCENICPLUS
 
 region_to_chrom_start_end = lambda x: [    x.replace(':', '-').split('-')[0], 
                                        int(x.replace(':', '-').split('-')[1]), 
