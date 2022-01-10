@@ -4,13 +4,15 @@ import seaborn as sns
 import numpy as np
 import pandas as pd
 import plotly.express as px
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from typing import Optional, Union
 import sklearn
 import matplotlib.pyplot as plt
 from itertools import combinations
 
-def correlation_heatmap(scplus_obj: 'SCENICPLUS',
+from ..scenicplus_class import SCENICPLUS
+
+def correlation_heatmap(scplus_obj: SCENICPLUS,
                         auc_key: Optional[str] = 'eRegulon_AUC', 
                         signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
                         scale: Optional[bool] = False,
@@ -121,7 +123,7 @@ def jaccard(signature1, signature2):
     union = len(s_signature1) + len(s_signature2) - intersect
     return intersect / union
 
-def jaccard_heatmap(scplus_obj: 'SCENICPLUS',
+def jaccard_heatmap(scplus_obj: SCENICPLUS,
                     gene_or_region_based: str = 'Gene_based',
                     signature_key: Optional[str] = 'eRegulon_signatures',
                     selected_regulons: Optional[List[int]] = None,
@@ -132,7 +134,9 @@ def jaccard_heatmap(scplus_obj: 'SCENICPLUS',
                     fontsize: Optional[int] = 3,
                     save: Optional[str] = None,
                     use_plotly: Optional[int] = True,
-                    figsize: Optional[Tuple[int, int]] = (20, 20)
+                    figsize: Optional[Tuple[int, int]] = (20, 20),
+                    vmin = None,
+                    vmax = None
     ):
     """
     Plot jaccard index of regions/genes
@@ -206,7 +210,9 @@ def jaccard_heatmap(scplus_obj: 'SCENICPLUS',
             ax = ax,
             robust = True,
             cbar_kws={"shrink": .50, 'label': 'Jaccard'},
-            xticklabels=False)
+            xticklabels=False,
+            vmin = vmin,
+            vmax = vmax)
         if save is not None:
             fig.tight_layout()
             fig.savefig(save)
