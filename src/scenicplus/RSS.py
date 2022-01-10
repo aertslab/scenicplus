@@ -1,16 +1,17 @@
 import pandas as pd
 import numpy as np
 from scipy.spatial.distance import jensenshannon
-from math import sqrt
 from math import ceil, floor
 import matplotlib.pyplot as plt
 import matplotlib
-from typing import Dict, List, Tuple
-from typing import Optional, Union
+from typing import List, Tuple
+from typing import Optional
 from adjustText import adjust_text
 import sklearn
 
-def regulon_specificity_scores(scplus_obj: 'SCENICPLUS',
+from .scenicplus_class import SCENICPLUS
+
+def regulon_specificity_scores(scplus_obj: SCENICPLUS,
                         variable: str, 
                         auc_key: Optional[str] = 'eRegulon_AUC', 
                         signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
@@ -69,7 +70,7 @@ def regulon_specificity_scores(scplus_obj: 'SCENICPLUS',
         scplus_obj.uns['RSS'][out_key] = {}
     scplus_obj.uns['RSS'][out_key] = rss_values
     
-def plot_rss(scplus_obj: 'SCENICPLUS', 
+def plot_rss(scplus_obj: SCENICPLUS, 
             rss_key: str,
             top_n: Optional[int] = 5,
             selected_groups: Optional[List[str]] = None,
