@@ -17,7 +17,9 @@ from typing import Dict, List, Tuple
 from typing import Optional, Union
 from sklearn.decomposition import PCA
 
-def find_clusters(scplus_obj: 'SCENICPLUS',
+from .scenicplus_class import SCENICPLUS
+
+def find_clusters(scplus_obj: SCENICPLUS,
                   auc_key: Optional[str] = 'eRegulon_AUC', 
                   signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
                   k: Optional[int] = 10,
@@ -95,7 +97,7 @@ def find_clusters(scplus_obj: 'SCENICPLUS',
         
         scplus_obj.add_cell_data(cluster)
 
-def run_eRegulons_tsne(scplus_obj: 'SCENICPLUS',
+def run_eRegulons_tsne(scplus_obj: SCENICPLUS,
              scale: Optional[bool] = True,
              auc_key: Optional[str] = 'eRegulon_AUC', 
              signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
@@ -165,7 +167,7 @@ def run_eRegulons_tsne(scplus_obj: 'SCENICPLUS',
 
     scplus_obj.dr_cell[reduction_name] = dr
 
-def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
+def run_eRegulons_umap(scplus_obj: SCENICPLUS,
              scale: Optional[bool] = True,
              auc_key: Optional[str] = 'eRegulon_AUC', 
              signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
@@ -230,7 +232,7 @@ def run_eRegulons_umap(scplus_obj: 'SCENICPLUS',
             'UMAP_2'])
     scplus_obj.dr_cell[reduction_name] = dr
 
-def run_eRegulons_pca(scplus_obj: 'SCENICPLUS',
+def run_eRegulons_pca(scplus_obj: SCENICPLUS,
              scale: Optional[bool] = True,
              auc_key: Optional[str] = 'eRegulon_AUC', 
              signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
@@ -292,10 +294,10 @@ def run_eRegulons_pca(scplus_obj: 'SCENICPLUS',
     dr = pd.DataFrame(
         embedding,
         index=data_names,
-        columns=[f'PC_{i}' for i in range(n_pcs)])
+        columns=[f'PC_{i}' for i in range(n_pcs)])[['PC_0', 'PC_1']]
     scplus_obj.dr_cell[reduction_name] = dr
     
-def plot_metadata(scplus_obj: 'SCENICPLUS',
+def plot_metadata(scplus_obj: SCENICPLUS,
                   reduction_name: str,
                   variables: List[str],
                   remove_nan: Optional[bool] = True,
@@ -483,7 +485,7 @@ def subset_list(target_list, index_list):
     X = list(map(target_list.__getitem__, index_list))
     return X
 
-def plot_eRegulon(scplus_obj: 'SCENICPLUS',
+def plot_eRegulon(scplus_obj: SCENICPLUS,
                reduction_name: str,
                auc_key: Optional[str] = 'eRegulon_AUC', 
                signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
