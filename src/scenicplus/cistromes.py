@@ -8,7 +8,7 @@ import pyranges as pr
 from random import sample
 import seaborn as sns
 from scipy.stats import pearsonr
-from typing import List, Union
+from typing import List
 from .utils import region_names_to_coordinates, target_to_overlapping_query, p_adjust_bh
 
 from .scenicplus_class import SCENICPLUS
@@ -83,83 +83,6 @@ def merge_cistromes(scplus_obj: 'SCENICPLUS',
     scplus_obj.uns['Cistromes'][cistromes_key] = merged_signatures
 
 # Score cistromes in cells
-def make_rankings(scplus_obj: 'SCENICPLUS',
-                  target: str = 'region',
-                  seed: int = 123):
-    """
-    A function to generate rankings per cell based on the imputed accessibility scores per region
-    or the gene expression per cell.
-    
-    Parameters
-    ---------
-    scplus_obj: :class:`SCENICPLUS`
-        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).
-    target: str, optional
-        Whether rankings should be done based on gene expression or region accessibilty. Default: 'region'
-    seed: int, optional
-        Random seed to ensure reproducibility of the rankings when there are ties
-        
-    Return
-    ------
-       CistopicImputedFeatures
-        A :class:`CistopicImputedFeatures` containing with ranking values rather than scores.
-    """
-    # Initialize random number generator, for handling ties
-    rng = np.random.default_rng(seed=seed)
-
-    # Function to make rankings per array
-    def rank_scores_and_assign_random_ranking_in_range_for_ties(
-            scores_with_ties_for_motif_or_track_numpy: np.ndarray
-    ) -> np.ndarray:
-    # 
-    # Create random permutation so tied scores will have a different ranking each time.
-        random_permutations_to_break_ties_numpy = rng.permutation(
-                scores_with_ties_for_motif_or_track_numpy.shape[0]
-        )
-        ranking_with_broken_ties_for_motif_or_track_numpy = random_permutations_to_break_ties_numpy[
-            (-scores_with_ties_for_motif_or_track_numpy)[random_permutations_to_break_ties_numpy].argsort()
-        ].argsort().astype(imputed_acc_obj_ranking_db_dtype)
-
-        return ranking_with_broken_ties_for_motif_or_track_numpy
-    
-    # Create zeroed imputed object rankings database.
-    if target == 'region':
-        imputed_acc_ranking = CistopicImputedFeatures(
-                np.zeros((len(scplus_obj.region_names), len(scplus_obj.cell_names))), 
-                scplus_obj.region_names,
-                scplus_obj.cell_names, 
-                'Ranking')
-    if target == 'gene':
-        imputed_acc_ranking = CistopicImputedFeatures(
-                np.zeros((len(scplus_obj.gene_names), len(scplus_obj.cell_names))), 
-                scplus_obj.gene_names,
-                scplus_obj.cell_names, 
-                'Ranking')
-        
-
-    # Get dtype of the scores
-    imputed_acc_obj_ranking_db_dtype = 'uint32'
-        
-    # Convert to csc
-    if target == 'region':
-        if sparse.issparse(scplus_obj.X_ACC):
-            mtx = scplus_obj.X_ACC.tocsc()
-        else:
-            mtx = scplus_obj.X_ACC
-    elif target == 'gene':
-        if sparse.issparse(scplus_obj.X_EXP):
-            mtx = scplus_obj.X_EXP.T.tocsc()
-        else:
-            mtx = scplus_obj.X_EXP.T
-
-    # Rank all scores per motif/track and assign a random ranking in range for regions/genes with the same score.
-    for col_idx in range(len(imputed_acc_ranking.cell_names)):
-            imputed_acc_ranking.mtx[:,col_idx] = rank_scores_and_assign_random_ranking_in_range_for_ties(
-                 mtx[:,col_idx].toarray().flatten() if sparse.issparse(mtx) else mtx[:,col_idx].flatten()
-            )
-
-    return imputed_acc_ranking
-
 def score_cistromes(scplus_obj: 'SCENICPLUS',
                     ranking: 'CistopicImputedFeatures',
                     cistromes_key: str = 'Unfiltered',
