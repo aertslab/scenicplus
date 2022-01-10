@@ -2,16 +2,16 @@ import pandas as pd
 import pyranges as pr
 import numpy as np
 import networkx as nx
-from ctxcore.genesig import Regulon
-import logging
-import sys
-from typing import List, Union, Mapping
+from typing import List, Union
 import ray
 from random import sample
 import random
 from matplotlib import cm
 from matplotlib.colors import Normalize, rgb2hex
 import pyranges as pr
+import numpy as np
+from numba import njit, float64, int64, prange
+
 
 ASM_SYNONYMS = {
     'hg38': 'GRCh38',
@@ -19,8 +19,6 @@ ASM_SYNONYMS = {
     'mm9': 'MGSCv37',
     'mm10': 'GRCm38',
     'mm39': 'GRCm39'}
-
-
 
 flatten_list = lambda t: [item for sublist in t for item in sublist]
 
@@ -189,192 +187,37 @@ def region_names_to_coordinates(region_names):
     regiondf.columns = ['Chromosome', 'Start', 'End']
     return (regiondf)
 
-def message_join_vector(v, sep = ', ', max_len = 4):
-    uniq_v = list(set(v))
-    if len(uniq_v) > max_len:
-        msg = sep.join(uniq_v[0:max_len -1]) + ' ... ' + uniq_v[-1]
+def target_to_overlapping_query(target: Union[pr.PyRanges, List[str]],
+         query: Union[pr.PyRanges, List[str]],
+         fraction_overlap: float = 0.4):
+    """
+    Return mapping between two sets of regions
+    """
+    #Read input
+    if isinstance(target, str):
+        target_pr=pr.read_bed(target)
+    if isinstance(target, list):
+        target_pr=pr.PyRanges(region_names_to_coordinates(target))
+    if isinstance(target, pr.PyRanges):
+        target_pr=target
+    # Read input
+    if isinstance(query, str):
+        query_pr=pr.read_bed(query)
+    if isinstance(query, list):
+        query_pr=pr.PyRanges(region_names_to_coordinates(query))
+    if isinstance(query, pr.PyRanges):
+        query_pr=query
+    
+    join_pr = target_pr.join(query_pr, report_overlap = True)
+    if len(join_pr) > 0:
+        join_pr.Overlap_query =  join_pr.Overlap/(join_pr.End_b - join_pr.Start_b)
+        join_pr.Overlap_target =  join_pr.Overlap/(join_pr.End - join_pr.Start)
+        join_pr = join_pr[(join_pr.Overlap_query > fraction_overlap) | (join_pr.Overlap_target > fraction_overlap)]
+        join_pr = join_pr[['Chromosome', 'Start', 'End']]
+        return join_pr.drop_duplicate_positions()
     else:
-        msg = sep.join(uniq_v)
-    return msg
-
-def eRegulons_tbl_to_nx(df_eRegulons, TF_only = False, selected_nodes = None, directed = True):
-    #create adjecency matrix: https://stackoverflow.com/questions/42806398/create-adjacency-matrix-for-two-columns-in-pandas-dataframe
-    A = (pd.crosstab(df_eRegulons['TF'], df_eRegulons['gene']) != 0) * 1
-    if selected_nodes is None:
-        idx = A.columns.intersection(A.index) if TF_only else A.columns.union(A.index)
-    else:
-        idx = A.columns.intersection(selected_nodes)
-    A = A.reindex(index = idx, columns=idx, fill_value=0)
-    return nx.from_pandas_adjacency(A, create_using = nx.DiGraph) if directed else nx.from_pandas_adjacency(A)
-
-def eRegulons_tbl_to_genesig(df_eRegulons, mode = 'target_genes'):
-    sign = lambda x: '+' if x > 0 else '-' if x < 0 else None
-    genesigs = []
-    for id, data in df_eRegulons.groupby(['TF', 'regulation_TF2G', 'regulation_R2G']):
-        name = id[0] + ' (' + sign(id[1]) + ' / ' + sign(id[2]) + ')'
-        gene2weight = data[['gene','importance_TF2G']].drop_duplicates().to_numpy() if mode == 'target_genes' else data[['region', 'aggr_rank_score']].drop_duplicates().to_numpy()
-        genesigs.append(Regulon(
-            name = name,
-            gene2weight = dict(gene2weight),
-            transcription_factor = id[0],
-            gene2occurrence = []))
-    return genesigs
-
-def annotate_regions(pr_regions,
-                     species,
-                     extend_tss = [10, 10], 
-                     exon_fraction_overlap = 0.7,
-                     biomart_host = 'http://www.ensembl.org'):
-    # Create logger
-    level    = logging.INFO
-    format   = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-    handlers = [logging.StreamHandler(stream=sys.stdout)]
-    logging.basicConfig(level = level, format = format, handlers = handlers)
-    log = logging.getLogger('R2G')
-    pr_regions.Name = coord_to_region_names(pr_regions)
-    pr_regions.Start = pr_regions.Start.astype(np.int32)
-    pr_regions.End = pr_regions.End.astype(np.int32)
-
-    import pybiomart as pbm
-    dataset_name = '{}_gene_ensembl'.format(species)
-    server = pbm.Server(host = biomart_host, use_cache = False)
-    mart = server['ENSEMBL_MART_ENSEMBL']
-    if dataset_name not in mart.list_datasets()['name'].to_numpy():
-         raise Exception('{} could not be found as a dataset in biomart. Check species name or consider manually providing gene annotations!')
-    else:
-        log.info("Downloading gene annotation from biomart dataset: {}".format(dataset_name))
-        dataset = mart[dataset_name]
-        if 'external_gene_name' not in dataset.attributes.keys():
-            external_gene_name_query = 'hgnc_symbol'
-        else:
-            external_gene_name_query = 'external_gene_name'
-        if 'transcription_start_site' not in dataset.attributes.keys():
-            transcription_start_site_query = 'transcript_start'
-        else:
-            transcription_start_site_query = 'transcription_start_site'
-        annot = dataset.query(attributes=['chromosome_name', 
-                                          'start_position', 
-                                          'end_position', 
-                                          'strand', 
-                                          external_gene_name_query, 
-                                          transcription_start_site_query, 
-                                          'transcript_biotype',
-                                          'exon_chrom_start',
-                                          'exon_chrom_end',
-                                          'ensembl_transcript_id',
-                                          '5_utr_start',
-                                          '5_utr_end',
-                                          '3_utr_start',
-                                          '3_utr_end'])
-        annot['Chromosome/scaffold name'] = 'chr' + annot['Chromosome/scaffold name'].astype(str)
-        annot.columns=['Chromosome', 
-                       'Gene_start', 
-                       'Gene_end', 
-                       'Strand', 
-                       'Gene_name', 
-                       'Transcription_Start_Site', 
-                       'Transcript_type', 
-                       'Exon_start', 
-                       'Exon_end', 
-                       'Transcript_id',
-                       '5_utr_start',
-                       '5_utr_end',
-                       '3_utr_start',
-                       '3_utr_end']
-        annot = annot[annot.Transcript_type == 'protein_coding']
-        annot.Strand[annot.Strand == 1] = '+'
-        annot.Strand[annot.Strand == -1] = '-'
+        return pr.PyRanges()
     
-    #get promoter locations
-    pd_promoters = annot.loc[:, ['Chromosome', 'Transcription_Start_Site', 'Strand', 'Transcript_id']]
-    pd_promoters['Transcription_Start_Site'] = (
-        pd_promoters.loc[:, 'Transcription_Start_Site']
-    ).astype(np.int32)
-    pd_promoters['End'] = (pd_promoters.loc[:, 'Transcription_Start_Site']).astype(np.int32)
-    pd_promoters.columns = ['Chromosome', 'Start', 'Strand', 'Transcript_id', 'End']
-    pd_promoters = pd_promoters.loc[:, ['Chromosome', 'Start', 'End', 'Strand', 'Transcript_id']]
-    pr_promoters = pr.PyRanges(pd_promoters.drop_duplicates())
-    log.info('Extending promoter annotation to {} bp upstream and {} downstream'.format( str(extend_tss[0]), str(extend_tss[1]) ))
-    pr_promoters = extend_pyranges(pr_promoters, extend_tss[0], extend_tss[1])
-
-    #get exon locations
-    pd_exons = annot.loc[:, ['Chromosome', 'Exon_start', 'Exon_end', 'Strand', 'Transcript_id']]
-    pd_exons.columns = ['Chromosome', 'Start', 'End', 'Strand', 'Transcript_id']
-    pr_exons = pr.PyRanges(pd_exons.drop_duplicates())
-
-    #get gene_start_end
-    pd_genes = annot.loc[:, ['Chromosome', 'Gene_start', 'Gene_end', 'Strand', 'Gene_name']]
-    pd_genes.columns = ['Chromosome', 'Start', 'End', 'Strand', 'Gene_name']
-    pr_genes = pr.PyRanges(pd_genes.drop_duplicates())
-
-    #get utr
-    pd_5_UTR = annot.loc[:, ['Chromosome', '5_utr_start', '5_utr_end', 'Transcript_id']].dropna()
-    pd_5_UTR.columns = ['Chromosome', 'Start', 'End', 'Transcript_id']
-    pr_5_UTR = pr.PyRanges(pd_5_UTR)
-
-    pd_3_UTR = annot.loc[:, ['Chromosome', '3_utr_start', '3_utr_end', 'Transcript_id']].dropna()
-    pd_3_UTR.columns = ['Chromosome', 'Start', 'End', 'Transcript_id']
-    pr_3_UTR = pr.PyRanges(pd_3_UTR)
-
-    pr_regions_ = pr_regions.join(pr_genes, how = 'left', report_overlap = True)
-    pr_regions_.Start = pr_regions_.Start.astype(np.int32)
-    pr_regions_.End = pr_regions_.End.astype(np.int32)
-    pr_intergenic_regions = pr_regions_.subset(lambda region: region.Overlap < 0).drop(['Start_b', 'End_b', 'Gene_name', 'Overlap', 'Strand'])
-    pr_genic_regions = pr_regions_.subset(lambda region: region.Overlap > 0).drop(['Start_b', 'End_b', 'Overlap', 'Gene_name', 'Strand'])
-    
-    pr_promoter_regions = pr_regions.join(pr_promoters, report_overlap = True).drop(['Start_b', 'End_b', 'Strand', 'Transcript_id'])
-    pr_5_utr_regions = pr_regions.join(pr_5_UTR, report_overlap = True).drop(['Start_b', 'End_b', 'Transcript_id'])
-    pr_3_utr_regions = pr_regions.join(pr_3_UTR, report_overlap = True).drop(['Start_b', 'End_b', 'Transcript_id'])
-    pr_exon_regions = pr_genic_regions.join(pr_exons, report_overlap = True).drop(['Start_b', 'End_b', 'Strand', 'Transcript_id'])
-    pr_exon_regions.Length = pr_exon_regions.End - pr_exon_regions.Start
-    pr_exon_regions.Fraction = pr_exon_regions.Overlap / pr_exon_regions.Length
-    pr_exon_regions = pr_exon_regions.subset(lambda region: region.Fraction > exon_fraction_overlap)
-
-    pr_regions.annotation = None
-    df_regions = pr_regions.df
-    df_regions.index = df_regions['Name']
-    #order matters here
-    df_regions.loc[pr_intergenic_regions.Name, 'annotation'] = 'Intergenic'
-    df_regions.loc[pr_genic_regions.Name, 'annotation'] = 'Intron'
-    df_regions.loc[pr_exon_regions.Name, 'annotation'] = 'Exon'
-    df_regions.loc[pr_3_utr_regions.Name, 'annotation'] = "3' UTR"
-    df_regions.loc[pr_5_utr_regions.Name, 'annotation'] = "5' UTR"
-    df_regions.loc[pr_promoter_regions.Name, 'annotation'] = "Promoter"
-    
-    return pr.PyRanges(df_regions.drop_duplicates())
-
-def join_list_of_dicts(ld):
-    flatten_list = lambda t: [item for sublist in t for item in sublist]
-    #get all keys
-    keys = []
-    for d in ld:
-        for k in d.keys():
-            if k not in keys:
-                keys.append(k)
-    #get all values for key across dictionaries
-    new_dict = {}
-    for key in keys:
-        key_values = [d[key] for d in ld if key in d.keys()]
-        new_dict[key] = list(set(flatten_list(key_values)))
-    
-    return new_dict
-
-def cistarget_results_to_TF2R(ctx_results, keep_extended = False):
-    direct_cistromes = [{k.split('_')[0]: ctx_result.cistromes['Region_set'][k] 
-                         for k in ctx_result.cistromes['Region_set'].keys() if 'extended' not in k}
-                         for ctx_result in ctx_results]
-    direct_cistromes_merged = join_list_of_dicts(direct_cistromes)
-    if keep_extended:
-        extended_cistromes = [{k.split('_')[0]: ctx_result.cistromes['Region_set'][k]
-                            for k in ctx_result.cistromes['Region_set'].keys() if 'extended' in k}
-                            for ctx_result in ctx_results]
-        extended_cistromes_merged = join_list_of_dicts(extended_cistromes)
-        cistromes_merged = join_list_of_dicts( [direct_cistromes_merged, extended_cistromes_merged] )
-    else:
-        cistromes_merged = direct_cistromes_merged
-    
-    return cistromes_merged
-
 def p_adjust_bh(p: float):
     """
     Benjamini-Hochberg p-value correction for multiple hypothesis testing.
@@ -569,12 +412,6 @@ def _create_idx_pairs(adjacencies: pd.DataFrame, exp_mtx: pd.DataFrame) -> np.nd
     # Create numpy array of idx pairs.
     return np.array([[symbol2idx[s1], symbol2idx[s2]] for s1, s2 in zip(adjacencies.TF, adjacencies.target)])
 
-
-            
-import numpy as np
-from numba import njit, float64, int64, prange
-
-
 @njit(float64(float64[:], float64[:], float64))
 def masked_rho(x: np.ndarray, y: np.ndarray, mask: float = 0.0) -> float:
     """
@@ -598,7 +435,6 @@ def masked_rho(x: np.ndarray, y: np.ndarray, mask: float = 0.0) -> float:
     if (std_x * std_y) == 0:
         return np.nan
     return cov_xy / (std_x * std_y)
-
 
 @njit(float64[:](float64[:, :], int64[:, :], float64), parallel=True)
 def masked_rho4pairs(mtx: np.ndarray, col_idx_pairs: np.ndarray, mask: float = 0.0) -> np.ndarray:
