@@ -323,6 +323,7 @@ def create_nx_graph(nx_tables,
     for key in node_tables_d.keys():
         if 'font' not in key:
             nx.set_node_attributes(G, node_tables_d[key], name=key)
+    nx.set_node_attributes(G, node_tables_d['label'], name='title')
     font_nt_d = node_tables[['font_size', 'font_color']]
     font_nt_d.columns = ['size', 'color']
     font_nt_d = font_nt_d.to_dict(orient='index')
