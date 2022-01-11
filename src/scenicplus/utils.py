@@ -781,7 +781,7 @@ def export_eRegulons(scplus_obj: 'SCENICPLUS',
     eRegulon_signature_key
         Key where the eRegulon signatures are stored
     path_bedToBigBed: str
-    	Path to bedToBigBed bin 
+        Path to bedToBigBed bin 
     """
     signatures = list(set(scplus_obj.uns[eRegulon_metadata_key][['Region_signature_name', 'Gene_signature_name']].stack().to_numpy()))
     l_eRegulons = signatures
