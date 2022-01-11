@@ -312,19 +312,19 @@ def get_colors(inp, cmap_name, vmin=None, vmax=None):
 
 def create_nx_graph(nx_tables: Dict,
                     use_edge_tables: List = ['TF2R', 'R2G'],
-                    color_edge_by={},
-                    transparency_edge_by={},
-                    width_edge_by={},
-                    color_node_by={},
-                    transparency_node_by={},
-                    size_node_by={},
-                    shape_node_by={},
-                    label_size_by={},
-                    label_color_by={},
-                    layout='concentrical_layout',
-                    lc_dist_genes=0.8,
-                    lc_dist_TF=0.1,
-                    scale_position_by=250):
+                    color_edge_by: Dict ={},
+                    transparency_edge_by: Dict ={},
+                    width_edge_by: Dict = {},
+                    color_node_by: Dict = {},
+                    transparency_node_by: Dict = {},
+                    size_node_by: Dict = {},
+                    shape_node_by: Dict = {},
+                    label_size_by: Dict = {},
+                    label_color_by: Dict = {},
+                    layout: str = 'concentrical_layout',
+                    lc_dist_genes: float = 0.8,
+                    lc_dist_TF: float = 0.1,
+                    scale_position_by: float = 250):
     """
     Format node/edge feature tables into a graph
     
