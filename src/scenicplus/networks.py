@@ -187,11 +187,11 @@ def format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, trans
         if 'fixed_size' not in size_by[table_id].keys():
             sw_var = nx_tables[table_type][table_id][size_by[table_id]
                                                      ['variable']].to_numpy().flatten('F')
-            if 'p_min' in size_by[table_id].keys():
+            if 'min_size' in size_by[table_id].keys():
                 p_min = size_by[table_id]['min_size']
             else:
                 p_min = 3
-            if 'p_max' in size_by[table_id].keys():
+            if 'max_size' in size_by[table_id].keys():
                 p_max = size_by[table_id]['max_size']
             else:
                 p_max = 10
