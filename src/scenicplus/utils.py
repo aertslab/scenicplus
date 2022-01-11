@@ -761,6 +761,7 @@ def format_egrns(scplus_obj,
 
 def export_eRegulons(scplus_obj: 'SCENICPLUS',
                     out_file: str,
+                    bigbed_outfile: str = None,
                     eRegulon_metadata_key: str = 'eRegulon_metadata',
                     eRegulon_signature_key: str = 'eRegulon_signatures'):
     """
@@ -801,3 +802,34 @@ def export_eRegulons(scplus_obj: 'SCENICPLUS',
     regions = regions.sort_values(['Chromosome', 'Start', 'End'])
 
     regions.to_csv(out_file, header = False, index = False, sep = '\t')
+    
+    if bigbed_outfile != None:
+        log.info('Writing data to: {}'.format(bigbed_outfile))
+        outfolder = bigbed_outfile.rsplit('/', 1)[0]
+        # write bed file without header to tmp file
+        df_interact.to_csv(os.path.join(
+            outfolder, 'interact.bed.tmp'), header=False, index=False, sep='\t')
+
+        # check if auto sql definition for interaction file exists in outfolder, otherwise create it
+        if not os.path.exists(os.path.join(outfolder, 'interact.as')):
+            with open(os.path.join(outfolder, 'interact.as'), 'w') as f:
+                f.write(INTERACT_AS)
+        # convert interact.bed.tmp to bigBed format
+        # bedToBigBed -as=interact.as -type=bed5+13 region_to_gene_no_head.interact https://genome.ucsc.edu/goldenPath/help/hg38.chrom.sizes region_to_gene.inter.bb
+        cmds = [
+            os.path.join(path_bedToBigBed, 'bedToBigBed'),
+            '-as={}'.format(os.path.join(os.path.join(outfolder, 'interact.as'))),
+            '-type=bed5+13',
+            os.path.join(outfolder, 'interact.bed.tmp'),
+            'https://genome.ucsc.edu/goldenPath/help/' + assembly + '.chrom.sizes',
+            bigbed_outfile
+        ]
+        p = subprocess.Popen(cmds, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        if p.returncode:
+            raise ValueError(
+                "cmds: %s\nstderr:%s\nstdout:%s" % (
+                    " ".join(cmds), stderr, stdout)
+            )
+    return df_interact
