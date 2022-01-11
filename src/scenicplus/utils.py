@@ -11,7 +11,7 @@ from matplotlib.colors import Normalize, rgb2hex
 import pyranges as pr
 import numpy as np
 from numba import njit, float64, int64, prange
-
+from pycisTopic.utils import region_names_to_coordinates
 
 ASM_SYNONYMS = {
     'hg38': 'GRCh38',
@@ -757,3 +757,47 @@ def format_egrns(scplus_obj,
     egrn_metadata = pd.concat([pd.merge(r2g_data[x], tf2g_data[tf2g_data.TF == r2g_data[x].TF[0]], on=[
                               'TF', 'Gene']) for x in range(len(egrn_list))])
     scplus_obj.uns[key_added] = egrn_metadata
+
+
+def export_eRegulons(scplus_obj: 'SCENICPLUS',
+                    out_file: str,
+                    eRegulon_metadata_key: str = 'eRegulon_metadata',
+                    eRegulon_signature_key: str = 'eRegulon_signatures'):
+    """
+    Export region based eRegulons to bed
+    
+    Parameters
+    ----------
+    scplus_obj: SCENICPLUS
+        A SCENICPLUS object
+    out_file:
+        Path to svae file
+    eRegulon_metadata_key: str
+        Key where the eRegulon metadata is stored
+    eRegulon_signature_key
+        Key where the eRegulon signatures are stored
+    """
+    signatures = list(set(scplus_obj.uns[eRegulon_metadata_key][['Region_signature_name', 'Gene_signature_name']].stack().to_numpy()))
+    l_eRegulons = signatures
+    direct_eRegulons = [e for e in l_eRegulons if not 'extended' in e]
+    extended_eRegulons = [e for e in l_eRegulons if  'extended' in e]
+    direct_TFs = [x.split('_')[0] for x in direct_eRegulons]
+    extended_TFs = [x.split('_')[0] for x in extended_eRegulons]
+    extended_TFs_not_in_direct_TFs = np.isin(extended_TFs, direct_TFs, invert = True)
+    extended_eRegulons_to_keep = np.array(extended_eRegulons)[extended_TFs_not_in_direct_TFs]
+    eRegulons_to_keep = [*direct_eRegulons, *extended_eRegulons_to_keep]
+
+    regions = []
+    for sign_name in scplus_obj.uns[eRegulon_signature_key]['Region_based'].keys():
+            if sign_name in eRegulons_to_keep:
+                    tmp = region_names_to_coordinates(scplus_obj.uns[eRegulon_signature_key]['Region_based'][sign_name])
+                    tmp.reset_index(drop = True, inplace = True)
+                    tmp['Name'] = sign_name.rsplit('_', 1)[0]
+                    regions.append(tmp)
+
+    regions = pd.concat(regions)
+    regions.groupby(['Chromosome', 'Start', 'End'], as_index = False).agg({'Name': lambda x: ','.join(x)})
+
+    regions = regions.sort_values(['Chromosome', 'Start', 'End'])
+
+    regions.to_csv(out_file, header = False, index = False, sep = '\t')
