@@ -12,6 +12,8 @@ import pyranges as pr
 import numpy as np
 from numba import njit, float64, int64, prange
 from pycisTopic.utils import region_names_to_coordinates
+import subprocess
+import os
 
 ASM_SYNONYMS = {
     'hg38': 'GRCh38',
