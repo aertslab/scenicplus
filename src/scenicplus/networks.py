@@ -48,15 +48,38 @@ def get_log2fc_nx(scplus_obj: 'SCENICPLUS',
 
 
 def create_nx_tables(scplus_obj: 'SCENICPLUS',
-                     eRegulon_metadata_key='eRegulon_metadata',
-                     subset_eRegulons=None,
-                     subset_regions=None,
-                     subset_genes=None,
-                     add_differential_gene_expression=False,
-                     add_differential_region_accessibility=False,
-                     differential_variable=[]):
+                     eRegulon_metadata_key: str ='eRegulon_metadata',
+                     subset_eRegulons: List = None,
+                     subset_regions: List = None,
+                     subset_genes: List = None,
+                     add_differential_gene_expression: bool = False,
+                     add_differential_region_accessibility: bool = False,
+                     differential_variable: List =[]):
     """
-    TO DO
+    A function to format eRegulon data into tables for plotting eGRNs.
+    
+    Parameters
+    ---------
+    scplus_obj: SCENICPLUS
+        A SCENICPLUS object with eRegulons
+    eRegulon_metadata_key: str, optional
+        Key where the eRegulon metadata dataframe is stored
+    subset_eRegulons: list, optional
+        List of eRegulons to subset
+    subset_regions: list, optional
+        List of regions to subset
+    subset_genes: list, optional
+        List of genes to subset
+    add_differential_gene_expression: bool, optional
+        Whether to calculate differential gene expression logFC for a given variable
+    add_differential_region_accessibility: bool, optional
+        Whether to calculate differential region accessibility logFC for a given variable
+    differential_variable: list, optional
+        Variable to calculate differential gene expression or region accessibility.
+        
+    Return
+    ---------
+    A dictionary with edge feature tables ('TF2G', 'TF2R', 'R2G') and node feature tables ('TF', 'Gene', 'Region')
     """
     er_metadata = scplus_obj.uns[eRegulon_metadata_key].copy()
     if subset_eRegulons is not None:
@@ -117,7 +140,7 @@ def create_nx_tables(scplus_obj: 'SCENICPLUS',
 
 def format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, transparency_by={}, size_by={}, shape_by={}, label_size_by={}, label_color_by={}):
     """
-    TO DO
+    A helper function to format edge and node tables into graphs
     """
     nx_tb = nx_tables[table_type][table_id]
     # Color
@@ -287,8 +310,8 @@ def get_colors(inp, cmap_name, vmin=None, vmax=None):
     return color_map(norm(inp))
 
 
-def create_nx_graph(nx_tables,
-                    use_edge_tables,
+def create_nx_graph(nx_tables: Dict,
+                    use_edge_tables: List = ['TF2R', 'R2G'],
                     color_edge_by={},
                     transparency_edge_by={},
                     width_edge_by={},
@@ -303,7 +326,74 @@ def create_nx_graph(nx_tables,
                     lc_dist_TF=0.1,
                     scale_position_by=250):
     """
-    TO DO
+    Format node/edge feature tables into a graph
+    
+    Parameters
+    ---------
+    nx_tables: Dict
+        Dictionary with node/edge feature tables as produced by `create_nx_tables`
+    use_edge_tables: List, optional
+        List of edge tables to use
+    color_edge_by: Dict, optional
+        A dictionary containing for a given edge key the variable and color map to color edges by.
+        If the variable is categorical, the entry 'categorical_color' can be provided as a dictionary with
+        category: color. If it is a continuous variable a color map can be provided as `continuous_color` and
+        entried v_max and v_min can be provided to control the min and max values of the scale. Alternatively,
+        one fixed color can use by using 'fixed_color' as variable, alterntively adding an entry fixed_color: color
+        to the dictionary.
+    transparency_edge_by: Dict, optional
+        A dictionary containing for a given edge key the variable and the max and min alpha values. The variable
+        name has to be provided (only continuous variables accepted), together with v_max/v_mix parameters if
+        desired. Alternatively, one fixed alpha can use by using 'fixed_alpha' as variable, alterntively adding an
+        entry fixed_alpha: size to the dictionary.
+    width_edge_by: Dict, optional
+        A dictionary containing for a given edge key the variable and the max and min sizes. The variable
+        name has to be provided (only continuous variables accepted), together with max_size/min_size parameters if
+        desired. Alternatively, one fixed size can use by using 'fixed_size' as variable, alterntively adding an
+        entry fixed_size: size to the dictionary.
+    color_node_by: Dict, optional
+        A dictionary containing for a given node key the variable and color map to color edges by.
+        If the variable is categorical, the entry 'categorical_color' can be provided as a dictionary with
+        category: color. If it is a continuous variable a color map can be provided as `continuous_color` and
+        entried v_max and v_min can be provided to control the min and max values of the scale. Alternatively,
+        one fixed color can use by using 'fixed_color' as variable, alterntively adding an entry fixed_color: color
+        to the dictionary.
+    transparency_node_by: Dict, optional
+        A dictionary containing for a given node key the variable and the max and min alpha values. The variable
+        name has to be provided (only continuous variables accepted), together with v_max/v_mix parameters if
+        desired. Alternatively, one fixed alpha can use by using 'fixed_alpha' as variable, alterntively adding an
+        entry fixed_alpha: size to the dictionary.
+    size_node_by: Dict, optional
+        A dictionary containing for a given node key the variable and the max and min sizes. The variable
+        name has to be provided (only continuous variables accepted), together with max_size/min_size parameters if
+        desired. Alternatively, one fixed size can use by using 'fixed_size' as variable, alterntively adding an
+        entry fixed_size: size to the dictionary.
+    shape_node_by: Dict, optional
+        A dictionary containing for a given node key the variable and shapes. The variable
+        name has to be provided (only categorical variables accepted). Alternatively, one fixed shape can use by
+        using 'fixed_shape' as variable, alterntively adding an entry fixed_shape: size to the dictionary.
+    label_size_node_by: Dict, optional
+        A dictionary containing for a given node key the variable and the max and min sizes. The variable
+        name has to be provided (only continuous variables accepted), together with max_size/min_size parameters if
+        desired. Alternatively, one fixed size can use by using 'fixed_label_size' as variable, alterntively adding an
+        entry fixed_label_size: size to the dictionary.
+    label_color_node_by: Dict, optional
+        A dictionary containing for a given node key the variable and a color dictionary. The variable
+        name has to be provided (only categorical variables accepted), together with a color dictionary if
+        desired. Alternatively, one fixed color can use by using 'fixed_label_color' as variable, alterntively adding an
+        entry fixed_label_color: size to the dictionary.
+    layout: str, optional
+        Layout to use. Options are: 'concentrical_layout' (SCENIC+ custom layout) or kamada_kawai_layout (from networkx).
+    lc_dist_genes: float, optional
+        Distance between regions and genes. Only used if using concentrical_layout.
+    lc_dist_TF: float, optional
+        Distance between TF and regions. Only used if using concentrical_layout.
+    scale_position_by: int, optional
+        Value to scale positions for visualization in pyvis.
+        
+    Return
+    ---------
+    A networkx graph, positions, and node/edges feature tables.
     """
     # Get node table names
     use_node_tables = []
@@ -347,6 +437,16 @@ def create_nx_graph(nx_tables,
     return G, pos, edge_tables, node_tables
 
 def plot_networkx(G, pos):
+    """
+    A function to plot networks with networkx
+    
+    Parameters
+    ---------
+    G: Graph
+        A networkx graph
+    pos: Dict
+        Position values
+    """
     nx.draw_networkx_nodes(G, pos, node_color=nx.get_node_attributes(G,'color').values(),
                            node_size=list(nx.get_node_attributes(G,'size').values()),
                            node_shape = 'D')
@@ -356,7 +456,7 @@ def plot_networkx(G, pos):
     fontcolor_d = {y:x['color'] for x,y in zip(list(nx.get_node_attributes(G,'font').values()),list(nx.get_node_attributes(G,'label').values())) if x['size'] != 0.0}
     for node, (x, y) in pos.items():
         if node in fontsize_d.keys():
-            text(x, y, node, fontsize=fontsize_d[node], color=fontcolor_d[node],  ha='center', va='center')
+            plt.text(x, y, node, fontsize=fontsize_d[node], color=fontcolor_d[node],  ha='center', va='center')
     ax = plt.gca()
     ax.margins(0.11)
     plt.tight_layout()
