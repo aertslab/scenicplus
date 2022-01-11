@@ -297,7 +297,11 @@ def create_nx_graph(nx_tables,
                     size_node_by={},
                     shape_node_by={},
                     label_size_by={},
-                    label_color_by={}):
+                    label_color_by={},
+                    layout='concentrical_layout',
+                    lc_dist_genes=0.8,
+                    lc_dist_TF=0.1,
+                    scale_position_by=250):
     """
     TO DO
     """
@@ -328,7 +332,36 @@ def create_nx_graph(nx_tables,
     font_nt_d.columns = ['size', 'color']
     font_nt_d = font_nt_d.to_dict(orient='index')
     nx.set_node_attributes(G, font_nt_d, name='font')
-    return G, edge_tables, node_tables
+    if layout == 'concentrical_layout':
+        pos = concentrical_layout(G, dist_genes=lc_dist_genes, dist_TF=lc_dist_TF)
+    else:
+        pos = nx.kamada_kawai_layout(G)
+        
+    x_pos_dict = {x:pos[x][0]*scale_position_by for x in pos.keys()}
+    y_pos_dict = {x:pos[x][1]*scale_position_by for x in pos.keys()}
+    fixed_dict = {x:{'fixed.x': True, 'fixed.y': True} for x in pos.keys()}
+    nx.set_node_attributes(G, x_pos_dict, name='x')
+    nx.set_node_attributes(G, y_pos_dict, name='y')
+    nx.set_node_attributes(G, fixed_dict, name='fixed')
+        
+    return G, pos, edge_tables, node_tables
+
+def plot_networkx(G, pos):
+    nx.draw_networkx_nodes(G, pos, node_color=nx.get_node_attributes(G,'color').values(),
+                           node_size=list(nx.get_node_attributes(G,'size').values()),
+                           node_shape = 'D')
+    nx.draw_networkx_edges(G, pos, edge_color = nx.get_edge_attributes(G,'color').values(),
+                          width = list(nx.get_edge_attributes(G,'width').values()))
+    fontsize_d = {y:x['size'] for x,y in zip(list(nx.get_node_attributes(G,'font').values()),list(nx.get_node_attributes(G,'label').values())) if x['size'] != 0.0}
+    fontcolor_d = {y:x['color'] for x,y in zip(list(nx.get_node_attributes(G,'font').values()),list(nx.get_node_attributes(G,'label').values())) if x['size'] != 0.0}
+    for node, (x, y) in pos.items():
+        if node in fontsize_d.keys():
+            text(x, y, node, fontsize=fontsize_d[node], color=fontcolor_d[node],  ha='center', va='center')
+    ax = plt.gca()
+    ax.margins(0.11)
+    plt.tight_layout()
+    plt.axis("off")
+    plt.show()
 
 
 def _distance(p1, p2):
