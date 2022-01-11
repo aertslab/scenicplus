@@ -842,13 +842,13 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
         scores = region_to_gene_df.loc[region_to_gene_df['rho']
                                        >= 0, key_for_color].to_numpy()
         mapper = cm.ScalarMappable(norm=norm, cmap=cmap_pos)
-        color_pos = [
+        colors_pos = [
             ','.join([str(x) for x in mapper.to_rgba(s, bytes=True)][0:3]) for s in scores]
 
         scores = region_to_gene_df.loc[region_to_gene_df['rho']
                                        < 0, key_for_color].to_numpy()
         mapper = cm.ScalarMappable(norm=norm, cmap=cmap_neg)
-        color_neg = [
+        colors_neg = [
             ','.join([str(x) for x in mapper.to_rgba(s, bytes=True)][0:3]) for s in scores]
 
     region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = colors_pos
