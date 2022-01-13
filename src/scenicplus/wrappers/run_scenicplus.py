@@ -315,7 +315,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         regions = export_eRegulons(scplus_obj,
                 os.path.join(save_path,'eRegulons.bed'),
                 assembly,
-                bigbed_outfile = os.path.join(save_path,'eRegulons.bed'),
+                bigbed_outfile = os.path.join(save_path,'eRegulons.bb'),
                 eRegulon_metadata_key = 'eRegulon_metadata',
                 eRegulon_signature_key = 'eRegulon_signatures',
                 path_bedToBigBed=path_bedToBigBed)
