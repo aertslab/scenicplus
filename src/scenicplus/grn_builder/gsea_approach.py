@@ -302,9 +302,10 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
 
     e_modules_to_return = []
     for module in new_e_modules:
-        if module.gsea_adj_pval < adj_pval_thr and module.gsea_enrichment_score > NES_thr and sum(module.in_leading_edge) >= min_target_genes:
-            e_modules_to_return.append(
-                module.subset_leading_edge(inplace=False))
+        if module.gsea_adj_pval < adj_pval_thr and module.gsea_enrichment_score > NES_thr:
+            module_in_LE = module.subset_leading_edge(inplace=False)
+            if module_in_LE.n_target_genes >= min_target_genes:
+                e_modules_to_return.append(module_in_LE)
     if merge_eRegulons:
         log.info('Merging eRegulons')
         e_modules_to_return = merge_emodules(
