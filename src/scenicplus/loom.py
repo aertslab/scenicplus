@@ -16,7 +16,7 @@ from itertools import repeat, chain, islice
 import loompy as lp
 import re
 
-from .scenicplus_class import SCENICPLUS
+#from .scenicplus_class import SCENICPLUS
 
 
 def export_to_loom(scplus_obj: SCENICPLUS,
@@ -25,6 +25,7 @@ def export_to_loom(scplus_obj: SCENICPLUS,
                    eRegulon_metadata_key: Optional[str] = 'eRegulon_metadata',
                    auc_key: Optional[str] = 'eRegulon_AUC',
                    auc_thr_key: Optional[str] = 'eRegulon_AUC_thresholds',
+                   keep_direct_and_extended_if_not_direct: Optional[bool] = False,
                    selected_features: Optional[List[str]] = None,
                    selected_cells: Optional[List[str]] = None,
                    cluster_annotation: List[str] = None,
@@ -47,6 +48,8 @@ def export_to_loom(scplus_obj: SCENICPLUS,
         Slot where the eRegulon AUC are stored
     auc_thr_key: str, optional
         Slot where AUC thresholds are stored
+    keep_direct_and_extended_if_not_direct: bool, optional
+        Keep only direct eregulons and add extended ones only if there is not a direct one.
     selected_features: List, optional
         A list with selected genes/region to use.
     selected_cells: List, optional
@@ -127,10 +130,19 @@ def export_to_loom(scplus_obj: SCENICPLUS,
     # eGRN AUC values
     auc_mtx = scplus_obj.uns[auc_key][signature_key].loc[cell_names]
     auc_mtx.columns = [re.sub('_\(.*\)', '', x)
-                       for x in auc_mtx.columns.tolist()]
+                       for x in auc_mtx.columns]
     auc_thresholds = scplus_obj.uns[auc_thr_key][signature_key]
     auc_thresholds.index = [re.sub('_\(.*\)', '', x)
-                            for x in auc_thresholds.index.tolist()]
+                            for x in auc_thresholds.index]
+    if auc_mtx.shape[1] > 900 and keep_direct_and_extended_if_not_direct is False:
+        log.info('The number of regulons is more than > 900. keep_direct_and_extended_if_not_direct is set to True')
+        keep_direct_and_extended_if_not_direct = True
+    if keep_direct_and_extended_if_not_direct is True:
+        direct_eRegulons = [x for x in auc_mtx.columns if not 'extended' in x]
+        extended_eRegulons =  [x for x in auc_mtx.columns  if 'extended' in x and not x.replace('_extended', '') in direct_eRegulons]
+        selected_eRegulons = direct_eRegulons + extended_eRegulons
+        auc_mtx = auc_mtx[selected_eRegulons]
+        auc_thresholds = auc_thresholds.loc[selected_eRegulons]
 
     # Add TF expression in Region_based
     if signature_key == 'Region_based':
@@ -154,6 +166,8 @@ def export_to_loom(scplus_obj: SCENICPLUS,
     regulon_mat = pd.DataFrame(regulon_mat.todense(
     ), columns=cv.get_feature_names(), index=regulons.keys())
     regulon_mat = regulon_mat.reindex(columns=feature_names, fill_value=0).T
+    if keep_direct_and_extended_if_not_direct is True:
+        regulon_mat = regulon_mat[selected_eRegulons]
 
     # Cell annotations and metrics
     metrics = []
@@ -322,7 +336,6 @@ def export_minimal_loom(
         return np.array([tuple(row) for row in df.values], dtype=np.dtype(list(zip(df.columns, df.dtypes))))
 
     default_embedding = pd.DataFrame([embeddings_X.iloc[:,0], embeddings_Y.iloc[:,0]], columns=cell_names, index=['_X', '_Y']).T
-    print(default_embedding)
     column_attrs = {
         "CellID": np.array(cell_names),
         "Embedding": create_structure_array(default_embedding),
