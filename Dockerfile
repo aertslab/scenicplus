@@ -8,6 +8,7 @@ RUN BUILDPKGS="build-essential \
         libc++-dev \
         git \
         wget \
+        hdf5-tools \
         " && \
     apt-get update && \
     apt-get install -y --no-install-recommends apt-utils debconf locales locales-all && dpkg-reconfigure locales && \
