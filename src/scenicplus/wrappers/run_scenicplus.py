@@ -246,7 +246,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                    
     if 'RSS' not in scplus_obj.uns.keys():
         log.info('Calculating eRSS')
-        for var in variables:
+        for var in variable:
             regulon_specificity_scores(scplus_obj, 
                          var,
                          signature_keys=['Gene_based'],
