@@ -16,7 +16,7 @@ from itertools import repeat, chain, islice
 import loompy as lp
 import re
 
-#from .scenicplus_class import SCENICPLUS
+from .scenicplus_class import SCENICPLUS
 
 
 def export_to_loom(scplus_obj: SCENICPLUS,
