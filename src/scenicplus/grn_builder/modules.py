@@ -404,7 +404,8 @@ def binarize_BASC(adjacencies,
 
     def _binarize_basc(x):
         if len(x) > 2:
-            return binarize(x, calc_p=False).threshold
+            threshold, _ = binarize(x, calc_p=False)
+            return threshold
         else:
             # can only binarize when array is > 2
             return 0

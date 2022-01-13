@@ -1,6 +1,6 @@
-from statistics import median, mean
-from math import floor, ceil
 from random import uniform
+import numpy as np
+import numba
 
 """
 REFs:    M. Hopfensitz et al., "Multiscale Binarization of Gene Expression Data for Reconstructing Boolean Networks," 
@@ -22,69 +22,53 @@ Steps:
 HELPER FUNCTIONS:
 """
 
-
-def MatrixZeros(rows, cols):
-    # little function to prevent importing numpy
-    return [[0 for i in range(cols)] for j in range(rows)]
-
-
-def ArrayZeros(l):
-    return [0 for i in range(l)]
-
-
-def mean_ab(vect, a, b):
-    # + 1 because we want to calculate the sum from a to b, with b inclusive
-    S = sum(vect[a:b + 1])
-    n = b - a + 1
-    return S/n
-
-
+@numba.jit(nopython=True)
 def cost_ab(vect, a, b):
     """
     Calculates quadratic distance between original data points and mean of data points in range a to b inclusive
     """
-    Yab = mean_ab(vect, a, b)
+    Yab = np.mean(vect[a:b + 1])
     # + 1 because we want to calculate the sum from a to b, with b inclusive
-    return sum([(vect[i] - Yab)**2 for i in range(a, b + 1)])
-
-
+    return np.sum(((vect - Yab)**2)[a:b+1])
+    
+@numba.jit(nopython=True)
 def initCostMatrix(vect):
     N = len(vect)
-    C = MatrixZeros(N - 1, N)
+    C = np.zeros( (N - 1, N), dtype = 'float64')
     C[0] = [cost_ab(vect, i, N-1) for i in range(0, N - 1 + 1)]
     return C
 
-
+@numba.jit(nopython=True)
 def calcJumpHeight(vect, P, i, j):
     """
     Calculate jump height/size between data point Pij and Pij + 1, with P the matrix containing location of discontinuities.
     """
     N = len(vect) - 1
-    if i == 0 and j > 0:
-        return mean_ab(vect, P[j][i] + 1, P[j][i + 1]) - mean_ab(vect, 0, P[j][i])
+    if i == 0 and j > 0: 
+        return np.mean( vect[P[j, i] + 1:  P[j, i + 1] + 1] ) - np.mean( vect[0: P[j, i] +1] )
     elif i == j > 0:
-        return mean_ab(vect, P[j][i] + 1, N) - mean_ab(vect, P[j][i - 1] + 1, P[j][i])
+        return np.mean( vect[P[j, i] + 1: N+1] ) - np.mean( vect[ P[j, i - 1] + 1: P[j, i] + 1] )
     elif i == j == 0:
-        return mean_ab(vect, P[j][i] + 1, N) - mean_ab(vect, 0, P[j][i])
+        return np.mean(vect[  P[j, i] + 1: N +1 ]) - np.mean( vect[0: P[j, i]+1 ] )
     else:
-        return mean_ab(vect, P[j][i] + 1, P[j][i + 1]) - mean_ab(vect, P[j][i - 1] + 1, P[j][i])
+        return np.mean(vect[P[j, i] + 1: P[j, i + 1] + 1]) - np.mean(vect[P[j, i - 1] + 1: P[j, i] + 1])
 
-
+@numba.jit(nopython=True)
 def calcError(vect, P, i, j):
     """
     Calculate approximation error of a threshold at the discontinuity with respect to the original data
     This is the sum of the quadratic distances of all data points to the threshold z defined by the i-th discontinuity
     """
     N = len(vect)
-    z = (vect[P[j][i]] + vect[P[j][i] + 1]) / 2
-    return sum([(vect[i] - z)**2 for i in range(0, N)])
+    z = (vect[P[j, i]] + vect[P[j, i] + 1]) / 2
+    return np.sum(((vect - z)**2)[0: N])
 
-
+@numba.jit(nopython=True)
 def movingBlockBootstrap(v):
     N = len(v)
-    bootstrappedValues = ArrayZeros(N)
+    bootstrappedValues = np.zeros( (N), dtype = 'float64')
     bl = round(N**0.25) + 1
-    sample_count = ceil(N / bl)
+    sample_count = np.ceil(N / bl)
     m = N - bl
 
     index = 0
@@ -100,12 +84,12 @@ def movingBlockBootstrap(v):
             index += 1
     return bootstrappedValues
 
-
+@numba.jit(nopython=True)
 def normDevMedian(v, vect):
     N = len(vect)
-    median_val = floor(median(v))
-    dev = [abs(x - median_val) for x in v]
-    mean_val = mean(dev)
+    median_val = np.floor(np.median(v))
+    dev = np.abs(v - median_val)
+    mean_val = np.mean(dev)
     return mean_val/(N-1)
 
 
@@ -113,7 +97,16 @@ def normDevMedian(v, vect):
 MAIN FUNCTIONS
 """
 
+@numba.jit(nopython=True)
+def cost_ab(vect, a, b):
+    """
+    Calculates quadratic distance between original data points and mean of data points in range a to b inclusive
+    """
+    Yab = np.mean(vect[a:b + 1])
+    # + 1 because we want to calculate the sum from a to b, with b inclusive
+    return np.sum(((vect - Yab)**2)[a:b+1])
 
+@numba.jit(nopython=True)
 def calcCostAndIndMatrix(vect):
     """
     Calculates the matrix C and ind
@@ -122,49 +115,49 @@ def calcCostAndIndMatrix(vect):
     """
     N = len(vect)
     C = initCostMatrix(vect)
-    ind = MatrixZeros(N - 2, N)
+    ind = np.zeros( (N - 2, N), dtype = 'int64')
     for j in range(1, N - 2 + 1):
         for i in range(0, N - j):
-            cost_min = float("inf")
+            cost_min = np.inf
             d_min = -1
             for d in range(i, N - j):
-                cost = cost_ab(vect, i, d) + C[j - 1][d + 1]
+                cost = cost_ab(vect, i, d) + C[j - 1, d + 1]
                 if cost < cost_min:
                     cost_min = cost
                     d_min = d
-            C[j][i] = cost_min
-            ind[j-1][i] = d_min
+            C[j, i] = cost_min
+            ind[j-1, i] = d_min
     return C, ind
 
-
+@numba.jit(nopython=True)
 def calcPMatrix(ind):
     """
     Converts ind matrix from calcCostAndIndMatrix to a matrix with rows representing the number of discontinuities (1-based) and as values the location of the i-th ()
     """
 
-    P = MatrixZeros(len(ind), len(ind[0]))
+    P = np.zeros( (len(ind), len(ind[0])), dtype = 'int64')
     for j in range(0, len(ind)):
         z = j
-        P[j][0] = ind[z][0]
+        P[j, 0] = ind[z, 0]
         if j > 0:
             z = z - 1
             for i in range(1, j + 1):
-                P[j][i] = ind[z][int(P[j][i - 1]) + 1]
+                P[j, i] = ind[z, int(P[j, i - 1]) + 1]
                 z = z - 1
     return P
 
-
+@numba.jit(nopython=True)
 def calcScores(vect, P):
     """
     Calculate the score of al step function discontinuities in P
     This score is the jump height divided by the approximation error
     """
 
-    Q = MatrixZeros(len(P), len(P[0]))  # stores scores for each discontinuity
+    Q = np.zeros( (len(P), len(P[0])), dtype = 'float64')  # stores scores for each discontinuity
     # stores the score of the discontinuity with the maximum score for each step function
-    Q_max = ArrayZeros(len(P))
+    Q_max = np.zeros( (len(P)), dtype = 'float64')
     # stores the index of the discontinuity with the maximum score for each step function
-    ind_Q_max = ArrayZeros(len(P))
+    ind_Q_max = np.zeros( (len(P)), dtype = 'int64')
 
     for j in range(0, len(P)):
         q_max = -1
@@ -176,18 +169,18 @@ def calcScores(vect, P):
             q = h/e
             if q > q_max:
                 q_max = q
-                ind_q_max = P[j][i]
-            Q[j][i] = q
+                ind_q_max = P[j, i]
+            Q[j, i] = q
         Q_max[j] = q_max
         ind_Q_max[j] = ind_q_max
     return Q, Q_max, ind_Q_max
 
-
+@numba.jit(nopython=True)
 def calcThreshold(vect, v):
-    v_med = floor(median(v))
+    v_med = int(np.floor(np.median(v)))
     return (vect[v_med + 1] + vect[v_med]) / 2
 
-
+@numba.jit(nopython=True)
 def calcP(v, vect, tau, n_samples):
     nom = normDevMedian(v, vect)
     t_zero = tau - nom
@@ -216,10 +209,10 @@ class Result:
         self.threshold = threshold
         self.pVal = pVal
 
-
+@numba.jit(nopython=True)
 def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
     # original step function is just the sorted vector
-    vect_sorted = sorted(vect)
+    vect_sorted = np.sort(vect)
 
     # if vector is too long, only use top features (scalability)
     if len(vect_sorted) > max_elements:
@@ -234,16 +227,8 @@ def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
 
     # step 3: Estimate location and variation of the strongest discontinuities
     threshold = calcThreshold(vect_sorted, v)
-    p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
+    #p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
 
     BinarizedMeasurements = [(val > threshold) * 1 for val in vect]
 
-    return Result(
-        originalMeasurements=vect,
-        intermedSteps=P,
-        intermedScores=Q,
-        intermedStrongSteps=v,
-        BinarizedMeasurements=BinarizedMeasurements,
-        threshold=threshold,
-        pVal=p_val
-    )
+    return threshold, BinarizedMeasurements
