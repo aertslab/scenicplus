@@ -831,3 +831,13 @@ def export_eRegulons(scplus_obj: 'SCENICPLUS',
                     " ".join(cmds), stderr, stdout)
             )
     return regions
+
+def annotate_eregulon_by_influence(ereg):
+        TF = ereg.transcription_factor
+        r2g = '+' if 'positive r2g' in ereg.context else '-'
+        tf2g = '+' if 'positive tf2g' in ereg.context else '-'
+        is_extended = ereg.is_extended
+        if not is_extended:
+                return f"{TF}_{tf2g}_{r2g}"
+        else:
+                return f"{TF}_{tf2g}_{r2g}_extended"
