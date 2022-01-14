@@ -156,7 +156,7 @@ def run_pycistarget(region_sets,
                                n_cpu = n_cpu,
                                tmp_dir= _temp_dir,
                                annotation_version = annotation_version)
-            out_folder = os.path.join(save_path,'DEM_'+key+'_No_promoters')
+            out_folder = os.path.join(save_path,'DEM_'+key+'_All')
             check_folder = os.path.isdir(out_folder)
             if not check_folder:
                 os.makedirs(out_folder)
