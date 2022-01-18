@@ -28,9 +28,8 @@ def cost_ab(vect, a, b):
     """
     Calculates quadratic distance between original data points and mean of data points in range a to b inclusive
     """
-    Yab = np.mean(vect[a:b + 1])
-    # + 1 because we want to calculate the sum from a to b, with b inclusive
-    return np.sum(((vect - Yab) ** 2)[a:b + 1])
+    # Add 1 to the range as we want to calculate the quadratic distance from a to b, with b included.
+    return np.sum((vect[a:b + 1] - np.mean(vect[a:b + 1])) ** 2)
 
 
 @numba.jit(nopython=True)
