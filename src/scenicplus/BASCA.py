@@ -34,7 +34,7 @@ def cost_ab(vect, a, b):
 
 
 @numba.jit(nopython=True)
-def initCostMatrix(vect):
+def init_cost_matrix(vect):
     N = len(vect)
     C = np.zeros((N - 1, N), dtype='float64')
     C[0] = [cost_ab(vect, i, N - 1) for i in range(0, N - 1 + 1)]
@@ -42,7 +42,7 @@ def initCostMatrix(vect):
 
 
 @numba.jit(nopython=True)
-def calcJumpHeight(vect, P, i, j):
+def calc_jump_height(vect, P, i, j):
     """
     Calculate jump height/size between data point Pij and Pij + 1, with P the matrix containing location of discontinuities.
     """
@@ -58,7 +58,7 @@ def calcJumpHeight(vect, P, i, j):
 
 
 @numba.jit(nopython=True)
-def calcError(vect, P, i, j):
+def calc_error(vect, P, i, j):
     """
     Calculate approximation error of a threshold at the discontinuity with respect to the original data
     This is the sum of the quadratic distances of all data points to the threshold z defined by the i-th discontinuity
@@ -69,9 +69,9 @@ def calcError(vect, P, i, j):
 
 
 @numba.jit(nopython=True)
-def movingBlockBootstrap(v):
+def moving_block_bootstrap(v):
     N = len(v)
-    bootstrappedValues = np.zeros((N), dtype='float64')
+    bootstrapped_values = np.zeros((N), dtype='float64')
     bl = round(N ** 0.25) + 1
     sample_count = np.ceil(N / bl)
     m = N - bl
@@ -85,13 +85,13 @@ def movingBlockBootstrap(v):
         for j in range(0, bl):
             if index >= N:
                 break
-            bootstrappedValues[index] = v[rand + j]
+            bootstrapped_values[index] = v[rand + j]
             index += 1
-    return bootstrappedValues
+    return bootstrapped_values
 
 
 @numba.jit(nopython=True)
-def normDevMedian(v, vect):
+def norm_dev_median(v, vect):
     N = len(vect)
     median_val = np.floor(np.median(v))
     dev = np.abs(v - median_val)
@@ -115,14 +115,14 @@ def cost_ab(vect, a, b):
 
 
 @numba.jit(nopython=True)
-def calcCostAndIndMatrix(vect):
+def calc_cost_and_ind_matrix(vect):
     """
     Calculates the matrix C and ind
         C stores the cost of a step function having j intermediate (rows) discontinuities between data points i and N (columns)
         ind contains indicices of optimal break points of all step functions
     """
     N = len(vect)
-    C = initCostMatrix(vect)
+    C = init_cost_matrix(vect)
     ind = np.zeros((N - 2, N), dtype='int64')
     for j in range(1, N - 2 + 1):
         for i in range(0, N - j):
@@ -139,9 +139,10 @@ def calcCostAndIndMatrix(vect):
 
 
 @numba.jit(nopython=True)
-def calcPMatrix(ind):
+def calc_P_matrix(ind):
     """
-    Converts ind matrix from calcCostAndIndMatrix to a matrix with rows representing the number of discontinuities (1-based) and as values the location of the i-th ()
+    Converts ind matrix from calc_cost_and_ind_matrix to a matrix with rows representing the number of discontinuities
+    (1-based) and as values the location of the i-th ().
     """
 
     P = np.zeros((len(ind), len(ind[0])), dtype='int64')
@@ -157,7 +158,7 @@ def calcPMatrix(ind):
 
 
 @numba.jit(nopython=True)
-def calcScores(vect, P):
+def calc_scores(vect, P):
     """
     Calculate the score of al step function discontinuities in P
     This score is the jump height divided by the approximation error
@@ -174,8 +175,8 @@ def calcScores(vect, P):
         ind_q_max = -1
         for i in range(0, j + 1):
             # calculate jump height
-            h = calcJumpHeight(vect, P, i, j)
-            e = calcError(vect, P, i, j)
+            h = calc_jump_height(vect, P, i, j)
+            e = calc_error(vect, P, i, j)
             q = h / e
             if q > q_max:
                 q_max = q
@@ -187,21 +188,21 @@ def calcScores(vect, P):
 
 
 @numba.jit(nopython=True)
-def calcThreshold(vect, v):
+def calc_threshold(vect, v):
     v_med = int(np.floor(np.median(v)))
     return (vect[v_med + 1] + vect[v_med]) / 2
 
 
 @numba.jit(nopython=True)
-def calcP(v, vect, tau, n_samples):
-    nom = normDevMedian(v, vect)
+def calc_P(v, vect, tau, n_samples):
+    nom = norm_dev_median(v, vect)
     t_zero = tau - nom
 
     p = 1
 
     for i in range(0, n_samples):
-        samples = movingBlockBootstrap(v)
-        mdm = normDevMedian(samples, vect)
+        samples = moving_block_bootstrap(v)
+        mdm = norm_dev_median(samples, vect)
         t_star = nom - mdm
         p += (t_star >= t_zero) * 1
 
@@ -211,7 +212,7 @@ def calcP(v, vect, tau, n_samples):
 
 
 class Result:
-    # retian nomenclatur from R version
+    # Retain nomenclature from R version.
     def __init__(self, originalMeasurements, intermedSteps, intermedScores, intermedStrongSteps, BinarizedMeasurements,
                  threshold, pVal):
         self.originalMeasurements = originalMeasurements
@@ -233,16 +234,16 @@ def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
         vect_sorted = vect_sorted[0:max_elements]
 
     # step 1: Compute a series of step functions (each function minimizes the eucledian distance between the new step function and the original data)
-    _, ind = calcCostAndIndMatrix(vect_sorted)
-    P = calcPMatrix(ind)
+    _, ind = calc_cost_and_ind_matrix(vect_sorted)
+    P = calc_P_matrix(ind)
 
     # step 2: Find strongest discontinuity in each step function
-    Q, _, v = calcScores(vect_sorted, P)
+    Q, _, v = calc_scores(vect_sorted, P)
 
     # step 3: Estimate location and variation of the strongest discontinuities
-    threshold = calcThreshold(vect_sorted, v)
-    # p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
+    threshold = calc_threshold(vect_sorted, v)
+    # p_val = calc_P(v, vect_sorted, tau, n_samples) if calc_p else None
 
-    BinarizedMeasurements = [(val > threshold) * 1 for val in vect]
+    binarized_measurements = [(val > threshold) * 1 for val in vect]
 
-    return threshold, BinarizedMeasurements
+    return threshold, binarized_measurements
