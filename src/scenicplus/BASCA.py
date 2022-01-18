@@ -35,8 +35,8 @@ def cost_ab(vect, a, b):
 
 @numba.jit(nopython=True)
 def init_cost_matrix(vect):
-    N = len(vect)
-    C = np.zeros((N - 1, N), dtype='float64')
+    N = vect.shape[0]
+    C = np.zeros((N - 1, N), dtype=np.float64)
     C[0] = [cost_ab(vect, i, N - 1) for i in range(0, N - 1 + 1)]
     return C
 
@@ -46,7 +46,7 @@ def calc_jump_height(vect, P, i, j):
     """
     Calculate jump height/size between data point Pij and Pij + 1, with P the matrix containing location of discontinuities.
     """
-    N = len(vect) - 1
+    N = vect.shape[0] - 1
     if i == 0 and j > 0:
         return np.mean(vect[P[j, i] + 1:  P[j, i + 1] + 1]) - np.mean(vect[0: P[j, i] + 1])
     elif i == j > 0:
@@ -63,15 +63,15 @@ def calc_error(vect, P, i, j):
     Calculate approximation error of a threshold at the discontinuity with respect to the original data
     This is the sum of the quadratic distances of all data points to the threshold z defined by the i-th discontinuity
     """
-    N = len(vect)
+    N = vect.shape[0]
     z = (vect[P[j, i]] + vect[P[j, i] + 1]) / 2
     return np.sum(((vect - z) ** 2)[0: N])
 
 
 @numba.jit(nopython=True)
 def moving_block_bootstrap(v):
-    N = len(v)
-    bootstrapped_values = np.zeros((N), dtype='float64')
+    N = v.shape[0]
+    bootstrapped_values = np.zeros(N, dtype=np.float64)
     bl = round(N ** 0.25) + 1
     sample_count = np.ceil(N / bl)
     m = N - bl
@@ -92,7 +92,7 @@ def moving_block_bootstrap(v):
 
 @numba.jit(nopython=True)
 def norm_dev_median(v, vect):
-    N = len(vect)
+    N = vect.shape[0]
     median_val = np.floor(np.median(v))
     dev = np.abs(v - median_val)
     mean_val = np.mean(dev)
@@ -111,9 +111,9 @@ def calc_cost_and_ind_matrix(vect):
         C stores the cost of a step function having j intermediate (rows) discontinuities between data points i and N (columns)
         ind contains indicices of optimal break points of all step functions
     """
-    N = len(vect)
+    N = vect.shape[0]
     C = init_cost_matrix(vect)
-    ind = np.zeros((N - 2, N), dtype='int64')
+    ind = np.zeros((N - 2, N), dtype=np.int64)
     for j in range(1, N - 2 + 1):
         for i in range(0, N - j):
             cost_min = np.inf
@@ -135,8 +135,9 @@ def calc_P_matrix(ind):
     (1-based) and as values the location of the i-th ().
     """
 
-    P = np.zeros((len(ind), len(ind[0])), dtype='int64')
-    for j in range(0, len(ind)):
+    N = ind.shape[0]
+    P = np.zeros(ind.shape, dtype=np.int64)
+    for j in range(0, N):
         z = j
         P[j, 0] = ind[z, 0]
         if j > 0:
@@ -154,13 +155,14 @@ def calc_scores(vect, P):
     This score is the jump height divided by the approximation error
     """
 
-    Q = np.zeros((len(P), len(P[0])), dtype='float64')  # stores scores for each discontinuity
+    N = P.shape[0]
+    Q = np.zeros(P.shape, dtype=np.float64)  # stores scores for each discontinuity
     # stores the score of the discontinuity with the maximum score for each step function
-    Q_max = np.zeros((len(P)), dtype='float64')
+    Q_max = np.zeros(N, dtype=np.float64)
     # stores the index of the discontinuity with the maximum score for each step function
-    ind_Q_max = np.zeros((len(P)), dtype='int64')
+    ind_Q_max = np.zeros(N, dtype=np.int64)
 
-    for j in range(0, len(P)):
+    for j in range(0, N):
         q_max = -1
         ind_q_max = -1
         for i in range(0, j + 1):
@@ -207,7 +209,7 @@ def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
     vect_sorted = np.sort(vect)
 
     # if vector is too long, only use top features (scalability)
-    if len(vect_sorted) > max_elements:
+    if vect_sorted.shape[0] > max_elements:
         vect_sorted = vect_sorted[0:max_elements]
 
     # step 1: Compute a series of step functions (each function minimizes the eucledian distance between the new step function and the original data)
