@@ -22,6 +22,7 @@ Steps:
 HELPER FUNCTIONS:
 """
 
+
 @numba.jit(nopython=True)
 def cost_ab(vect, a, b):
     """
@@ -29,14 +30,16 @@ def cost_ab(vect, a, b):
     """
     Yab = np.mean(vect[a:b + 1])
     # + 1 because we want to calculate the sum from a to b, with b inclusive
-    return np.sum(((vect - Yab)**2)[a:b+1])
-    
+    return np.sum(((vect - Yab) ** 2)[a:b + 1])
+
+
 @numba.jit(nopython=True)
 def initCostMatrix(vect):
     N = len(vect)
-    C = np.zeros( (N - 1, N), dtype = 'float64')
-    C[0] = [cost_ab(vect, i, N-1) for i in range(0, N - 1 + 1)]
+    C = np.zeros((N - 1, N), dtype='float64')
+    C[0] = [cost_ab(vect, i, N - 1) for i in range(0, N - 1 + 1)]
     return C
+
 
 @numba.jit(nopython=True)
 def calcJumpHeight(vect, P, i, j):
@@ -44,14 +47,15 @@ def calcJumpHeight(vect, P, i, j):
     Calculate jump height/size between data point Pij and Pij + 1, with P the matrix containing location of discontinuities.
     """
     N = len(vect) - 1
-    if i == 0 and j > 0: 
-        return np.mean( vect[P[j, i] + 1:  P[j, i + 1] + 1] ) - np.mean( vect[0: P[j, i] +1] )
+    if i == 0 and j > 0:
+        return np.mean(vect[P[j, i] + 1:  P[j, i + 1] + 1]) - np.mean(vect[0: P[j, i] + 1])
     elif i == j > 0:
-        return np.mean( vect[P[j, i] + 1: N+1] ) - np.mean( vect[ P[j, i - 1] + 1: P[j, i] + 1] )
+        return np.mean(vect[P[j, i] + 1: N + 1]) - np.mean(vect[P[j, i - 1] + 1: P[j, i] + 1])
     elif i == j == 0:
-        return np.mean(vect[  P[j, i] + 1: N +1 ]) - np.mean( vect[0: P[j, i]+1 ] )
+        return np.mean(vect[P[j, i] + 1: N + 1]) - np.mean(vect[0: P[j, i] + 1])
     else:
         return np.mean(vect[P[j, i] + 1: P[j, i + 1] + 1]) - np.mean(vect[P[j, i - 1] + 1: P[j, i] + 1])
+
 
 @numba.jit(nopython=True)
 def calcError(vect, P, i, j):
@@ -61,13 +65,14 @@ def calcError(vect, P, i, j):
     """
     N = len(vect)
     z = (vect[P[j, i]] + vect[P[j, i] + 1]) / 2
-    return np.sum(((vect - z)**2)[0: N])
+    return np.sum(((vect - z) ** 2)[0: N])
+
 
 @numba.jit(nopython=True)
 def movingBlockBootstrap(v):
     N = len(v)
-    bootstrappedValues = np.zeros( (N), dtype = 'float64')
-    bl = round(N**0.25) + 1
+    bootstrappedValues = np.zeros((N), dtype='float64')
+    bl = round(N ** 0.25) + 1
     sample_count = np.ceil(N / bl)
     m = N - bl
 
@@ -84,18 +89,20 @@ def movingBlockBootstrap(v):
             index += 1
     return bootstrappedValues
 
+
 @numba.jit(nopython=True)
 def normDevMedian(v, vect):
     N = len(vect)
     median_val = np.floor(np.median(v))
     dev = np.abs(v - median_val)
     mean_val = np.mean(dev)
-    return mean_val/(N-1)
+    return mean_val / (N - 1)
 
 
 """
 MAIN FUNCTIONS
 """
+
 
 @numba.jit(nopython=True)
 def cost_ab(vect, a, b):
@@ -104,7 +111,8 @@ def cost_ab(vect, a, b):
     """
     Yab = np.mean(vect[a:b + 1])
     # + 1 because we want to calculate the sum from a to b, with b inclusive
-    return np.sum(((vect - Yab)**2)[a:b+1])
+    return np.sum(((vect - Yab) ** 2)[a:b + 1])
+
 
 @numba.jit(nopython=True)
 def calcCostAndIndMatrix(vect):
@@ -115,7 +123,7 @@ def calcCostAndIndMatrix(vect):
     """
     N = len(vect)
     C = initCostMatrix(vect)
-    ind = np.zeros( (N - 2, N), dtype = 'int64')
+    ind = np.zeros((N - 2, N), dtype='int64')
     for j in range(1, N - 2 + 1):
         for i in range(0, N - j):
             cost_min = np.inf
@@ -126,8 +134,9 @@ def calcCostAndIndMatrix(vect):
                     cost_min = cost
                     d_min = d
             C[j, i] = cost_min
-            ind[j-1, i] = d_min
+            ind[j - 1, i] = d_min
     return C, ind
+
 
 @numba.jit(nopython=True)
 def calcPMatrix(ind):
@@ -135,7 +144,7 @@ def calcPMatrix(ind):
     Converts ind matrix from calcCostAndIndMatrix to a matrix with rows representing the number of discontinuities (1-based) and as values the location of the i-th ()
     """
 
-    P = np.zeros( (len(ind), len(ind[0])), dtype = 'int64')
+    P = np.zeros((len(ind), len(ind[0])), dtype='int64')
     for j in range(0, len(ind)):
         z = j
         P[j, 0] = ind[z, 0]
@@ -146,6 +155,7 @@ def calcPMatrix(ind):
                 z = z - 1
     return P
 
+
 @numba.jit(nopython=True)
 def calcScores(vect, P):
     """
@@ -153,11 +163,11 @@ def calcScores(vect, P):
     This score is the jump height divided by the approximation error
     """
 
-    Q = np.zeros( (len(P), len(P[0])), dtype = 'float64')  # stores scores for each discontinuity
+    Q = np.zeros((len(P), len(P[0])), dtype='float64')  # stores scores for each discontinuity
     # stores the score of the discontinuity with the maximum score for each step function
-    Q_max = np.zeros( (len(P)), dtype = 'float64')
+    Q_max = np.zeros((len(P)), dtype='float64')
     # stores the index of the discontinuity with the maximum score for each step function
-    ind_Q_max = np.zeros( (len(P)), dtype = 'int64')
+    ind_Q_max = np.zeros((len(P)), dtype='int64')
 
     for j in range(0, len(P)):
         q_max = -1
@@ -166,7 +176,7 @@ def calcScores(vect, P):
             # calculate jump height
             h = calcJumpHeight(vect, P, i, j)
             e = calcError(vect, P, i, j)
-            q = h/e
+            q = h / e
             if q > q_max:
                 q_max = q
                 ind_q_max = P[j, i]
@@ -175,10 +185,12 @@ def calcScores(vect, P):
         ind_Q_max[j] = ind_q_max
     return Q, Q_max, ind_Q_max
 
+
 @numba.jit(nopython=True)
 def calcThreshold(vect, v):
     v_med = int(np.floor(np.median(v)))
     return (vect[v_med + 1] + vect[v_med]) / 2
+
 
 @numba.jit(nopython=True)
 def calcP(v, vect, tau, n_samples):
@@ -200,7 +212,8 @@ def calcP(v, vect, tau, n_samples):
 
 class Result:
     # retian nomenclatur from R version
-    def __init__(self, originalMeasurements, intermedSteps, intermedScores, intermedStrongSteps, BinarizedMeasurements, threshold, pVal):
+    def __init__(self, originalMeasurements, intermedSteps, intermedScores, intermedStrongSteps, BinarizedMeasurements,
+                 threshold, pVal):
         self.originalMeasurements = originalMeasurements
         self.intermediateSteps = intermedSteps
         self.intermediateStrongestSteps = intermedStrongSteps
@@ -208,6 +221,7 @@ class Result:
         self.binarizedMeasurements = BinarizedMeasurements
         self.threshold = threshold
         self.pVal = pVal
+
 
 @numba.jit(nopython=True)
 def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
@@ -227,7 +241,7 @@ def binarize(vect, tau=0.01, n_samples=999, calc_p=True, max_elements=100):
 
     # step 3: Estimate location and variation of the strongest discontinuities
     threshold = calcThreshold(vect_sorted, v)
-    #p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
+    # p_val = calcP(v, vect_sorted, tau, n_samples) if calc_p else None
 
     BinarizedMeasurements = [(val > threshold) * 1 for val in vect]
 
