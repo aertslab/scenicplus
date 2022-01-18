@@ -33,6 +33,20 @@ def cost_ab(vect, a, b):
 
 
 @numba.jit(nopython=True)
+def costs(costs_matrix, costs_is_cached, vect, a, b):
+    # Check if we have the cost_ab(vect, a, b) value cached.
+    if costs_is_cached[a, b] == np.bool_(True):
+        return costs_matrix[a, b]
+
+    # Else calculate cost_ab(vect, a, b) and cache it for next time.
+    current_cost = cost_ab(vect, a, b)
+    costs_matrix[a, b] = current_cost
+    costs_is_cached[a, b] = np.bool_(True)
+
+    return current_cost
+
+
+@numba.jit(nopython=True)
 def init_cost_matrix(vect):
     N = vect.shape[0]
     C = np.zeros((N - 1, N), dtype=np.float64)
@@ -113,12 +127,14 @@ def calc_cost_and_ind_matrix(vect):
     N = vect.shape[0]
     C = init_cost_matrix(vect)
     ind = np.zeros((N - 2, N), dtype=np.int64)
+    costs_matrix = np.zeros((N, N), np.float64)
+    costs_is_cached = np.zeros((N, N), np.bool_)
     for j in range(1, N - 2 + 1):
         for i in range(0, N - j):
             cost_min = np.inf
             d_min = -1
             for d in range(i, N - j):
-                cost = cost_ab(vect, i, d) + C[j - 1, d + 1]
+                cost = costs(costs_matrix, costs_is_cached, vect, i, d) + C[j - 1, d + 1]
                 if cost < cost_min:
                     cost_min = cost
                     d_min = d
