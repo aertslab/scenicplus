@@ -105,16 +105,6 @@ MAIN FUNCTIONS
 
 
 @numba.jit(nopython=True)
-def cost_ab(vect, a, b):
-    """
-    Calculates quadratic distance between original data points and mean of data points in range a to b inclusive
-    """
-    Yab = np.mean(vect[a:b + 1])
-    # + 1 because we want to calculate the sum from a to b, with b inclusive
-    return np.sum(((vect - Yab) ** 2)[a:b + 1])
-
-
-@numba.jit(nopython=True)
 def calc_cost_and_ind_matrix(vect):
     """
     Calculates the matrix C and ind
@@ -209,19 +199,6 @@ def calc_P(v, vect, tau, n_samples):
     p /= (n_samples + 1)
 
     return p
-
-
-class Result:
-    # Retain nomenclature from R version.
-    def __init__(self, originalMeasurements, intermedSteps, intermedScores, intermedStrongSteps, BinarizedMeasurements,
-                 threshold, pVal):
-        self.originalMeasurements = originalMeasurements
-        self.intermediateSteps = intermedSteps
-        self.intermediateStrongestSteps = intermedStrongSteps
-        self.intermediateScores = intermedScores
-        self.binarizedMeasurements = BinarizedMeasurements
-        self.threshold = threshold
-        self.pVal = pVal
 
 
 @numba.jit(nopython=True)
