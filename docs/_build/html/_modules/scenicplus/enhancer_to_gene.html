@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.enhancer_to_gene &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.enhancer_to_gene</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.enhancer_to_gene</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Link enhancers to genes based on co-occurence of chromatin accessbility of the enhancer and gene expression.</span>
+
+<span class="sd">Both linear methods (spearman or pearson correlation) and non-linear methods (random forrest or gradient boosting) are used to link enhancers to genes.</span>
+
+<span class="sd">The correlation methods are used to seperate regions which are infered to have a positive influence on gene expression (i.e. positive correlation) </span>
+<span class="sd">and regions which are infered to have a negative influence on gene expression (i.e. negative correlation).</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">ray</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">pyranges</span> <span class="k">as</span> <span class="nn">pr</span>
+<span class="kn">from</span> <span class="nn">sklearn.ensemble</span> <span class="kn">import</span> <span class="n">GradientBoostingRegressor</span><span class="p">,</span> <span class="n">RandomForestRegressor</span><span class="p">,</span> <span class="n">ExtraTreesRegressor</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">pearsonr</span><span class="p">,</span> <span class="n">spearmanr</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">cm</span>
+<span class="kn">from</span> <span class="nn">matplotlib.colors</span> <span class="kn">import</span> <span class="n">Normalize</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">extend_pyranges</span><span class="p">,</span> <span class="n">extend_pyranges_with_limits</span><span class="p">,</span> <span class="n">reduce_pyranges_with_limits_b</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">calculate_distance_with_limits_join</span><span class="p">,</span> <span class="n">reduce_pyranges_b</span><span class="p">,</span> <span class="n">calculate_distance_join</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">coord_to_region_names</span><span class="p">,</span> <span class="n">region_names_to_coordinates</span><span class="p">,</span> <span class="n">ASM_SYNONYMS</span><span class="p">,</span> <span class="n">Groupby</span><span class="p">,</span> <span class="n">flatten_list</span>
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+<span class="n">RANDOM_SEED</span> <span class="o">=</span> <span class="mi">666</span>
+
+<span class="n">SKLEARN_REGRESSOR_FACTORY</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;RF&#39;</span><span class="p">:</span> <span class="n">RandomForestRegressor</span><span class="p">,</span>
+    <span class="s1">&#39;ET&#39;</span><span class="p">:</span> <span class="n">ExtraTreesRegressor</span><span class="p">,</span>
+    <span class="s1">&#39;GBM&#39;</span><span class="p">:</span> <span class="n">GradientBoostingRegressor</span>
+<span class="p">}</span>
+
+<span class="n">SCIPY_CORRELATION_FACTORY</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;PR&#39;</span><span class="p">:</span> <span class="n">pearsonr</span><span class="p">,</span>
+    <span class="s1">&#39;SR&#39;</span><span class="p">:</span> <span class="n">spearmanr</span>
+<span class="p">}</span>
+
+<span class="c1"># Parameters from arboreto</span>
+<span class="c1"># scikit-learn random forest regressor</span>
+<span class="n">RF_KWARGS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;n_jobs&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s1">&#39;n_estimators&#39;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="s1">&#39;max_features&#39;</span><span class="p">:</span> <span class="s1">&#39;sqrt&#39;</span>
+<span class="p">}</span>
+
+<span class="c1"># scikit-learn extra-trees regressor</span>
+<span class="n">ET_KWARGS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;n_jobs&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s1">&#39;n_estimators&#39;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="s1">&#39;max_features&#39;</span><span class="p">:</span> <span class="s1">&#39;sqrt&#39;</span>
+<span class="p">}</span>
+
+<span class="c1"># scikit-learn gradient boosting regressor</span>
+<span class="n">GBM_KWARGS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;learning_rate&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+    <span class="s1">&#39;n_estimators&#39;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="s1">&#39;max_features&#39;</span><span class="p">:</span> <span class="mf">0.1</span>
+<span class="p">}</span>
+
+<span class="c1"># scikit-learn stochastic gradient boosting regressor</span>
+<span class="n">SGBM_KWARGS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;learning_rate&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+    <span class="s1">&#39;n_estimators&#39;</span><span class="p">:</span> <span class="mi">5000</span><span class="p">,</span>  <span class="c1"># can be arbitrarily large</span>
+    <span class="s1">&#39;max_features&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s1">&#39;subsample&#39;</span><span class="p">:</span> <span class="mf">0.9</span>
+<span class="p">}</span>
+
+<span class="c1"># Interact auto sql definition</span>
+<span class="n">INTERACT_AS</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;table interact</span>
+<span class="s2">&quot;Interaction between two regions&quot;</span>
+<span class="s2">    (</span>
+<span class="s2">    string chrom;      &quot;Chromosome (or contig, scaffold, etc.). For interchromosomal, use 2 records&quot;</span>
+<span class="s2">    uint chromStart;   &quot;Start position of lower region. For interchromosomal, set to chromStart of this region&quot;</span>
+<span class="s2">    uint chromEnd;     &quot;End position of upper region. For interchromosomal, set to chromEnd of this region&quot;</span>
+<span class="s2">    string name;       &quot;Name of item, for display.  Usually &#39;sourceName/targetName&#39; or empty&quot;</span>
+<span class="s2">    uint score;        &quot;Score from 0-1000.&quot;</span>
+<span class="s2">    double value;      &quot;Strength of interaction or other data value. Typically basis for score&quot;</span>
+<span class="s2">    string exp;        &quot;Experiment name (metadata for filtering). Use . if not applicable&quot;</span>
+<span class="s2">    string color;      &quot;Item color.  Specified as r,g,b or hexadecimal #RRGGBB or html color name, as in //www.w3.org/TR/css3-color/#html4.&quot;</span>
+<span class="s2">    string sourceChrom;  &quot;Chromosome of source region (directional) or lower region. For non-directional interchromosomal, chrom of this region.&quot;</span>
+<span class="s2">    uint sourceStart;  &quot;Start position source/lower/this region&quot;</span>
+<span class="s2">    uint sourceEnd;    &quot;End position in chromosome of source/lower/this region&quot;</span>
+<span class="s2">    string sourceName;  &quot;Identifier of source/lower/this region&quot;</span>
+<span class="s2">    string sourceStrand; &quot;Orientation of source/lower/this region: + or -.  Use . if not applicable&quot;</span>
+<span class="s2">    string targetChrom; &quot;Chromosome of target region (directional) or upper region. For non-directional interchromosomal, chrom of other region&quot;</span>
+<span class="s2">    uint targetStart;  &quot;Start position in chromosome of target/upper/this region&quot;</span>
+<span class="s2">    uint targetEnd;    &quot;End position in chromosome of target/upper/this region&quot;</span>
+<span class="s2">    string targetName; &quot;Identifier of target/upper/this region&quot;</span>
+<span class="s2">    string targetStrand; &quot;Orientation of target/upper/this region: + or -.  Use . if not applicable&quot;</span>
+<span class="s2">    )</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="get_search_space"><a class="viewcode-back" href="../../api.html#scenicplus.enhancer_to_gene.get_search_space">[docs]</a><span class="k">def</span> <span class="nf">get_search_space</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                     <span class="n">species</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">assembly</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">pr_annot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">pr_chromsizes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">predefined_boundaries</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">use_gene_boundaries</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                     <span class="n">upstream</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">],</span>
+                     <span class="n">downstream</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">],</span>
+                     <span class="n">extend_tss</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
+                     <span class="n">remove_promoters</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                     <span class="n">biomart_host</span><span class="o">=</span><span class="s1">&#39;http://www.ensembl.org&#39;</span><span class="p">,</span>
+                     <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                     <span class="n">key_added</span><span class="o">=</span><span class="s1">&#39;search_space&#39;</span><span class="p">,</span>
+                     <span class="n">implode_entries</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get search space surrounding genes to calculate enhancer to gene links</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj: SCENICPLUS</span>
+<span class="sd">        a :class:`pr.SCENICPLUS`.</span>
+<span class="sd">    species: string, optional</span>
+<span class="sd">        Name of the species (e.g. hsapiens) on whose reference genome the search space should be calculated. This will be used to retrieve gene annotations from biomart. </span>
+<span class="sd">        Annotations can also be manually provided using the parameter [pr_annot]. Default: None</span>
+<span class="sd">    assembly: string, optional</span>
+<span class="sd">        Name of the assembly (e.g. hg38) of the reference genome on which the search space should be calculated. </span>
+<span class="sd">        This will be used to retrieve chromosome sizes from the UCSC genome browser.</span>
+<span class="sd">        Chromosome sizes can also be manually provided using the parameter [pr_chromsizes]. Default: None  </span>
+<span class="sd">    pr_annot: pr.PyRanges, optional</span>
+<span class="sd">        A :class:`pr.PyRanges` containing gene annotation, including Chromosome, Start, End, Strand (as &#39;+&#39; and &#39;-&#39;), Gene name</span>
+<span class="sd">        and Transcription Start Site. Default: None</span>
+<span class="sd">    pr_chromsizes: pr.PyRanges, optional</span>
+<span class="sd">        A :class:`pr.PyRanges` containing size of each chromosome, containing &#39;Chromosome&#39;, &#39;Start&#39; and &#39;End&#39; columns. Default: None</span>
+<span class="sd">    predefined_boundaries: pr.PyRanges, optional</span>
+<span class="sd">        A :class:`pr.PyRanges` containing predefined genomic domain boundaries (e.g. TAD boundaries) to use as boundaries. If </span>
+<span class="sd">        given, use_gene_boundaries will be ignored.</span>
+<span class="sd">    use_gene_boundaries: bool, optional</span>
+<span class="sd">        Whether to use the whole search space or stop when encountering another gene. Default: False</span>
+<span class="sd">    upstream: List, optional</span>
+<span class="sd">        Search space upstream. The minimum (first position) means that even if there is a gene right next to it these</span>
+<span class="sd">        bp will be taken. The second position indicates the maximum distance. Default: [1000, 100000]</span>
+<span class="sd">    downstream: List, optional</span>
+<span class="sd">        Search space downstream. The minimum (first position) means that even if there is a gene right next to it these</span>
+<span class="sd">        bp will be taken. The second position indicates the maximum distance. Default: [1000, 100000]</span>
+<span class="sd">    extend_tss: list, optional</span>
+<span class="sd">        Space around the TSS consider as promoter. Default: [10,10]</span>
+<span class="sd">    remove_promoters: bool, optional</span>
+<span class="sd">        Whether to remove promoters from the search space or not. Default: False</span>
+<span class="sd">    implode_entries: bool, optional</span>
+<span class="sd">        When a gene has multiple start/end sites it has multiple distances and gene width. </span>
+<span class="sd">        If this parameter is set to True these multiple entries per region and gene will be put in a list, generating a single entry.</span>
+<span class="sd">        If this parameter is set to False these multiple entries will be kept.</span>
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    pd.DataFrame</span>
+<span class="sd">        A data frame containing regions in the search space for each gene</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;R2G&#39;</span><span class="p">)</span>
+
+    <span class="c1"># parameter validation</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">species</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">assembly</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pr_annot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pr_chromsizes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+       <span class="ow">or</span> <span class="p">(</span><span class="n">species</span> <span class="o">==</span> <span class="n">assembly</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">pr_annot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">pr_chromsizes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+       <span class="ow">or</span> <span class="p">(</span><span class="n">pr_annot</span> <span class="o">==</span> <span class="n">pr_chromsizes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">species</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">assembly</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+       <span class="ow">or</span> <span class="p">(</span><span class="n">species</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">assembly</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pr_annot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pr_chromsizes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Either a name of a species and a name of an assembly or a pyranges object containing gene annotation and a pyranges object containing chromosome sizes should be provided!&#39;</span><span class="p">)</span>
+
+    <span class="c1"># get regions</span>
+    <span class="n">pr_regions</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span>
+        <span class="n">region_names_to_coordinates</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">region_names</span><span class="p">))</span>
+
+    <span class="c1"># set region names</span>
+    <span class="n">pr_regions</span><span class="o">.</span><span class="n">Name</span> <span class="o">=</span> <span class="n">coord_to_region_names</span><span class="p">(</span><span class="n">pr_regions</span><span class="p">)</span>
+
+    <span class="c1"># GET GENE ANNOTATION AND CHROMSIZES</span>
+    <span class="k">if</span> <span class="n">species</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">assembly</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Download gene annotation and chromsizes</span>
+        <span class="c1"># 1. Download gene annotation from biomart</span>
+        <span class="kn">import</span> <span class="nn">pybiomart</span> <span class="k">as</span> <span class="nn">pbm</span>
+        <span class="n">dataset_name</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">_gene_ensembl&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">species</span><span class="p">)</span>
+        <span class="n">server</span> <span class="o">=</span> <span class="n">pbm</span><span class="o">.</span><span class="n">Server</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">biomart_host</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">mart</span> <span class="o">=</span> <span class="n">server</span><span class="p">[</span><span class="s1">&#39;ENSEMBL_MART_ENSEMBL&#39;</span><span class="p">]</span>
+        <span class="c1"># check if biomart host is correct</span>
+        <span class="n">dataset_display_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+            <span class="n">mart</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">],</span> <span class="s1">&#39;display_name&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">ASM_SYNONYMS</span><span class="p">[</span><span class="n">assembly</span><span class="p">]</span> <span class="ow">in</span> <span class="n">dataset_display_name</span> <span class="ow">or</span> <span class="n">assembly</span> <span class="ow">in</span> <span class="n">dataset_display_name</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;</span><span class="se">\u001b</span><span class="s1">[31m!! The provided assembly </span><span class="si">{</span><span class="n">assembly</span><span class="si">}</span><span class="s1"> does not match the biomart host (</span><span class="si">{</span><span class="n">dataset_display_name</span><span class="si">}</span><span class="s1">).</span><span class="se">\n</span><span class="s1"> Please check biomart host parameter</span><span class="se">\u001b</span><span class="s1">[0m</span><span class="se">\n</span><span class="s1">For more info see: https://m.ensembl.org/info/website/archives/assembly.html&#39;</span><span class="p">)</span>
+        <span class="c1"># check wether dataset can be accessed.</span>
+        <span class="k">if</span> <span class="n">dataset_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mart</span><span class="o">.</span><span class="n">list_datasets</span><span class="p">()[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s1">&#39;</span><span class="si">{}</span><span class="s1"> could not be found as a dataset in biomart. Check species name or consider manually providing gene annotations!&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Downloading gene annotation from biomart dataset: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">))</span>
+            <span class="n">dataset</span> <span class="o">=</span> <span class="n">mart</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s1">&#39;external_gene_name&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">external_gene_name_query</span> <span class="o">=</span> <span class="s1">&#39;hgnc_symbol&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">external_gene_name_query</span> <span class="o">=</span> <span class="s1">&#39;external_gene_name&#39;</span>
+            <span class="k">if</span> <span class="s1">&#39;transcription_start_site&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">transcription_start_site_query</span> <span class="o">=</span> <span class="s1">&#39;transcript_start&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">transcription_start_site_query</span> <span class="o">=</span> <span class="s1">&#39;transcription_start_site&#39;</span>
+            <span class="n">annot</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">attributes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chromosome_name&#39;</span><span class="p">,</span> <span class="s1">&#39;start_position&#39;</span><span class="p">,</span> <span class="s1">&#39;end_position&#39;</span><span class="p">,</span>
+                                  <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="n">external_gene_name_query</span><span class="p">,</span> <span class="n">transcription_start_site_query</span><span class="p">,</span> <span class="s1">&#39;transcript_biotype&#39;</span><span class="p">])</span>
+            <span class="n">annot</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">,</span> <span class="s1">&#39;Transcript_type&#39;</span><span class="p">]</span>
+            <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;chr&#39;</span> <span class="o">+</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+            <span class="n">annot</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Transcript_type</span> <span class="o">==</span> <span class="s1">&#39;protein_coding&#39;</span><span class="p">]</span>
+            <span class="n">annot</span><span class="o">.</span><span class="n">Strand</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Strand</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+            <span class="n">annot</span><span class="o">.</span><span class="n">Strand</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Strand</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+            <span class="n">annot</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">annot</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+        <span class="c1"># 2. Download chromosome sizes from UCSC genome browser</span>
+        <span class="kn">import</span> <span class="nn">requests</span>
+        <span class="n">target_url</span> <span class="o">=</span> <span class="s1">&#39;http://hgdownload.cse.ucsc.edu/goldenPath/</span><span class="si">{asm}</span><span class="s1">/bigZips/</span><span class="si">{asm}</span><span class="s1">.chrom.sizes&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">asm</span><span class="o">=</span><span class="n">assembly</span><span class="p">)</span>
+        <span class="c1"># check wether url exists</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">target_url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Downloading chromosome sizes from: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target_url</span><span class="p">))</span>
+            <span class="n">chromsizes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">target_url</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">chromsizes</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">]</span>
+            <span class="n">chromsizes</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">chromsizes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">chromsizes</span> <span class="o">=</span> <span class="n">chromsizes</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">]]</span>
+            <span class="n">chromsizes</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">chromsizes</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s1">&#39;The assembly </span><span class="si">{}</span><span class="s1"> could not be found in http://hgdownload.cse.ucsc.edu/goldenPath/. Check assembly name or consider manually providing chromosome sizes!&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">assembly</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Manually provided gene annotation and chromsizes</span>
+        <span class="n">annot</span> <span class="o">=</span> <span class="n">pr_annot</span>
+        <span class="n">chromsizes</span> <span class="o">=</span> <span class="n">pr_chromsizes</span>
+
+    <span class="c1"># Add gene width</span>
+    <span class="k">if</span> <span class="n">annot</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="n">annot</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">annot</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Gene&#39;</span><span class="p">:</span> <span class="s1">&#39;na&#39;</span><span class="p">}))</span>
+    <span class="n">annot</span><span class="o">.</span><span class="n">Gene_width</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">annot</span><span class="o">.</span><span class="n">End</span> <span class="o">-</span> <span class="n">annot</span><span class="o">.</span><span class="n">Start</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="c1"># Prepare promoter annotation</span>
+    <span class="n">pd_promoters</span> <span class="o">=</span> <span class="n">annot</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span>
+                                    <span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]]</span>
+    <span class="n">pd_promoters</span><span class="p">[</span><span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd_promoters</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">pd_promoters</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd_promoters</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">pd_promoters</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">]</span>
+    <span class="n">pd_promoters</span> <span class="o">=</span> <span class="n">pd_promoters</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span>
+        <span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]]</span>
+    <span class="n">pr_promoters</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">pd_promoters</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Extending promoter annotation to </span><span class="si">{}</span><span class="s1"> bp upstream and </span><span class="si">{}</span><span class="s1"> downstream&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="nb">str</span><span class="p">(</span><span class="n">extend_tss</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">extend_tss</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+    <span class="n">pr_promoters</span> <span class="o">=</span> <span class="n">extend_pyranges</span><span class="p">(</span><span class="n">pr_promoters</span><span class="p">,</span> <span class="n">extend_tss</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">extend_tss</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">use_gene_boundaries</span> <span class="ow">or</span> <span class="n">predefined_boundaries</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">predefined_boundaries</span><span class="p">:</span>
+            <span class="n">predefined_boundaries_pos</span> <span class="o">=</span> <span class="n">predefined_boundaries</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">predefined_boundaries_neg</span> <span class="o">=</span> <span class="n">predefined_boundaries</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">predefined_boundaries_pos</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+            <span class="n">predefined_boundaries_neg</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+            <span class="n">predefined_boundaries</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">predefined_boundaries_pos</span><span class="p">,</span>
+                        <span class="n">predefined_boundaries_neg</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="n">predefined_boundaries</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Using predefined domains&#39;</span><span class="p">)</span>
+            <span class="n">use_gene_boundaries</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">use_gene_boundaries</span><span class="p">:</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="n">pr_promoters</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating gene boundaries&#39;</span><span class="p">)</span>
+        <span class="c1"># add chromosome limits</span>
+        <span class="n">chromsizes_begin_pos</span> <span class="o">=</span> <span class="n">chromsizes</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">chromsizes_begin_pos</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">chromsizes_begin_pos</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+        <span class="n">chromsizes_begin_pos</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Chrom_Begin&#39;</span>
+        <span class="n">chromsizes_begin_neg</span> <span class="o">=</span> <span class="n">chromsizes_begin_pos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">chromsizes_begin_neg</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+        <span class="n">chromsizes_end_pos</span> <span class="o">=</span> <span class="n">chromsizes</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">chromsizes_end_pos</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chromsizes_end_pos</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">chromsizes_end_pos</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+        <span class="n">chromsizes_end_pos</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Chrom_End&#39;</span>
+        <span class="n">chromsizes_end_neg</span> <span class="o">=</span> <span class="n">chromsizes_end_pos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">chromsizes_end_neg</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+        <span class="n">gene_bound</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">pr_promoters</span><span class="o">.</span><span class="n">df</span><span class="p">,</span>
+                    <span class="n">chromsizes_begin_pos</span><span class="p">,</span>
+                    <span class="n">chromsizes_begin_neg</span><span class="p">,</span>
+                    <span class="n">chromsizes_end_pos</span><span class="p">,</span>
+                    <span class="n">chromsizes_end_neg</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Get distance to nearest promoter (of a differrent gene)</span>
+        <span class="n">annot_nodup</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Start&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;End&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Strand&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene_width&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene_size_weight&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">drop_duplicate_positions</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">annot_nodup</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span>
+            <span class="n">annot_nodup</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;Gene&quot;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">))</span>
+
+        <span class="n">closest_promoter_upstream</span> <span class="o">=</span> <span class="n">annot_nodup</span><span class="o">.</span><span class="n">nearest</span><span class="p">(</span>
+            <span class="n">gene_bound</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;upstream&#39;</span><span class="p">)</span>
+        <span class="n">closest_promoter_upstream</span> <span class="o">=</span> <span class="n">closest_promoter_upstream</span><span class="p">[[</span>
+            <span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Distance&#39;</span><span class="p">]]</span>
+
+        <span class="n">closest_promoter_downstream</span> <span class="o">=</span> <span class="n">annot_nodup</span><span class="o">.</span><span class="n">nearest</span><span class="p">(</span>
+            <span class="n">gene_bound</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;downstream&#39;</span><span class="p">)</span>
+        <span class="n">closest_promoter_downstream</span> <span class="o">=</span> <span class="n">closest_promoter_downstream</span><span class="p">[[</span>
+            <span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Distance&#39;</span><span class="p">]]</span>
+
+        <span class="c1"># Add distance information and limit if above/below thresholds</span>
+        <span class="n">annot_df</span> <span class="o">=</span> <span class="n">annot_nodup</span><span class="o">.</span><span class="n">df</span>
+        <span class="n">annot_df</span> <span class="o">=</span> <span class="n">annot_df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;Gene&#39;</span><span class="p">)</span>
+        <span class="n">closest_promoter_upstream_df</span> <span class="o">=</span> <span class="n">closest_promoter_upstream</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+            <span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">Distance</span>
+        <span class="n">closest_promoter_upstream_df</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;Distance_upstream&#39;</span>
+        <span class="n">annot_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">annot_df</span><span class="p">,</span> <span class="n">closest_promoter_upstream_df</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">closest_promoter_downstream_df</span> <span class="o">=</span> <span class="n">closest_promoter_downstream</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+            <span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">Distance</span>
+        <span class="n">closest_promoter_downstream_df</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;Distance_downstream&#39;</span>
+        <span class="n">annot_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">annot_df</span><span class="p">,</span> <span class="n">closest_promoter_downstream_df</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+
+        <span class="n">annot_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">annot_df</span><span class="o">.</span><span class="n">Distance_upstream</span> <span class="o">&lt;</span>
+                     <span class="n">upstream</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;Distance_upstream&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">upstream</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">annot_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">annot_df</span><span class="o">.</span><span class="n">Distance_upstream</span> <span class="o">&gt;</span>
+                     <span class="n">upstream</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;Distance_upstream&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">upstream</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">annot_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">annot_df</span><span class="o">.</span><span class="n">Distance_downstream</span> <span class="o">&lt;</span>
+                     <span class="n">downstream</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;Distance_downstream&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">downstream</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">annot_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">annot_df</span><span class="o">.</span><span class="n">Distance_downstream</span> <span class="o">&gt;</span>
+                     <span class="n">downstream</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;Distance_downstream&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">downstream</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">annot_nodup</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">annot_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+        <span class="c1"># Extend to search space</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sd">&quot;&quot;&quot;Extending search space to: </span>
+<span class="sd">            \t\t\t\t\t\tA minimum of {} bp downstream of the end of the gene.</span>
+<span class="sd">            \t\t\t\t\t\tA minimum of {} bp upstream of the start of the gene.</span>
+<span class="sd">            \t\t\t\t\t\tA maximum of {} bp downstream of the end of the gene or the promoter of the nearest downstream gene.</span>
+<span class="sd">            \t\t\t\t\t\tA maximum of {} bp upstream of the start of the gene or the promoter of the nearest upstream gene&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">downstream</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">upstream</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">downstream</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">upstream</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+
+        <span class="n">extended_annot</span> <span class="o">=</span> <span class="n">extend_pyranges_with_limits</span><span class="p">(</span><span class="n">annot_nodup</span><span class="p">)</span>
+        <span class="n">extended_annot</span> <span class="o">=</span> <span class="n">extended_annot</span><span class="p">[[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Start&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;End&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Strand&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Gene&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Gene_width&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Distance_upstream&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Distance_downstream&#39;</span><span class="p">]]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sd">&quot;&quot;&quot;Extending search space to:</span>
+<span class="sd">            \t\t\t\t\t\t{} bp downstream of the end of the gene.</span>
+<span class="sd">            \t\t\t\t\t\t{} bp upstream of the start of the gene.&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">downstream</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">upstream</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+        <span class="n">annot_nodup</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Start&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;End&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Strand&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene_width&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;Gene_size_weight&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">drop_duplicate_positions</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">annot_nodup</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span>
+            <span class="n">annot_nodup</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;Gene&quot;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">))</span>
+        <span class="n">extended_annot</span> <span class="o">=</span> <span class="n">extend_pyranges</span><span class="p">(</span><span class="n">annot</span><span class="p">,</span> <span class="n">upstream</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">downstream</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">extended_annot</span> <span class="o">=</span> <span class="n">extended_annot</span><span class="p">[[</span>
+            <span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene_width&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene_size_weight&#39;</span><span class="p">]]</span>
+
+    <span class="c1"># Format search space</span>
+    <span class="n">extended_annot</span> <span class="o">=</span> <span class="n">extended_annot</span><span class="o">.</span><span class="n">drop_duplicate_positions</span><span class="p">()</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Intersecting with regions.&#39;</span><span class="p">)</span>
+    <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">pr_regions</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">extended_annot</span><span class="p">)</span>
+    <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Width</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span>
+        <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">End</span> <span class="o">-</span> <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Start</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Start</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span>
+        <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Start</span> <span class="o">+</span> <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">End</span> <span class="o">=</span> <span class="p">(</span><span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="c1"># Calculate distance</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating distances from region to gene&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">use_gene_boundaries</span> <span class="ow">or</span> <span class="n">predefined_boundaries</span><span class="p">:</span>
+        <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">reduce_pyranges_with_limits_b</span><span class="p">(</span><span class="n">regions_per_gene</span><span class="p">)</span>
+        <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">calculate_distance_with_limits_join</span><span class="p">(</span>
+            <span class="n">regions_per_gene</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">reduce_pyranges_b</span><span class="p">(</span>
+            <span class="n">regions_per_gene</span><span class="p">,</span> <span class="n">upstream</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">downstream</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">calculate_distance_join</span><span class="p">(</span><span class="n">regions_per_gene</span><span class="p">)</span>
+
+    <span class="c1"># Remove DISTAL regions overlapping with promoters</span>
+    <span class="k">if</span> <span class="n">remove_promoters</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Removing DISTAL regions overlapping promoters&#39;</span><span class="p">)</span>
+        <span class="n">regions_per_gene_overlapping_genes</span> <span class="o">=</span> <span class="n">regions_per_gene</span><span class="p">[</span><span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Distance</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">regions_per_gene_distal</span> <span class="o">=</span> <span class="n">regions_per_gene</span><span class="p">[</span><span class="n">regions_per_gene</span><span class="o">.</span><span class="n">Distance</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">regions_per_gene_distal_wo_promoters</span> <span class="o">=</span> <span class="n">regions_per_gene_distal</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span>
+            <span class="n">pr_promoters</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">regions_per_gene_overlapping_genes</span><span class="o">.</span><span class="n">df</span><span class="p">,</span> <span class="n">regions_per_gene_distal_wo_promoters</span><span class="o">.</span><span class="n">df</span><span class="p">]))</span>
+
+    <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">regions_per_gene</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">())</span>
+
+    <span class="k">if</span> <span class="n">implode_entries</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Imploding multiple entries per region and gene&#39;</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">df</span>
+        <span class="n">default_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span>
+                           <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Name&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]</span>
+        <span class="n">agg_dict_func1</span> <span class="o">=</span> <span class="p">{</span><span class="n">column</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                          <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">default_columns</span><span class="p">}</span>
+        <span class="n">agg_dict_func2</span> <span class="o">=</span> <span class="p">{</span><span class="n">column</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                          <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">default_columns</span><span class="p">)}</span>
+        <span class="n">agg_dict_func</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">agg_dict_func1</span><span class="p">,</span> <span class="o">**</span><span class="n">agg_dict_func2</span><span class="p">}</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Name&#39;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">agg_dict_func</span><span class="p">)</span>
+        <span class="n">regions_per_gene</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="ne">Warning</span><span class="p">(</span>
+            <span class="s1">&#39;Not imploding might cause error when calculating region to gene links.&#39;</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Done!&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">]</span> <span class="o">=</span> <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">df</span><span class="p">[[</span>
+            <span class="s1">&#39;Name&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Distance&#39;</span><span class="p">]]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">regions_per_gene</span><span class="o">.</span><span class="n">df</span><span class="p">[[</span><span class="s1">&#39;Name&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Distance&#39;</span><span class="p">]]</span></div>
+
+
+<span class="nd">@ray</span><span class="o">.</span><span class="n">remote</span>
+<span class="k">def</span> <span class="nf">_score_regions_to_single_gene_ray</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">gene_name</span><span class="p">,</span> <span class="n">region_names</span><span class="p">,</span> <span class="n">regressor_type</span><span class="p">,</span> <span class="n">regressor_kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">_score_regions_to_single_gene</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">gene_name</span><span class="p">,</span> <span class="n">region_names</span><span class="p">,</span> <span class="n">regressor_type</span><span class="p">,</span> <span class="n">regressor_kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_score_regions_to_single_gene</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">gene_name</span><span class="p">,</span> <span class="n">region_names</span><span class="p">,</span> <span class="n">regressor_type</span><span class="p">,</span> <span class="n">regressor_kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates region to gene importances or region to gene correlations for a single gene</span>
+<span class="sd">    :param X: numpy array containing matrix of accessibility of regions in search space</span>
+<span class="sd">    :param y: numpy array containing expression vector</span>
+<span class="sd">    :param regressor_type: type of regression/correlation analysis. </span>
+<span class="sd">           Available regression analysis are: &#39;RF&#39; (Random Forrest regression), &#39;ET&#39; (Extra Trees regression), &#39;GBM&#39; (Gradient Boostin regression).</span>
+<span class="sd">           Available correlation analysis are: &#39;PR&#39; (pearson correlation), &#39;SR&#39; (spearman correlation).</span>
+<span class="sd">    :param regressor_kwargs: arguments to pass to regression function.</span>
+<span class="sd">    :returns feature_importance for regression methods and correlation_coef for correlation methods</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">regressor_type</span> <span class="ow">in</span> <span class="n">SKLEARN_REGRESSOR_FACTORY</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="kn">from</span> <span class="nn">arboreto</span> <span class="kn">import</span> <span class="n">core</span> <span class="k">as</span> <span class="n">arboreto_core</span>
+        <span class="c1"># fit model</span>
+        <span class="n">fitted_model</span> <span class="o">=</span> <span class="n">arboreto_core</span><span class="o">.</span><span class="n">fit_model</span><span class="p">(</span><span class="n">regressor_type</span><span class="o">=</span><span class="n">regressor_type</span><span class="p">,</span>
+                                               <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">regressor_kwargs</span><span class="p">,</span>
+                                               <span class="n">tf_matrix</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+                                               <span class="n">target_gene_expression</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+        <span class="c1"># get importance scores for each feature</span>
+        <span class="n">feature_importance</span> <span class="o">=</span> <span class="n">arboreto_core</span><span class="o">.</span><span class="n">to_feature_importances</span><span class="p">(</span><span class="n">regressor_type</span><span class="o">=</span><span class="n">regressor_type</span><span class="p">,</span>
+                                                                  <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">regressor_kwargs</span><span class="p">,</span>
+                                                                  <span class="n">trained_regressor</span><span class="o">=</span><span class="n">fitted_model</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">feature_importance</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">region_names</span><span class="p">),</span> <span class="n">gene_name</span>
+
+    <span class="k">if</span> <span class="n">regressor_type</span> <span class="ow">in</span> <span class="n">SCIPY_CORRELATION_FACTORY</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="c1"># define correlation method</span>
+        <span class="n">correlator</span> <span class="o">=</span> <span class="n">SCIPY_CORRELATION_FACTORY</span><span class="p">[</span><span class="n">regressor_type</span><span class="p">]</span>
+
+        <span class="c1"># do correlation and get correlation coef and p value</span>
+        <span class="n">correlation_result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">correlator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="p">])</span>
+        <span class="n">correlation_coef</span> <span class="o">=</span> <span class="n">correlation_result</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># , correlation_adj_pval</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">correlation_coef</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">region_names</span><span class="p">),</span> <span class="n">gene_name</span>
+
+
+<span class="k">def</span> <span class="nf">_score_regions_to_genes</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                           <span class="n">search_space</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+                           <span class="n">mask_expr_dropout</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                           <span class="n">genes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">regressor_type</span><span class="o">=</span><span class="s1">&#39;GBM&#39;</span><span class="p">,</span>
+                           <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">GBM_KWARGS</span><span class="p">,</span>
+                           <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper function for score_regions_to_single_gene and score_regions_to_single_gene_ray.</span>
+<span class="sd">    Calculates region to gene importances or region to gene correlations for multiple genes</span>
+<span class="sd">    :param SCENICPLUS_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data</span>
+<span class="sd">    :param genes: list of genes for which to calculate region gene scores. Uses all genes if set to None</span>
+<span class="sd">    :param regressor_type: type of regression/correlation analysis. </span>
+<span class="sd">           Available regression analysis are: &#39;RF&#39; (Random Forrest regression), &#39;ET&#39; (Extra Trees regression), &#39;GBM&#39; (Gradient Boostin regression).</span>
+<span class="sd">           Available correlation analysis are: &#39;PR&#39; (pearson correlation), &#39;SR&#39; (spearman correlation).</span>
+<span class="sd">    :param regressor_kwargs: arguments to pass to regression function.</span>
+<span class="sd">    :param **kwargs: additional parameters to pass to ray.init.</span>
+<span class="sd">    :returns dictionary with genes as keys and importance score or correlation coefficient </span>
+<span class="sd">             as values for resp. regression based and correlation based calculations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check overlaps with search space (Issue #1)</span>
+    <span class="n">search_space</span> <span class="o">=</span> <span class="n">search_space</span><span class="p">[</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">region_names</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">genes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">genes_to_use</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)))</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">genes</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]))):</span>
+        <span class="n">genes_to_use</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">genes</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">genes_to_use</span> <span class="o">=</span> <span class="n">genes</span>
+    <span class="c1"># get expression and chromatin accessibility dataframes only once</span>
+    <span class="n">EXP_df</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="s1">&#39;EXP&#39;</span><span class="p">)</span>
+    <span class="n">ACC_df</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="s1">&#39;ACC&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">num_cpus</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">genes_to_use</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">genes_to_use</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;initializing&#39;</span><span class="p">):</span>
+                <span class="n">regions_in_search_space</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span>
+                                                           <span class="o">==</span> <span class="n">gene</span><span class="p">,</span> <span class="s1">&#39;Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+                <span class="k">if</span> <span class="n">mask_expr_dropout</span><span class="p">:</span>
+                    <span class="n">expr</span> <span class="o">=</span> <span class="n">EXP_df</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span>
+                    <span class="n">cell_non_zero</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">expr</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+                    <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cell_non_zero</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                    <span class="n">acc</span> <span class="o">=</span> <span class="n">ACC_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">regions_in_search_space</span><span class="p">,</span>
+                                     <span class="n">cell_non_zero</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">expr</span> <span class="o">=</span> <span class="n">EXP_df</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                    <span class="n">acc</span> <span class="o">=</span> <span class="n">ACC_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">regions_in_search_space</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                <span class="c1"># Check-up for genes with 1 region only, related to issue 2</span>
+                <span class="k">if</span> <span class="n">acc</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">acc</span> <span class="o">=</span> <span class="n">acc</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_score_regions_to_single_gene_ray</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">acc</span><span class="p">,</span>
+                                                                    <span class="n">y</span><span class="o">=</span><span class="n">expr</span><span class="p">,</span>
+                                                                    <span class="n">gene_name</span><span class="o">=</span><span class="n">gene</span><span class="p">,</span>
+                                                                    <span class="n">region_names</span><span class="o">=</span><span class="n">regions_in_search_space</span><span class="p">,</span>
+                                                                    <span class="n">regressor_type</span><span class="o">=</span><span class="n">regressor_type</span><span class="p">,</span>
+                                                                    <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">regressor_kwargs</span><span class="p">))</span>
+
+            <span class="c1"># add progress bar, adapted from: https://github.com/ray-project/ray/issues/8164</span>
+            <span class="k">def</span> <span class="nf">to_iterator</span><span class="p">(</span><span class="n">obj_ids</span><span class="p">):</span>
+                <span class="k">while</span> <span class="n">obj_ids</span><span class="p">:</span>
+                    <span class="n">finished_ids</span><span class="p">,</span> <span class="n">obj_ids</span> <span class="o">=</span> <span class="n">ray</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">obj_ids</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">finished_id</span> <span class="ow">in</span> <span class="n">finished_ids</span><span class="p">:</span>
+                        <span class="k">yield</span> <span class="n">ray</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">finished_id</span><span class="p">)</span>
+            <span class="n">regions_to_genes</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">importance</span><span class="p">,</span> <span class="n">gene_name</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">to_iterator</span><span class="p">(</span><span class="n">jobs</span><span class="p">),</span>
+                                              <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">jobs</span><span class="p">),</span>
+                                              <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Running using </span><span class="si">{</span><span class="n">ray_n_cpu</span><span class="si">}</span><span class="s1"> cores&#39;</span><span class="p">,</span>
+                                              <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+                <span class="n">regions_to_genes</span><span class="p">[</span><span class="n">gene_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">importance</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">ray</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">regions_to_genes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">genes_to_use</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">genes_to_use</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Running using a single core&#39;</span><span class="p">):</span>
+            <span class="n">regions_in_search_space</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span>
+                                                       <span class="o">==</span> <span class="n">gene</span><span class="p">,</span> <span class="s1">&#39;Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">if</span> <span class="n">mask_expr_dropout</span><span class="p">:</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">EXP_df</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span>
+                <span class="n">cell_non_zero</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">expr</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cell_non_zero</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                <span class="n">acc</span> <span class="o">=</span> <span class="n">ACC_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">regions_in_search_space</span><span class="p">,</span>
+                                 <span class="n">cell_non_zero</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">EXP_df</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+                <span class="n">acc</span> <span class="o">=</span> <span class="n">ACC_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">regions_in_search_space</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="c1"># Check-up for genes with 1 region only, related to issue 2</span>
+            <span class="k">if</span> <span class="n">acc</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">acc</span> <span class="o">=</span> <span class="n">acc</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">regions_to_genes</span><span class="p">[</span><span class="n">gene</span><span class="p">],</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_score_regions_to_single_gene</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">acc</span><span class="p">,</span>
+                                                                     <span class="n">y</span><span class="o">=</span><span class="n">expr</span><span class="p">,</span>
+                                                                     <span class="n">gene_name</span><span class="o">=</span><span class="n">gene</span><span class="p">,</span>
+                                                                     <span class="n">region_names</span><span class="o">=</span><span class="n">regions_in_search_space</span><span class="p">,</span>
+                                                                     <span class="n">regressor_type</span><span class="o">=</span><span class="n">regressor_type</span><span class="p">,</span>
+                                                                     <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">regressor_kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">regions_to_genes</span>
+
+
+<div class="viewcode-block" id="calculate_regions_to_genes_relationships"><a class="viewcode-back" href="../../api.html#scenicplus.enhancer_to_gene.calculate_regions_to_genes_relationships">[docs]</a><span class="k">def</span> <span class="nf">calculate_regions_to_genes_relationships</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                                             <span class="n">search_space_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;search_space&#39;</span><span class="p">,</span>
+                                             <span class="n">mask_expr_dropout</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                             <span class="n">genes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                             <span class="n">importance_scoring_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;GBM&#39;</span><span class="p">,</span>
+                                             <span class="n">importance_scoring_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">GBM_KWARGS</span><span class="p">,</span>
+                                             <span class="n">correlation_scoring_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;SR&#39;</span><span class="p">,</span>
+                                             <span class="n">ray_n_cpu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                             <span class="n">add_distance</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                             <span class="n">key_added</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;region_to_gene&#39;</span><span class="p">,</span>
+                                             <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                             <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates region to gene relationships using non-linear regression methods and correlation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj: SCENICPLUS</span>
+<span class="sd">        instance of SCENICPLUS class containing expression data and chromatin accessbility data</span>
+<span class="sd">    search_space_key: str = &#39;search_space&#39;</span>
+<span class="sd">        a key in SCENICPLUS_obj.uns.keys pointing to a dataframe containing the search space surounding each gene.</span>
+<span class="sd">    mask_expr_dropout: bool = False</span>
+<span class="sd">        Wether or not to exclude cells which have zero counts for a gene from the calculations</span>
+<span class="sd">    genes: List[str] None</span>
+<span class="sd">        list of genes for which to calculate region gene scores. Default is None, i.e. all genes</span>
+<span class="sd">    importance_scoring_method: str = GBM</span>
+<span class="sd">        method used to score region to gene importances. Available regression analysis are: &#39;RF&#39; (Random Forrest regression), &#39;ET&#39; (Extra Trees regression), &#39;GBM&#39; (Gradient Boostin regression).</span>
+<span class="sd">    importance_scoring_kwargs: dict = GBM_KWARGS</span>
+<span class="sd">        arguments to pass to the importance scoring function</span>
+<span class="sd">    correlation_scoring_method: str = SR</span>
+<span class="sd">        method used to calculate region to gene correlations. Available correlation analysis are: &#39;PR&#39; (pearson correlation), &#39;SR&#39; (spearman correlation).</span>
+<span class="sd">    ray_n_cpu: int = None</span>
+<span class="sd">        number of cores to use for ray multi-processing. Does not use ray when set to None</span>
+<span class="sd">    add_distance: bool = True</span>
+<span class="sd">        Wether or not to return region to gene distances</span>
+<span class="sd">    key_added: str = region_to_gene</span>
+<span class="sd">        Key in SCENICPLUS_obj.uns under which to store region to gene links, only stores when inplace = True</span>
+<span class="sd">    inplace: bool = True</span>
+<span class="sd">        Wether or not store the region to gene links in the SCENICPLUS_obj, if False a pd.DataFrame will be returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;R2G&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">search_space_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">search_space_key</span><span class="si">}</span><span class="s1"> not found in SCENICPLUS_obj.uns, first get search space using function: &quot;get_search_space&quot;&#39;</span><span class="p">)</span>
+
+    <span class="n">search_space</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">search_space_key</span><span class="p">]</span>
+    <span class="c1"># Check overlaps with search space (Issue #1)</span>
+    <span class="n">search_space</span> <span class="o">=</span> <span class="n">search_space</span><span class="p">[</span><span class="n">search_space</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">region_names</span><span class="p">)]</span>
+
+    <span class="c1"># calulcate region to gene importance</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s1">&#39;Calculating region to gene importances, using </span><span class="si">{</span><span class="n">importance_scoring_method</span><span class="si">}</span><span class="s1"> method&#39;</span><span class="p">)</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">region_to_gene_importances</span> <span class="o">=</span> <span class="n">_score_regions_to_genes</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">,</span>
+                                                        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                                                        <span class="n">mask_expr_dropout</span><span class="o">=</span><span class="n">mask_expr_dropout</span><span class="p">,</span>
+                                                        <span class="n">genes</span><span class="o">=</span><span class="n">genes</span><span class="p">,</span>
+                                                        <span class="n">regressor_type</span><span class="o">=</span><span class="n">importance_scoring_method</span><span class="p">,</span>
+                                                        <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">importance_scoring_kwargs</span><span class="p">,</span>
+                                                        <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span>
+                                                        <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Took </span><span class="si">{}</span><span class="s1"> seconds&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+
+    <span class="c1"># calculate region to gene correlation</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s1">&#39;Calculating region to gene correlation, using </span><span class="si">{</span><span class="n">correlation_scoring_method</span><span class="si">}</span><span class="s1"> method&#39;</span><span class="p">)</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">region_to_gene_correlation</span> <span class="o">=</span> <span class="n">_score_regions_to_genes</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">,</span>
+                                                        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                                                        <span class="n">mask_expr_dropout</span><span class="o">=</span><span class="n">mask_expr_dropout</span><span class="p">,</span>
+                                                        <span class="n">genes</span><span class="o">=</span><span class="n">genes</span><span class="p">,</span>
+                                                        <span class="n">regressor_type</span><span class="o">=</span><span class="n">correlation_scoring_method</span><span class="p">,</span>
+                                                        <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span>
+                                                        <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Took </span><span class="si">{}</span><span class="s1"> seconds&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+
+    <span class="c1"># transform dictionaries to pandas dataframe</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">result_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;target&#39;</span><span class="p">:</span> <span class="n">gene</span><span class="p">,</span>
+                                                  <span class="s1">&#39;region&#39;</span><span class="p">:</span> <span class="n">region_to_gene_importances</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span>
+                                                  <span class="s1">&#39;importance&#39;</span><span class="p">:</span> <span class="n">region_to_gene_importances</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span>
+                                                  <span class="s1">&#39;rho&#39;</span><span class="p">:</span> <span class="n">region_to_gene_correlation</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                                                      <span class="n">region_to_gene_importances</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">()]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()})</span>
+                               <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">region_to_gene_importances</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                               <span class="p">]</span>
+                              <span class="p">)</span>
+        <span class="n">result_df</span> <span class="o">=</span> <span class="n">result_df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="n">result_df</span> <span class="o">=</span> <span class="n">result_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">result_df</span><span class="p">[</span><span class="s1">&#39;importance_x_rho&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span> <span class="o">*</span> \
+            <span class="n">result_df</span><span class="p">[</span><span class="s1">&#39;importance&#39;</span><span class="p">]</span>
+        <span class="n">result_df</span><span class="p">[</span><span class="s1">&#39;importance_x_abs_rho&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span>
+            <span class="n">result_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">])</span> <span class="o">*</span> <span class="n">result_df</span><span class="p">[</span><span class="s1">&#39;importance&#39;</span><span class="p">]</span>
+
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;An error occured!&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">region_to_gene_importances</span><span class="p">,</span> <span class="n">region_to_gene_correlation</span>
+
+    <span class="k">if</span> <span class="n">add_distance</span><span class="p">:</span>
+        <span class="c1"># TODO: use consistent column names</span>
+        <span class="n">search_space_rn</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+            <span class="p">{</span><span class="s1">&#39;Name&#39;</span><span class="p">:</span> <span class="s1">&#39;region&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">:</span> <span class="s1">&#39;target&#39;</span><span class="p">},</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">result_df</span> <span class="o">=</span> <span class="n">result_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">search_space_rn</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;region&#39;</span><span class="p">,</span> <span class="s1">&#39;target&#39;</span><span class="p">])</span>
+        <span class="c1">#result_df[&#39;Distance&#39;] = result_df[&#39;Distance&#39;].map(lambda x: x[0])</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Done!&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">]</span> <span class="o">=</span> <span class="n">result_df</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">result_df</span></div>
+
+
+<div class="viewcode-block" id="export_to_UCSC_interact"><a class="viewcode-back" href="../../api.html#scenicplus.enhancer_to_gene.export_to_UCSC_interact">[docs]</a><span class="k">def</span> <span class="nf">export_to_UCSC_interact</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                            <span class="n">species</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">outfile</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">region_to_gene_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39; region_to_gene&#39;</span><span class="p">,</span>
+                            <span class="n">pbm_host</span><span class="p">:</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;http://www.ensembl.org&#39;</span><span class="p">,</span>
+                            <span class="n">bigbed_outfile</span><span class="p">:</span><span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">path_bedToBigBed</span><span class="p">:</span> <span class="nb">str</span><span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">assembly</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">ucsc_track_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;region_to_gene&#39;</span><span class="p">,</span>
+                            <span class="n">ucsc_description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;interaction file for region to gene&#39;</span><span class="p">,</span>
+                            <span class="n">cmap_neg</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Reds&#39;</span><span class="p">,</span>
+                            <span class="n">cmap_pos</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Greens&#39;</span><span class="p">,</span>
+                            <span class="n">key_for_color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                            <span class="n">vmin</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                            <span class="n">vmax</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="n">scale_by_gene</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="n">subset_for_eRegulons_regions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="n">eRegulons_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulons&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exports interaction dataframe to UCSC interaction file and (optionally) UCSC bigInteract file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj: SCENICPLUS</span>
+<span class="sd">        An instance of class scenicplus_class.SCENICPLUS containing region to gene links in .uns.</span>
+<span class="sd">    species: str</span>
+<span class="sd">        Species corresponding to your datassets (e.g. hsapiens)</span>
+<span class="sd">    outfile: str</span>
+<span class="sd">        Path to output file </span>
+<span class="sd">    region_to_gene_key: str =&#39; region_to_gene&#39;</span>
+<span class="sd">        Key in SCENICPLUS_obj.uns.keys() under which to find region to gene links.</span>
+<span class="sd">    pbm_host:str = &#39;http://www.ensembl.org&#39;</span>
+<span class="sd">        Url of biomart host relevant for your assembly.</span>
+<span class="sd">    bigbed_outfile:str = None</span>
+<span class="sd">        Path to which to write the bigbed output.</span>
+<span class="sd">    path_bedToBigBed: str= None</span>
+<span class="sd">        Path to bedToBigBed program, used to convert bed file to bigbed format.</span>
+<span class="sd">    assembly: str = None</span>
+<span class="sd">        String identifying the assembly of your dataset (e.g. hg39).</span>
+<span class="sd">    ucsc_track_name: str = &#39;region_to_gene&#39;</span>
+<span class="sd">        Name of the exported UCSC track</span>
+<span class="sd">    ucsc_description: str = &#39;interaction file for region to gene&#39;</span>
+<span class="sd">        Description of the exported UCSC track</span>
+<span class="sd">    cmap_neg: str = &#39;Reds&#39;</span>
+<span class="sd">        Matplotlib colormap used to color negative region to gene links.</span>
+<span class="sd">    cmap_pos: str = &#39;Greens&#39;</span>
+<span class="sd">        Matplotlib colormap used to color positive region to gene links.</span>
+<span class="sd">    key_for_color: str = &#39;importance&#39;</span>
+<span class="sd">        Key pointing to column in region to gene links used to map cmap colors to.</span>
+<span class="sd">    vmin: int = 0  </span>
+<span class="sd">        vmin of region to gene link colors.</span>
+<span class="sd">    vmax: int = 1</span>
+<span class="sd">        vmax of region to gene link colors.</span>
+<span class="sd">    scale_by_gene: bool = True</span>
+<span class="sd">        Boolean specifying wether to scale importance scores of regions linking to the same gene from 0 to 1</span>
+<span class="sd">    subset_for_eRegulons_regions: bool = True</span>
+<span class="sd">        Boolean specifying wether or not to subset region to gene links for regions and genes in eRegulons.</span>
+<span class="sd">    eRegulons_key: str = &#39;eRegulons&#39;</span>
+<span class="sd">        key in SCENICPLUS_obj.uns.keys() under which to find eRegulons.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pd.DataFrame with region to gene links formatted in the UCSC interaction format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;R2G&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">region_to_gene_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">region_to_gene_key</span><span class="si">}</span><span class="s1"> not found in SCENICPLUS_obj.uns, first calculate region to gene relationships using function: &quot;calculate_regions_to_genes_relationships&quot;&#39;</span><span class="p">)</span>
+
+    <span class="n">region_to_gene_df</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">subset_for_eRegulons_regions</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">eRegulons_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">eRegulons_key</span><span class="si">}</span><span class="s1"> not found in SCENICPLUS_obj.uns.keys()&#39;</span><span class="p">)</span>
+        <span class="n">eRegulon_regions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">flatten_list</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">ereg</span><span class="o">.</span><span class="n">target_regions</span> <span class="k">for</span> <span class="n">ereg</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulons_key</span><span class="p">]])))</span>
+        <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;region&#39;</span><span class="p">]</span>
+        <span class="n">region_to_gene_df</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">eRegulon_regions</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span>
+            <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Rename columns to be in line with biomart annotation</span>
+    <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;target&#39;</span><span class="p">:</span> <span class="s1">&#39;Gene&#39;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Get TSS annotation (end-point for links)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Downloading gene annotation from biomart, using dataset: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">species</span><span class="o">+</span><span class="s1">&#39;_gene_ensembl&#39;</span><span class="p">))</span>
+    <span class="kn">import</span> <span class="nn">pybiomart</span> <span class="k">as</span> <span class="nn">pbm</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">pbm</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">species</span><span class="o">+</span><span class="s1">&#39;_gene_ensembl&#39;</span><span class="p">,</span>  <span class="n">host</span><span class="o">=</span><span class="n">pbm_host</span><span class="p">)</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">attributes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chromosome_name&#39;</span><span class="p">,</span> <span class="s1">&#39;start_position&#39;</span><span class="p">,</span> <span class="s1">&#39;end_position&#39;</span><span class="p">,</span>
+                          <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;external_gene_name&#39;</span><span class="p">,</span> <span class="s1">&#39;transcription_start_site&#39;</span><span class="p">,</span> <span class="s1">&#39;transcript_biotype&#39;</span><span class="p">])</span>
+    <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;chr&#39;</span> <span class="o">+</span> \
+        <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">annot</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">,</span> <span class="s1">&#39;Transcript_type&#39;</span><span class="p">]</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Transcript_type</span> <span class="o">==</span> <span class="s1">&#39;protein_coding&#39;</span><span class="p">]</span>
+    <span class="n">annot</span><span class="o">.</span><span class="n">Strand</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Strand</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">annot</span><span class="o">.</span><span class="n">Strand</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Strand</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Formatting data ...&#39;</span><span class="p">)</span>
+    <span class="c1"># get gene to tss mapping, take the one equal to the gene start/end location if possible otherwise take the first one</span>
+    <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;TSSeqStartEnd&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span>
+        <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">],</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">])</span>
+    <span class="n">gene_to_tss</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+        <span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">)))</span>
+    <span class="n">startEndEq</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;TSSeqStartEnd&#39;</span><span class="p">]</span>
+                       <span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="n">gene_to_tss</span><span class="p">[</span><span class="s1">&#39;Transcription_Start_Site&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">tss</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="n">eq</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span>
+        <span class="n">eq</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">tss</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">eq</span><span class="p">,</span> <span class="n">tss</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">startEndEq</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">gene_to_tss</span><span class="o">.</span><span class="n">values</span><span class="p">)]</span>
+    <span class="n">gene_to_tss</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;TSS_Gene&#39;</span><span class="p">]</span>
+
+    <span class="c1"># get gene to strand mapping</span>
+    <span class="n">gene_to_strand</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+        <span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">))[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># get gene to chromosome mapping (should be the same as the regions mapped to the gene)</span>
+    <span class="n">gene_to_chrom</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Chromosome&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+        <span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">))[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># add TSS for each gene to region_to_gene_df</span>
+    <span class="n">region_to_gene_df</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gene_to_tss</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;Gene&#39;</span><span class="p">)</span>
+
+    <span class="c1"># add strand for each gene to region_to_gene_df</span>
+    <span class="n">region_to_gene_df</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gene_to_strand</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;Gene&#39;</span><span class="p">)</span>
+
+    <span class="c1"># add chromosome for each gene to region_to_gene_df</span>
+    <span class="n">region_to_gene_df</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gene_to_chrom</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;Gene&#39;</span><span class="p">)</span>
+
+    <span class="c1"># get chrom, chromStart, chromEnd</span>
+    <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;any&#39;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">region_names_to_coordinates</span><span class="p">(</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;region&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">chrom</span><span class="p">,</span> <span class="n">chromStart</span><span class="p">,</span> <span class="n">chromEnd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">chrom</span> <span class="o">=</span> <span class="n">chrom</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">chromStart</span> <span class="o">=</span> <span class="n">chromStart</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">chromEnd</span> <span class="o">=</span> <span class="n">chromEnd</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># get source chrom, chromStart, chromEnd (i.e. middle of regions)</span>
+    <span class="n">sourceChrom</span> <span class="o">=</span> <span class="n">chrom</span>
+    <span class="n">sourceStart</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">chromStart</span> <span class="o">+</span> <span class="p">(</span><span class="n">chromEnd</span> <span class="o">-</span> <span class="n">chromStart</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+    <span class="n">sourceEnd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">chromStart</span> <span class="o">+</span> <span class="p">(</span><span class="n">chromEnd</span> <span class="o">-</span> <span class="n">chromStart</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)))</span>
+
+    <span class="c1"># get target chrom, chromStart, chromEnd (i.e. TSS)</span>
+    <span class="n">targetChrom</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">]</span>
+    <span class="n">targetStart</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;TSS_Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">targetEnd</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">targetStart</span><span class="p">)))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">strand</span> <span class="o">==</span> <span class="s1">&#39;+&#39;</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span> <span class="k">for</span> <span class="n">strand</span> <span class="ow">in</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">])))</span>
+
+    <span class="c1"># get color</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scale_by_gene</span><span class="p">:</span>
+        <span class="n">grouper</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span>
+            <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span>
+                                       <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key_for_color</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap_pos</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">_value_to_color</span><span class="p">(</span><span class="n">scores</span><span class="p">):</span>
+            <span class="n">S</span> <span class="o">=</span> <span class="p">(</span><span class="n">scores</span> <span class="o">-</span> <span class="n">scores</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">/</span> <span class="p">(</span><span class="n">scores</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">scores</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+            <span class="k">return</span> <span class="p">[</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mapper</span><span class="o">.</span><span class="n">to_rgba</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">bytes</span><span class="o">=</span><span class="kc">True</span><span class="p">)][</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">S</span><span class="p">]</span>
+
+        <span class="n">colors_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">scores</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;object&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">grouper</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+            <span class="n">colors_pos</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_value_to_color</span><span class="p">(</span><span class="n">scores</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+        <span class="n">grouper</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span>
+            <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span>
+                                       <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key_for_color</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap_neg</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">_value_to_color</span><span class="p">(</span><span class="n">scores</span><span class="p">):</span>
+            <span class="n">S</span> <span class="o">=</span> <span class="p">(</span><span class="n">scores</span> <span class="o">-</span> <span class="n">scores</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">/</span> <span class="p">(</span><span class="n">scores</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">scores</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+            <span class="k">return</span> <span class="p">[</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mapper</span><span class="o">.</span><span class="n">to_rgba</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">bytes</span><span class="o">=</span><span class="kc">True</span><span class="p">)][</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">S</span><span class="p">]</span>
+
+        <span class="n">colors_neg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">scores</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;object&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">grouper</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+            <span class="n">colors_neg</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_value_to_color</span><span class="p">(</span><span class="n">scores</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span>
+                                       <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key_for_color</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap_pos</span><span class="p">)</span>
+        <span class="n">colors_pos</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mapper</span><span class="o">.</span><span class="n">to_rgba</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">bytes</span><span class="o">=</span><span class="kc">True</span><span class="p">)][</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">]</span>
+
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span>
+                                       <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key_for_color</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap_neg</span><span class="p">)</span>
+        <span class="n">colors_neg</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mapper</span><span class="o">.</span><span class="n">to_rgba</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">bytes</span><span class="o">=</span><span class="kc">True</span><span class="p">)][</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">]</span>
+
+    <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;color&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">colors_pos</span>
+    <span class="n">region_to_gene_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span>  <span class="s1">&#39;color&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">colors_neg</span>
+    <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;color&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;color&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s1">&#39;55,55,55&#39;</span><span class="p">)</span>
+
+    <span class="c1"># get name for regions (add incremental number to gene in range of regions linked to gene)</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">previous_gene</span> <span class="o">=</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">gene</span> <span class="o">!=</span> <span class="n">previous_gene</span><span class="p">:</span>
+            <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gene</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>
+        <span class="n">previous_gene</span> <span class="o">=</span> <span class="n">gene</span>
+
+    <span class="c1"># format final interact dataframe</span>
+    <span class="n">df_interact</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;chrom&#39;</span><span class="p">:</span>        <span class="n">chrom</span><span class="p">,</span>
+            <span class="s1">&#39;chromStart&#39;</span><span class="p">:</span>   <span class="n">chromStart</span><span class="p">,</span>
+            <span class="s1">&#39;chromEnd&#39;</span><span class="p">:</span>     <span class="n">chromEnd</span><span class="p">,</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span>         <span class="n">names</span><span class="p">,</span>
+            <span class="s1">&#39;score&#39;</span><span class="p">:</span>        <span class="p">(</span><span class="mi">1000</span><span class="o">*</span><span class="p">(</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;importance&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;importance&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;importance&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span> <span class="p">,</span>
+            <span class="s1">&#39;value&#39;</span><span class="p">:</span>        <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;importance&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s1">&#39;exp&#39;</span><span class="p">:</span>          <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">region_to_gene_df</span><span class="p">)),</span>
+            <span class="s1">&#39;color&#39;</span><span class="p">:</span>        <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;color&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s1">&#39;sourceChrom&#39;</span><span class="p">:</span>  <span class="n">sourceChrom</span><span class="p">,</span>
+            <span class="s1">&#39;sourceStart&#39;</span><span class="p">:</span>  <span class="n">sourceStart</span><span class="p">,</span>
+            <span class="s1">&#39;sourceEnd&#39;</span><span class="p">:</span>    <span class="n">sourceEnd</span><span class="p">,</span>
+            <span class="s1">&#39;sourceName&#39;</span><span class="p">:</span>   <span class="n">names</span><span class="p">,</span>
+            <span class="s1">&#39;sourceStrand&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">region_to_gene_df</span><span class="p">)),</span>
+            <span class="s1">&#39;targetChrom&#39;</span><span class="p">:</span>  <span class="n">targetChrom</span><span class="p">,</span>
+            <span class="s1">&#39;targetStart&#39;</span><span class="p">:</span>  <span class="n">targetStart</span><span class="p">,</span>
+            <span class="s1">&#39;targetEnd&#39;</span><span class="p">:</span>    <span class="n">targetEnd</span><span class="p">,</span>
+            <span class="s1">&#39;targetName&#39;</span><span class="p">:</span>   <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s1">&#39;targetStrand&#39;</span><span class="p">:</span> <span class="n">region_to_gene_df</span><span class="p">[</span><span class="s1">&#39;Strand&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="c1"># sort dataframe</span>
+    <span class="n">df_interact</span> <span class="o">=</span> <span class="n">df_interact</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;chromStart&#39;</span><span class="p">])</span>
+    <span class="c1"># Write interact file</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing data to: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">outfile</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;track type=interact name=&quot;</span><span class="si">{}</span><span class="s1">&quot; description=&quot;</span><span class="si">{}</span><span class="s1">&quot; useScore=0 maxHeightPixels=200:100:50 visibility=full</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">ucsc_track_name</span><span class="p">,</span> <span class="n">ucsc_description</span><span class="p">))</span>
+        <span class="n">df_interact</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># write bigInteract file</span>
+    <span class="k">if</span> <span class="n">bigbed_outfile</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing data to: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bigbed_outfile</span><span class="p">))</span>
+        <span class="n">outfolder</span> <span class="o">=</span> <span class="n">bigbed_outfile</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># write bed file without header to tmp file</span>
+        <span class="n">df_interact</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">outfolder</span><span class="p">,</span> <span class="s1">&#39;interact.bed.tmp&#39;</span><span class="p">),</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># check if auto sql definition for interaction file exists in outfolder, otherwise create it</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outfolder</span><span class="p">,</span> <span class="s1">&#39;interact.as&#39;</span><span class="p">)):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outfolder</span><span class="p">,</span> <span class="s1">&#39;interact.as&#39;</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">INTERACT_AS</span><span class="p">)</span>
+        <span class="c1"># convert interact.bed.tmp to bigBed format</span>
+        <span class="c1"># bedToBigBed -as=interact.as -type=bed5+13 region_to_gene_no_head.interact https://genome.ucsc.edu/goldenPath/help/hg38.chrom.sizes region_to_gene.inter.bb</span>
+        <span class="n">cmds</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path_bedToBigBed</span><span class="p">,</span> <span class="s1">&#39;bedToBigBed&#39;</span><span class="p">),</span>
+            <span class="s1">&#39;-as=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outfolder</span><span class="p">,</span> <span class="s1">&#39;interact.as&#39;</span><span class="p">))),</span>
+            <span class="s1">&#39;-type=bed5+13&#39;</span><span class="p">,</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outfolder</span><span class="p">,</span> <span class="s1">&#39;interact.bed.tmp&#39;</span><span class="p">),</span>
+            <span class="s1">&#39;https://genome.ucsc.edu/goldenPath/help/&#39;</span> <span class="o">+</span> <span class="n">assembly</span> <span class="o">+</span> <span class="s1">&#39;.chrom.sizes&#39;</span><span class="p">,</span>
+            <span class="n">bigbed_outfile</span>
+        <span class="p">]</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">cmds</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+                             <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+        <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">returncode</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;cmds: </span><span class="si">%s</span><span class="se">\n</span><span class="s2">stderr:</span><span class="si">%s</span><span class="se">\n</span><span class="s2">stdout:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmds</span><span class="p">),</span> <span class="n">stderr</span><span class="p">,</span> <span class="n">stdout</span><span class="p">)</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">df_interact</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

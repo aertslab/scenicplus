@@ -1,3 +1,7 @@
+"""Filter outlier genes and regions.
+
+"""
+
 from ..scenicplus_class import SCENICPLUS
 import numpy as np
 import logging

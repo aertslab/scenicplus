@@ -1,3 +1,7 @@
+"""Plot correlation and overlap of eRegulons
+
+"""
+
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import squareform
 import seaborn as sns
@@ -120,7 +124,7 @@ def correlation_heatmap(scplus_obj: SCENICPLUS,
         plt.close(fig)
 
 
-def jaccard(signature1, signature2):
+def _jaccard(signature1, signature2):
     s_signature1 = set(signature1)
     s_signature2 = set(signature2)
     intersect = len(s_signature1 & s_signature2)
@@ -185,9 +189,9 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
     for signature_1, signature_2 in sign_combinations:
         idx_1 = signatures_names.index(signature_1)
         idx_2 = signatures_names.index(signature_2)
-        jaccards[idx_1, idx_2] = jaccard(
+        jaccards[idx_1, idx_2] = _jaccard(
             signatures[signature_1], signatures[signature_2])
-        jaccards[idx_2, idx_1] = jaccard(
+        jaccards[idx_2, idx_1] = _jaccard(
             signatures[signature_1], signatures[signature_2])
     np.fill_diagonal(jaccards, 1)
     similarity = 1 - jaccards

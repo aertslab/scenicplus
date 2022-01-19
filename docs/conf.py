@@ -12,10 +12,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(1, '/staging/leuven/stg_00002/lcb/sdewin/Programs/anaconda3/envs/SCENIC+/lib/python3.7/site-packages')
 
 # -- Project information -----------------------------------------------------
 
@@ -44,7 +44,10 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'nbsphinx',
-    'nbsphinx_link'
+    'nbsphinx_link',
+    'numpydoc',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.coverage'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -180,8 +183,3 @@ epub_title = project
 epub_exclude_files = ['search.html']
 
 
-# -- Extension configuration -------------------------------------------------
-# add sourcecode to path
-import sys, os
-sys.path.insert(0, os.path.abspath('../src'))
-sys.path.insert(1, '/staging/leuven/stg_00002/lcb/sdewin/Programs/anaconda3/envs/SCENIC+/lib/python3.7/site-packages')

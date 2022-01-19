@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.wrappers.run_pycistarget &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.wrappers.run_pycistarget</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.wrappers.run_pycistarget</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Wrapper functions to run motif enrichment analysis using pycistarget</span>
+
+<span class="sd">After sets of regions have been defined (e.g. topics or DARs). The complete pycistarget workflo can be run using a single function.</span>
+
+<span class="sd">this function will run cistarget based and DEM based motif enrichment analysis with or without promoter regions.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">dill</span>
+<span class="kn">from</span> <span class="nn">pycistarget.motif_enrichment_cistarget</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pycistarget.motif_enrichment_dem</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pycistarget.utils</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">pybiomart</span> <span class="k">as</span> <span class="nn">pbm</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<div class="viewcode-block" id="run_pycistarget"><a class="viewcode-back" href="../../../api.html#scenicplus.wrappers.run_pycistarget.run_pycistarget">[docs]</a><span class="k">def</span> <span class="nf">run_pycistarget</span><span class="p">(</span><span class="n">region_sets</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">],</span>
+                 <span class="n">species</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">save_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">ctx_db_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">dem_db_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">run_without_promoters</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">biomart_host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;http://www.ensembl.org&#39;</span><span class="p">,</span>
+                 <span class="n">promoter_space</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+                 <span class="n">ctx_auc_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.005</span><span class="p">,</span>
+                 <span class="n">ctx_nes_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+                 <span class="n">ctx_rank_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+                 <span class="n">dem_log2fc_thr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">dem_motif_hit_thr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+                 <span class="n">dem_max_bg_regions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+                 <span class="n">annotation</span> <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Direct_annot&#39;</span><span class="p">,</span> <span class="s1">&#39;Orthology_annot&#39;</span><span class="p">],</span>
+                 <span class="n">path_to_motif_annotations</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">annotation_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;v9&#39;</span><span class="p">,</span>
+                 <span class="n">n_cpu</span> <span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                 <span class="n">_temp_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">exclude_motifs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">exclude_collection</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper function for pycistarget</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    region_sets: Mapping[str, pr.PyRanges]</span>
+<span class="sd">         A dictionary of PyRanges containing region coordinates for the region sets to be analyzed.</span>
+<span class="sd">    species: str</span>
+<span class="sd">        Species from which genomic coordinates come from, options are: homo_sapiens, mus_musculus and drosophila_melanogaster.</span>
+<span class="sd">    save_path: str</span>
+<span class="sd">        Directory in which to save outputs.</span>
+<span class="sd">    ctx_db_path: str = None</span>
+<span class="sd">        Path to cistarget database containing rankings of motif scores</span>
+<span class="sd">    dem_db_path: str = None</span>
+<span class="sd">        Path to dem database containing motif scores</span>
+<span class="sd">    run_without_promoters: bool = False</span>
+<span class="sd">        Boolean specifying wether the analysis should also be run without including promoter regions.</span>
+<span class="sd">    biomart_host: str = &#39;http://www.ensembl.org&#39;</span>
+<span class="sd">        url to biomart host, make sure this host matches your assembly</span>
+<span class="sd">    promoter_space: int = 500</span>
+<span class="sd">        integer defining space around the TSS to consider as promoter</span>
+<span class="sd">    ctx_auc_threshold: float = 0.005</span>
+<span class="sd">          The fraction of the ranked genome to take into account for the calculation of the Area Under the recovery Curve</span>
+<span class="sd">    ctx_nes_threshold: float = 3.0</span>
+<span class="sd">        The Normalized Enrichment Score (NES) threshold to select enriched features.</span>
+<span class="sd">    ctx_rank_threshold: float = 0.05</span>
+<span class="sd">        The total number of ranked genes to take into account when creating a recovery curve.</span>
+<span class="sd">    dem_log2fc_thr: float = 0.5</span>
+<span class="sd">        Log2 Fold-change threshold to consider a motif enriched.</span>
+<span class="sd">    dem_motif_hit_thr: float = 3.0</span>
+<span class="sd">        Minimul mean signal in the foreground to consider a motif enriched.</span>
+<span class="sd">    dem_max_bg_regions: int = 500</span>
+<span class="sd">        Maximum number of regions to use as background. When set to None, all regions are used</span>
+<span class="sd">    annotation : List[str] = [&#39;Direct_annot&#39;, &#39;Orthology_annot&#39;]</span>
+<span class="sd">        Annotation to use for forming cistromes. It can be &#39;Direct_annot&#39; (direct evidence that the motif is </span>
+<span class="sd">        linked to that TF), &#39;Motif_similarity_annot&#39; (based on tomtom motif similarity), &#39;Orthology_annot&#39;</span>
+<span class="sd">        (based on orthology with a TF that is directly linked to that motif) or &#39;Motif_similarity_and_Orthology_annot&#39;.</span>
+<span class="sd">    path_to_motif_annotations: str = None</span>
+<span class="sd">        Path to motif annotations. If not provided, they will be downloaded from </span>
+<span class="sd">        https://resources.aertslab.org based on the specie name provided (only possible for mus_musculus,</span>
+<span class="sd">        homo_sapiens and drosophila_melanogaster).</span>
+<span class="sd">    annotation_version: str = &#39;v9&#39;</span>
+<span class="sd">         Motif collection version.</span>
+<span class="sd">    n_cpu : int = 1</span>
+<span class="sd">        Number of cores to use.</span>
+<span class="sd">    _temp_dir: str = None</span>
+<span class="sd">        temp_dir to use for ray.</span>
+<span class="sd">    exclude_motifs: str = None</span>
+<span class="sd">        Path to csv file containing motif to exclude from the analysis.</span>
+<span class="sd">    exclude_collection: List[str] = None</span>
+<span class="sd">        List of strings identifying which motif collections to exclude from analysis.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="n">log_format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">log_format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;pycisTarget_wrapper&#39;</span><span class="p">)</span>
+    
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    
+    <span class="n">check_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">check_folder</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created folder : &quot;</span><span class="p">,</span> <span class="n">save_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">save_path</span> <span class="o">+</span> <span class="s2">&quot; folder already exists.&quot;</span><span class="p">)</span>
+        
+    <span class="c1"># Prepare annotation</span>
+    <span class="k">if</span> <span class="n">species</span> <span class="o">==</span> <span class="s1">&#39;homo_sapiens&#39;</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;hsapiens_gene_ensembl&#39;</span>
+    <span class="k">elif</span> <span class="n">species</span> <span class="o">==</span> <span class="s1">&#39;mus_musculus&#39;</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;mmusculus_gene_ensembl&#39;</span>
+    <span class="k">elif</span> <span class="n">species</span> <span class="o">==</span> <span class="s1">&#39;drosophila_melanogaster&#39;</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;dmelanogaster_gene_ensembl&#39;</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">pbm</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>  <span class="n">host</span><span class="o">=</span><span class="n">biomart_host</span><span class="p">)</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">attributes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chromosome_name&#39;</span><span class="p">,</span> <span class="s1">&#39;transcription_start_site&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;external_gene_name&#39;</span><span class="p">,</span> <span class="s1">&#39;transcript_biotype&#39;</span><span class="p">])</span>
+    <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+    <span class="n">filterf</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s1">&#39;CHR|GL|JH|MT&#39;</span><span class="p">)</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="o">~</span><span class="n">filterf</span><span class="p">]</span>
+    <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Chromosome/scaffold name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;(\b\S)&#39;</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;chr\1&#39;</span><span class="p">)</span>
+    <span class="n">annot</span><span class="o">.</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;Strand&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">,</span> <span class="s1">&#39;Transcript_type&#39;</span><span class="p">]</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="n">annot</span><span class="o">.</span><span class="n">Transcript_type</span> <span class="o">==</span> <span class="s1">&#39;protein_coding&#39;</span><span class="p">]</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">annot</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">])</span>
+    <span class="n">annot_dem</span><span class="o">=</span><span class="n">annot</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Define promoter space</span>
+    <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">+</span><span class="n">promoter_space</span>
+    <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annot</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">-</span><span class="n">promoter_space</span>
+    <span class="n">annot</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">annot</span><span class="p">[[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">]])</span>
+        
+
+    <span class="n">menr</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">region_sets</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">ctx_db_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Loading cisTarget database for &#39;</span> <span class="o">+</span> <span class="n">key</span><span class="p">)</span>
+            <span class="c1">## CISTARGET</span>
+            <span class="n">regions</span> <span class="o">=</span> <span class="n">region_sets</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="n">ctx_db</span> <span class="o">=</span> <span class="n">cisTargetDatabase</span><span class="p">(</span><span class="n">ctx_db_path</span><span class="p">,</span> <span class="n">regions</span><span class="p">)</span>  
+            <span class="k">if</span> <span class="n">exclude_motifs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">exclude_motifs</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="n">ctx_db</span><span class="o">.</span><span class="n">db_rankings</span> <span class="o">=</span> <span class="n">ctx_db</span><span class="o">.</span><span class="n">db_rankings</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">exclude_collection</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">exclude_collection</span><span class="p">:</span>
+                    <span class="n">ctx_db</span><span class="o">.</span><span class="n">db_rankings</span> <span class="o">=</span> <span class="n">ctx_db</span><span class="o">.</span><span class="n">db_rankings</span><span class="p">[</span><span class="o">~</span><span class="n">ctx_db</span><span class="o">.</span><span class="n">db_rankings</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">col</span><span class="p">)]</span>
+            <span class="c1">## DEFAULT</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Running cisTarget for &#39;</span><span class="o">+</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_cistarget</span><span class="p">(</span><span class="n">ctx_db</span> <span class="o">=</span> <span class="n">ctx_db</span><span class="p">,</span>
+                                   <span class="n">region_sets</span> <span class="o">=</span> <span class="n">regions</span><span class="p">,</span>
+                                   <span class="n">specie</span> <span class="o">=</span> <span class="n">species</span><span class="p">,</span>
+                                   <span class="n">auc_threshold</span> <span class="o">=</span> <span class="n">ctx_auc_threshold</span><span class="p">,</span>
+                                   <span class="n">nes_threshold</span> <span class="o">=</span> <span class="n">ctx_nes_threshold</span><span class="p">,</span>
+                                   <span class="n">rank_threshold</span> <span class="o">=</span> <span class="n">ctx_rank_threshold</span><span class="p">,</span>
+                                   <span class="n">annotation</span> <span class="o">=</span> <span class="n">annotation</span><span class="p">,</span>
+                                   <span class="n">path_to_motif_annotations</span> <span class="o">=</span> <span class="n">path_to_motif_annotations</span><span class="p">,</span>
+                                   <span class="n">n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span>
+                                   <span class="n">_temp_dir</span><span class="o">=</span> <span class="n">_temp_dir</span><span class="p">,</span>
+                                   <span class="n">annotation_version</span> <span class="o">=</span> <span class="n">annotation_version</span><span class="p">)</span>
+            <span class="n">out_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">)</span>
+            <span class="n">check_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">check_folder</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created folder : &quot;</span> <span class="o">+</span> <span class="n">out_folder</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">out_folder</span> <span class="o">+</span> <span class="s2">&quot; folder already exists.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">out_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_folder</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span><span class="s1">&#39;.html&#39;</span><span class="p">)</span>
+                <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">][</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">),</span> <span class="n">escape</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">col_space</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">run_without_promoters</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="c1">## REMOVE PROMOTERS</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Running cisTarget without promoters for &#39;</span><span class="o">+</span><span class="n">key</span><span class="p">)</span>
+                <span class="n">regions_overlaps</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">regions</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">count_overlaps</span><span class="p">(</span><span class="n">annot</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">regions</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="n">regions_np</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">regions_overlaps</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">regions_overlaps</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">NumberOverlaps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">][[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">]]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">regions</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="n">db_regions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">ctx_db</span><span class="o">.</span><span class="n">regions_to_db</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ctx_db</span><span class="o">.</span><span class="n">regions_to_db</span><span class="o">.</span><span class="n">keys</span><span class="p">()])[</span><span class="s1">&#39;Target&#39;</span><span class="p">])</span>
+                <span class="n">ctx_db</span><span class="o">.</span><span class="n">regions_to_db</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="n">target_to_query</span><span class="p">(</span><span class="n">regions_np</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="nb">list</span><span class="p">(</span><span class="n">db_regions</span><span class="p">),</span> <span class="n">fraction_overlap</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">regions_np</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_cistarget</span><span class="p">(</span><span class="n">ctx_db</span> <span class="o">=</span> <span class="n">ctx_db</span><span class="p">,</span>
+                                   <span class="n">region_sets</span> <span class="o">=</span> <span class="n">regions_np</span><span class="p">,</span>
+                                   <span class="n">specie</span> <span class="o">=</span> <span class="n">species</span><span class="p">,</span>
+                                   <span class="n">auc_threshold</span> <span class="o">=</span> <span class="n">ctx_auc_threshold</span><span class="p">,</span>
+                                   <span class="n">nes_threshold</span> <span class="o">=</span> <span class="n">ctx_nes_threshold</span><span class="p">,</span>
+                                   <span class="n">rank_threshold</span> <span class="o">=</span> <span class="n">ctx_rank_threshold</span><span class="p">,</span>
+                                   <span class="n">annotation</span> <span class="o">=</span> <span class="n">annotation</span><span class="p">,</span>
+                                   <span class="n">path_to_motif_annotations</span> <span class="o">=</span> <span class="n">path_to_motif_annotations</span><span class="p">,</span>
+                                   <span class="n">n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span>
+                                   <span class="n">_temp_dir</span><span class="o">=</span> <span class="n">_temp_dir</span><span class="p">,</span>
+                                   <span class="n">annotation_version</span> <span class="o">=</span> <span class="n">annotation_version</span><span class="p">)</span>
+                <span class="n">out_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">)</span>
+                <span class="n">check_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">check_folder</span><span class="p">:</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created folder:&quot;</span> <span class="o">+</span> <span class="n">out_folder</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">out_folder</span> <span class="o">+</span> <span class="s2">&quot; folder already exists.&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">out_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_folder</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span><span class="s1">&#39;.html&#39;</span><span class="p">)</span>
+                    <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;CTX_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">][</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">),</span> <span class="n">escape</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">col_space</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+        <span class="c1">## DEM</span>
+        <span class="k">if</span> <span class="n">dem_db_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Running DEM for &#39;</span><span class="o">+</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">regions</span> <span class="o">=</span> <span class="n">region_sets</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="n">dem_db</span> <span class="o">=</span> <span class="n">DEMDatabase</span><span class="p">(</span><span class="n">dem_db_path</span><span class="p">,</span> <span class="n">regions</span><span class="p">)</span>  
+            <span class="k">if</span> <span class="n">exclude_motifs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">exclude_motifs</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="n">dem_db</span><span class="o">.</span><span class="n">db_scores</span> <span class="o">=</span> <span class="n">dem_db</span><span class="o">.</span><span class="n">db_scores</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">exclude_collection</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">exclude_collection</span><span class="p">:</span>
+                    <span class="n">dem_db</span><span class="o">.</span><span class="n">db_scores</span> <span class="o">=</span> <span class="n">dem_db</span><span class="o">.</span><span class="n">db_scores</span><span class="p">[</span><span class="o">~</span><span class="n">dem_db</span><span class="o">.</span><span class="n">db_scores</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">col</span><span class="p">)]</span>
+            <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEM</span><span class="p">(</span><span class="n">dem_db</span> <span class="o">=</span> <span class="n">dem_db</span><span class="p">,</span>
+                               <span class="n">region_sets</span> <span class="o">=</span> <span class="n">regions</span><span class="p">,</span>
+                               <span class="n">log2fc_thr</span> <span class="o">=</span> <span class="n">dem_log2fc_thr</span><span class="p">,</span>
+                               <span class="n">motif_hit_thr</span> <span class="o">=</span> <span class="n">dem_motif_hit_thr</span><span class="p">,</span>
+                               <span class="n">max_bg_regions</span> <span class="o">=</span> <span class="n">dem_max_bg_regions</span><span class="p">,</span>
+                               <span class="n">specie</span> <span class="o">=</span> <span class="n">species</span><span class="p">,</span>
+                               <span class="n">genome_annotation</span> <span class="o">=</span> <span class="n">annot_dem</span><span class="p">,</span>
+                               <span class="n">promoter_space</span> <span class="o">=</span> <span class="n">promoter_space</span><span class="p">,</span>
+                               <span class="n">motif_annotation</span> <span class="o">=</span>   <span class="n">annotation</span><span class="p">,</span>
+                               <span class="n">path_to_motif_annotations</span> <span class="o">=</span> <span class="n">path_to_motif_annotations</span><span class="p">,</span>
+                               <span class="n">n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span>
+                               <span class="n">tmp_dir</span><span class="o">=</span> <span class="n">_temp_dir</span><span class="p">,</span>
+                               <span class="n">annotation_version</span> <span class="o">=</span> <span class="n">annotation_version</span><span class="p">)</span>
+            <span class="n">out_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">)</span>
+            <span class="n">check_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">check_folder</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created folder : &quot;</span><span class="o">+</span> <span class="n">out_folder</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">out_folder</span> <span class="o">+</span> <span class="s2">&quot; folder already exists.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">out_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_folder</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span><span class="s1">&#39;.html&#39;</span><span class="p">)</span>
+                <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_All&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)]</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">),</span> <span class="n">escape</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">col_space</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">run_without_promoters</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Running DEM without promoters for &#39;</span><span class="o">+</span><span class="n">key</span><span class="p">)</span>
+                <span class="c1">## REMOVE PROMOTERS</span>
+                <span class="n">regions_overlaps</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">regions</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">count_overlaps</span><span class="p">(</span><span class="n">annot</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">regions</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="n">regions_np</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">regions_overlaps</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">regions_overlaps</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">NumberOverlaps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">][[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">,</span> <span class="s1">&#39;Start&#39;</span><span class="p">,</span> <span class="s1">&#39;End&#39;</span><span class="p">]]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">regions</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="n">db_regions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">dem_db</span><span class="o">.</span><span class="n">regions_to_db</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dem_db</span><span class="o">.</span><span class="n">regions_to_db</span><span class="o">.</span><span class="n">keys</span><span class="p">()])[</span><span class="s1">&#39;Target&#39;</span><span class="p">])</span>
+                <span class="n">dem_db</span><span class="o">.</span><span class="n">regions_to_db</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="n">target_to_query</span><span class="p">(</span><span class="n">regions_np</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="nb">list</span><span class="p">(</span><span class="n">db_regions</span><span class="p">),</span> <span class="n">fraction_overlap</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">regions_np</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEM</span><span class="p">(</span><span class="n">dem_db</span> <span class="o">=</span> <span class="n">dem_db</span><span class="p">,</span>
+                               <span class="n">region_sets</span> <span class="o">=</span> <span class="n">regions_np</span><span class="p">,</span>
+                               <span class="n">log2fc_thr</span> <span class="o">=</span> <span class="n">dem_log2fc_thr</span><span class="p">,</span>
+                               <span class="n">motif_hit_thr</span> <span class="o">=</span> <span class="n">dem_motif_hit_thr</span><span class="p">,</span>
+                               <span class="n">max_bg_regions</span> <span class="o">=</span> <span class="n">dem_max_bg_regions</span><span class="p">,</span>
+                               <span class="n">specie</span> <span class="o">=</span> <span class="n">species</span><span class="p">,</span>
+                               <span class="n">promoter_space</span> <span class="o">=</span> <span class="n">promoter_space</span><span class="p">,</span>
+                               <span class="n">motif_annotation</span> <span class="o">=</span> <span class="n">annotation</span><span class="p">,</span>
+                               <span class="n">path_to_motif_annotations</span> <span class="o">=</span> <span class="n">path_to_motif_annotations</span><span class="p">,</span>
+                               <span class="n">n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span>
+                               <span class="n">tmp_dir</span><span class="o">=</span> <span class="n">_temp_dir</span><span class="p">,</span>
+                               <span class="n">annotation_version</span> <span class="o">=</span> <span class="n">annotation_version</span><span class="p">)</span>
+                <span class="n">out_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">)</span>
+                <span class="n">check_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">check_folder</span><span class="p">:</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created folder : &quot;</span><span class="o">+</span> <span class="n">out_folder</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">out_folder</span> <span class="o">+</span> <span class="s2">&quot; folder already exists.&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">out_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_folder</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span><span class="s1">&#39;.html&#39;</span><span class="p">)</span>
+                    <span class="n">menr</span><span class="p">[</span><span class="s1">&#39;DEM_&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;_No_promoters&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)]</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">),</span> <span class="n">escape</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">col_space</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+                    
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Saving object&#39;</span><span class="p">)</span>         
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;menr.pkl&#39;</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">menr</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished! Took </span><span class="si">{}</span><span class="s1"> minutes&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span><span class="o">/</span><span class="mi">60</span><span class="p">))</span>  </div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

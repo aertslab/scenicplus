@@ -1,3 +1,7 @@
+"""Write SCENIC+ object to hdf5 file.
+
+"""
+
 import h5py
 import pandas as pd
 import pyranges as pr
@@ -131,6 +135,21 @@ def write_hdf5(
     f_name: str,
     force_sparse: bool = True,
     verbose = False):
+    """
+    Write SCENIC+ object to hdf5
+
+    Parameters
+    ----------
+    scplus_obj: SCENICPLUS
+        An instance of scenicplus_class.SCENICPLUS
+    fname: str
+        Path to out file.
+    force_sparse: bool = True
+        Wether or not to force sparsity of expression and chromatin accessibility matrix.
+    verbose = False
+        Wether or not to print debug messages.
+    """
+
 
     #TODO: add version!!
 
@@ -324,6 +343,12 @@ def _read_eRegulon(hdf5_grp: h5py.Group) -> eRegulon:
     
 
 def read_h5ad(f_name: str) -> SCENICPLUS:
+    """
+    Read SCENIC+ object from hdf5 file.
+
+    fname:str
+        Path to hdf5 file.
+    """
     hdf5_file = h5py.File(f_name, 'r')
     try:
         X_ACC = read_attribute(hdf5_file['X_ACC'])

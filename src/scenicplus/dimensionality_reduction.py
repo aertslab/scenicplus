@@ -1,3 +1,7 @@
+"""Dimmensionality reduction and clustering based on target genes and target regions AUC.
+
+"""
+
 import pandas as pd
 import umap
 import sklearn

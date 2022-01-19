@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.loom &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.loom</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.loom</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;export SCENIC+ object to target genes and target regions loom file.</span>
+
+<span class="sd">These files can be visualized in the SCope single cell viewer.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sparse</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">loomxpy.loomxpy</span> <span class="kn">import</span> <span class="n">SCopeLoom</span>
+<span class="kn">from</span> <span class="nn">loomxpy.utils</span> <span class="kn">import</span> <span class="n">compress_encode</span>
+<span class="kn">from</span> <span class="nn">pyscenic.genesig</span> <span class="kn">import</span> <span class="n">Regulon</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">cpu_count</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">sklearn.feature_extraction.text</span> <span class="kn">import</span> <span class="n">CountVectorizer</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">repeat</span><span class="p">,</span> <span class="n">chain</span><span class="p">,</span> <span class="n">islice</span>
+<span class="kn">import</span> <span class="nn">loompy</span> <span class="k">as</span> <span class="nn">lp</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+
+<div class="viewcode-block" id="export_to_loom"><a class="viewcode-back" href="../../api.html#scenicplus.loom.export_to_loom">[docs]</a><span class="k">def</span> <span class="nf">export_to_loom</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                   <span class="n">signature_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                   <span class="n">out_fname</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                   <span class="n">eRegulon_metadata_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_metadata&#39;</span><span class="p">,</span>
+                   <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                   <span class="n">auc_thr_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC_thresholds&#39;</span><span class="p">,</span>
+                   <span class="n">keep_direct_and_extended_if_not_direct</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                   <span class="n">selected_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">cluster_annotation</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">tree_structure</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+                   <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">nomenclature</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create SCope [Davie et al, 2018] compatible loom files </span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: class::SCENICPLUS</span>
+<span class="sd">        A SCENIC+ object with eRegulons, AUCs, and AUC thresholds computed</span>
+<span class="sd">    signature_key: str</span>
+<span class="sd">        Whether a &#39;Gene_based&#39; or a &#39;Region_based&#39; file should be produced. Possible values: &#39;Gene_based&#39; or &#39;Region_based&#39;</span>
+<span class="sd">    out_fname: str</span>
+<span class="sd">        Path to output file.</span>
+<span class="sd">    eRegulon_metadata_key: str, optional</span>
+<span class="sd">        Slot where the eRegulon metadata is stored.</span>
+<span class="sd">    auc_key: str, optional</span>
+<span class="sd">        Slot where the eRegulon AUC are stored</span>
+<span class="sd">    auc_thr_key: str, optional</span>
+<span class="sd">        Slot where AUC thresholds are stored</span>
+<span class="sd">    keep_direct_and_extended_if_not_direct: bool, optional</span>
+<span class="sd">        Keep only direct eregulons and add extended ones only if there is not a direct one.</span>
+<span class="sd">    selected_features: List, optional</span>
+<span class="sd">        A list with selected genes/region to use.</span>
+<span class="sd">    selected_cells: List, optional</span>
+<span class="sd">        A list with selected cells to use.</span>
+<span class="sd">    cluster_annotations: List, optional</span>
+<span class="sd">        A list with variables to use as cluster annotations. By default, those included in the DEGs/DARs dictionary will be used (plus those specificed here)</span>
+<span class="sd">    tree_structure: sequence, optional</span>
+<span class="sd">        A sequence of strings that defines the category tree structure. Needs to be a sequence of strings with three elements. Default: ()</span>
+<span class="sd">    title: str, optional</span>
+<span class="sd">        The title for this loom file. If None than the basename of the filename is used as the title. Default: None</span>
+<span class="sd">    nomenclature: str, optional</span>
+<span class="sd">        The name of the genome. Default: &#39;Unknown&#39;</span>
+
+<span class="sd">    References</span>
+<span class="sd">    -----------</span>
+<span class="sd">    Davie, K., Janssens, J., Koldere, D., De Waegeneer, M., Pech, U., Kreft, Ł., ... &amp; Aerts, S. (2018). A single-cell transcriptome atlas of the</span>
+<span class="sd">    aging Drosophila brain. Cell, 174(4), 982-998.</span>
+<span class="sd">    Van de Sande, B., Flerin, C., Davie, K., De Waegeneer, M., Hulselmans, G., Aibar, S., ... &amp; Aerts, S. (2020). A scalable SCENIC</span>
+<span class="sd">    workflow for single-cell gene regulatory network analysis. Nature Protocols, 15(7), 2247-2276.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="n">log_format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">log_format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;SCENIC+&#39;</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Formatting data&#39;</span><span class="p">)</span>
+    <span class="c1"># Check-up</span>
+    <span class="k">if</span> <span class="n">auc_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Compute &#39;</span> <span class="o">+</span> <span class="n">auc_key</span> <span class="o">+</span> <span class="s1">&#39;first!&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">auc_thr_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Compute &#39;</span> <span class="o">+</span> <span class="n">auc_thr_key</span> <span class="o">+</span> <span class="s1">&#39;first!&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">eRegulon_metadata_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Compute &#39;</span> <span class="o">+</span> <span class="n">eRegulon_metadata_key</span> <span class="o">+</span> <span class="s1">&#39;first!&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Set keys and subset if needed</span>
+    <span class="k">if</span> <span class="n">signature_key</span> <span class="o">==</span> <span class="s1">&#39;Gene_based&#39;</span><span class="p">:</span>
+        <span class="n">markers_key</span> <span class="o">=</span> <span class="s1">&#39;DEGs&#39;</span>
+        <span class="k">if</span> <span class="n">selected_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scplus_obj</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span>
+                <span class="n">scplus_obj</span><span class="p">,</span> <span class="n">cells</span><span class="o">=</span><span class="n">selected_cells</span><span class="p">,</span> <span class="n">genes</span><span class="o">=</span><span class="n">selected_features</span><span class="p">,</span> <span class="n">return_copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ex_mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">feature_names</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span>
+        <span class="n">cell_names</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">markers_key</span> <span class="o">=</span> <span class="s1">&#39;DARs&#39;</span>
+        <span class="k">if</span> <span class="n">selected_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scplus_obj</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span>
+                <span class="n">scplus_obj</span><span class="p">,</span> <span class="n">cells</span><span class="o">=</span><span class="n">selected_cells</span><span class="p">,</span> <span class="n">regions</span><span class="o">=</span><span class="n">selected_features</span><span class="p">,</span> <span class="n">return_copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ex_mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span>
+        <span class="n">feature_names</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">region_names</span>
+        <span class="n">cell_names</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span>
+
+    <span class="k">if</span> <span class="n">markers_key</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">cluster_markers</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">markers_key</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">cluster_annotation</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cluster_annotation</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cluster_markers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cluster_annotation</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="nb">set</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="n">cluster_annotation</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">cluster_markers</span><span class="o">.</span><span class="n">keys</span><span class="p">())],</span> <span class="p">[])))</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cluster_markers</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Extract cell data</span>
+    <span class="n">cell_data</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span>
+
+    <span class="c1"># Check ups</span>
+    <span class="k">if</span> <span class="n">cluster_annotation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">cluster_annotation</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">annotation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cell_data</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s1">&#39;The cluster annotation&#39;</span><span class="p">,</span>
+                    <span class="n">annotation</span><span class="p">,</span>
+                    <span class="s1">&#39; is not included in scplus_obj.metadata_cell&#39;</span><span class="p">)</span>
+
+    <span class="c1"># eGRN AUC values</span>
+    <span class="n">auc_mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cell_names</span><span class="p">]</span>
+    <span class="n">auc_mtx</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;_\(.*\)&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+                       <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">auc_mtx</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">auc_thresholds</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_thr_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span>
+    <span class="n">auc_thresholds</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;_\(.*\)&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+                            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">auc_thresholds</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">auc_mtx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">900</span> <span class="ow">and</span> <span class="n">keep_direct_and_extended_if_not_direct</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;The number of regulons is more than &gt; 900. keep_direct_and_extended_if_not_direct is set to True&#39;</span><span class="p">)</span>
+        <span class="n">keep_direct_and_extended_if_not_direct</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">keep_direct_and_extended_if_not_direct</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">direct_eRegulons</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">auc_mtx</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;extended&#39;</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]</span>
+        <span class="n">extended_eRegulons</span> <span class="o">=</span>  <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">auc_mtx</span><span class="o">.</span><span class="n">columns</span>  <span class="k">if</span> <span class="s1">&#39;extended&#39;</span> <span class="ow">in</span> <span class="n">x</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">x</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_extended&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">direct_eRegulons</span><span class="p">]</span>
+        <span class="n">selected_eRegulons</span> <span class="o">=</span> <span class="n">direct_eRegulons</span> <span class="o">+</span> <span class="n">extended_eRegulons</span>
+        <span class="n">auc_mtx</span> <span class="o">=</span> <span class="n">auc_mtx</span><span class="p">[</span><span class="n">selected_eRegulons</span><span class="p">]</span>
+        <span class="n">auc_thresholds</span> <span class="o">=</span> <span class="n">auc_thresholds</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_eRegulons</span><span class="p">]</span>
+
+    <span class="c1"># Add TF expression in Region_based</span>
+    <span class="k">if</span> <span class="n">signature_key</span> <span class="o">==</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">:</span>
+        <span class="n">tf_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">auc_mtx</span><span class="o">.</span><span class="n">columns</span><span class="p">]))</span>
+        <span class="n">tf_mat</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="s1">&#39;EXP&#39;</span><span class="p">)[</span><span class="n">tf_names</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">ex_mtx</span> <span class="o">=</span> <span class="n">sparse</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">ex_mtx</span><span class="p">,</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span><span class="n">tf_mat</span><span class="o">.</span><span class="n">values</span><span class="p">)],</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span>
+        <span class="n">feature_names</span> <span class="o">=</span> <span class="n">feature_names</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">+</span> <span class="n">tf_names</span>
+
+    <span class="c1"># Format regulons</span>
+    <span class="k">if</span> <span class="n">signature_key</span> <span class="o">==</span> <span class="s1">&#39;Gene_based&#39;</span><span class="p">:</span>
+        <span class="n">regulons</span> <span class="o">=</span> <span class="p">{</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;_\(.*\)&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">][</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Gene_signature_name</span> <span class="o">==</span> <span class="n">x</span><span class="p">][</span><span class="s1">&#39;Gene&#39;</span><span class="p">])))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Gene_signature_name</span><span class="p">))}</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">CountVectorizer</span><span class="p">(</span><span class="n">lowercase</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">regulons</span> <span class="o">=</span> <span class="p">{</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;_\(.*\)&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">][</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Region_signature_name</span> <span class="o">==</span> <span class="n">x</span><span class="p">][</span><span class="s1">&#39;Region&#39;</span><span class="p">])))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Region_signature_name</span><span class="p">))}</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">CountVectorizer</span><span class="p">(</span>
+            <span class="n">lowercase</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">token_pattern</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;(?u)\b\w\w+\b:\b\w\w+\b-\b\w\w+\b&#39;</span><span class="p">)</span>
+    <span class="n">regulon_mat</span> <span class="o">=</span> <span class="n">cv</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">regulons</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">regulon_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">regulon_mat</span><span class="o">.</span><span class="n">todense</span><span class="p">(</span>
+    <span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="n">cv</span><span class="o">.</span><span class="n">get_feature_names</span><span class="p">(),</span> <span class="n">index</span><span class="o">=</span><span class="n">regulons</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">regulon_mat</span> <span class="o">=</span> <span class="n">regulon_mat</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">if</span> <span class="n">keep_direct_and_extended_if_not_direct</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">regulon_mat</span> <span class="o">=</span> <span class="n">regulon_mat</span><span class="p">[</span><span class="n">selected_eRegulons</span><span class="p">]</span>
+
+    <span class="c1"># Cell annotations and metrics</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">annotations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">cell_data</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">):</span>
+            <span class="n">annotations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">metrics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float64&#39;</span><span class="p">))</span>
+                <span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float64&#39;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="mi">255</span><span class="p">:</span>
+                    <span class="n">annotations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;str&#39;</span><span class="p">))</span>
+                    <span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">metrics</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="n">annotations</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">annotations</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span>
+        <span class="n">annotations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">[]</span>
+
+    <span class="c1"># Embeddings. Cell embeddings in this case</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span>
+
+    <span class="c1"># Add linked_gene information</span>
+    <span class="k">if</span> <span class="n">signature_key</span> <span class="o">==</span> <span class="s1">&#39;Gene_based&#39;</span><span class="p">:</span>
+        <span class="n">linked_gene</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">][[</span>
+            <span class="s1">&#39;Region&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;Gene&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="s1">&#39;; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+        <span class="n">linked_gene</span> <span class="o">=</span> <span class="n">linked_gene</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">feature_names</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">linked_gene</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">][[</span><span class="s1">&#39;Region&#39;</span><span class="p">,</span> <span class="s1">&#39;Gene&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+            <span class="s1">&#39;Region&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="s1">&#39;; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+        <span class="n">linked_gene</span> <span class="o">=</span> <span class="n">linked_gene</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">feature_names</span><span class="p">]</span>
+    <span class="n">linked_gene</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;0&#39;</span><span class="p">]</span>
+    <span class="c1"># Create minimal loom</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Creating minimal loom&#39;</span><span class="p">)</span>
+    <span class="n">_export_minimal_loom</span><span class="p">(</span><span class="n">ex_mtx</span><span class="o">=</span><span class="n">ex_mtx</span><span class="p">,</span>
+                        <span class="n">cell_names</span><span class="o">=</span><span class="n">cell_names</span><span class="p">,</span>
+                        <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
+                        <span class="n">out_fname</span><span class="o">=</span><span class="n">out_fname</span><span class="p">,</span>
+                        <span class="n">regulons</span><span class="o">=</span><span class="n">regulon_mat</span><span class="p">,</span>
+                        <span class="n">cell_annotations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">tree_structure</span><span class="o">=</span><span class="n">tree_structure</span><span class="p">,</span>
+                        <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                        <span class="n">nomenclature</span><span class="o">=</span><span class="n">nomenclature</span><span class="p">,</span>
+                        <span class="n">embeddings</span><span class="o">=</span><span class="n">embeddings</span><span class="p">,</span>
+                        <span class="n">auc_mtx</span><span class="o">=</span><span class="n">auc_mtx</span><span class="p">,</span>
+                        <span class="n">auc_thresholds</span><span class="o">=</span><span class="n">auc_thresholds</span><span class="p">,</span>
+                        <span class="n">linked_gene</span><span class="o">=</span><span class="n">linked_gene</span><span class="p">)</span>
+
+    <span class="c1"># Add annotations</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Adding annotations&#39;</span><span class="p">)</span>
+    <span class="n">path_to_loom</span> <span class="o">=</span> <span class="n">out_fname</span>
+    <span class="n">loom</span> <span class="o">=</span> <span class="n">SCopeLoom</span><span class="o">.</span><span class="n">read_loom</span><span class="p">(</span><span class="n">path_to_loom</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">metrics</span><span class="p">):</span>
+        <span class="n">_add_metrics</span><span class="p">(</span><span class="n">loom</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">annotations</span><span class="p">):</span>
+        <span class="n">_add_annotation</span><span class="p">(</span><span class="n">loom</span><span class="p">,</span> <span class="n">annotations</span><span class="p">)</span>
+
+    <span class="c1"># Add clusterings</span>
+    <span class="k">if</span> <span class="n">cluster_annotation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Adding clusterings&#39;</span><span class="p">)</span>
+        <span class="n">_add_clusterings</span><span class="p">(</span><span class="n">loom</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">cell_data</span><span class="p">[</span><span class="n">cluster_annotation</span><span class="p">]))</span>
+    <span class="c1"># Add markers</span>
+    <span class="k">if</span> <span class="n">cluster_markers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Adding markers&#39;</span><span class="p">)</span>
+        <span class="n">annotation_in_markers</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cluster_annotation</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cluster_markers</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+        <span class="n">annotation_not_in_markers</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cluster_annotation</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cluster_markers</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">annotation_not_in_markers</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s1">&#39;is not in the cluster markers dictionary&#39;</span><span class="p">)</span>
+        <span class="n">cluster_markers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">cluster_markers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">annotation_in_markers</span>
+        <span class="p">}</span>
+        <span class="c1"># Keep genes in data</span>
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">cluster_markers</span><span class="p">:</span>
+            <span class="n">cluster_markers</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">x</span><span class="p">:</span> <span class="n">cluster_markers</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">][</span><span class="n">cluster_markers</span><span class="p">[</span><span class="n">y</span><span class="p">]</span>
+                                         <span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)]</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cluster_markers</span><span class="p">[</span><span class="n">y</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="n">_add_markers</span><span class="p">(</span><span class="n">loom</span><span class="p">,</span> <span class="n">cluster_markers</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Exporting&#39;</span><span class="p">)</span>
+    <span class="n">loom</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">out_fname</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_export_minimal_loom</span><span class="p">(</span>
+    <span class="n">ex_mtx</span><span class="p">:</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span>
+    <span class="n">cell_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">feature_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">out_fname</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">regulons</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cell_annotations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tree_structure</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+    <span class="n">title</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">nomenclature</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">,</span>
+    <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">cpu_count</span><span class="p">(),</span>
+    <span class="n">embeddings</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{},</span>
+    <span class="n">auc_mtx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">auc_thresholds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">compress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">linked_gene</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An internal function to create a minimal loom file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Information on the general loom file format: http://linnarssonlab.org/loompy/format/index.html</span>
+    <span class="c1"># Information on the SCope specific alterations: https://github.com/aertslab/SCope/wiki/Data-Format</span>
+
+    <span class="k">if</span> <span class="n">cell_annotations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cell_annotations</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">cell_names</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;-&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">ex_mtx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="c1"># Create an embedding based on tSNE.</span>
+    <span class="c1"># Name of columns should be &quot;_X&quot; and &quot;_Y&quot;.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;tSNE (default)&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">TSNE</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">auc_mtx</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;_X&#39;</span><span class="p">,</span> <span class="s1">&#39;_Y&#39;</span><span class="p">])</span>
+        <span class="p">}</span>  <span class="c1"># (n_cells, 2)</span>
+
+    <span class="n">id2name</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="n">embeddings_X</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">cell_names</span><span class="p">)</span>
+    <span class="n">embeddings_Y</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">cell_names</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">df_embedding</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">embeddings</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_embedding</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;The embedding should have two columns.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Default embedding must have id == -1 for SCope.</span>
+        <span class="n">embedding_id</span> <span class="o">=</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">id2name</span><span class="p">[</span><span class="n">embedding_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="n">embedding</span> <span class="o">=</span> <span class="n">df_embedding</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">embedding</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;_X&#39;</span><span class="p">,</span> <span class="s1">&#39;_Y&#39;</span><span class="p">]</span>
+        <span class="n">embeddings_X</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+            <span class="n">embeddings_X</span><span class="p">,</span>
+            <span class="n">embedding</span><span class="p">[</span><span class="s1">&#39;_X&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;_X&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">embedding_id</span><span class="p">)}),</span>
+            <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">embeddings_Y</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+            <span class="n">embeddings_Y</span><span class="p">,</span>
+            <span class="n">embedding</span><span class="p">[</span><span class="s1">&#39;_Y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;_Y&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">embedding_id</span><span class="p">)}),</span>
+            <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Encode cell type clusters.</span>
+    <span class="c1"># The name of the column should match the identifier of the clustering.</span>
+    <span class="n">name2idx</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">reversed</span><span class="p">,</span> <span class="nb">enumerate</span><span class="p">(</span>
+        <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">cell_annotations</span><span class="o">.</span><span class="n">values</span><span class="p">())))))</span>
+    <span class="n">clusterings</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;0&#39;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">cell_annotations</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">name2idx</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Create meta-data structure.</span>
+    <span class="k">def</span> <span class="nf">create_structure_array</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+        <span class="c1"># Create a numpy structured array</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">dtypes</span><span class="p">))))</span>
+
+    <span class="n">default_embedding</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">embeddings_X</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">embeddings_Y</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]],</span> <span class="n">columns</span><span class="o">=</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;_X&#39;</span><span class="p">,</span> <span class="s1">&#39;_Y&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">column_attrs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;CellID&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cell_names</span><span class="p">),</span>
+        <span class="s2">&quot;Embedding&quot;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">default_embedding</span><span class="p">),</span>
+        <span class="s2">&quot;RegulonsAUC&quot;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">auc_mtx</span><span class="p">),</span>
+        <span class="s2">&quot;Clusterings&quot;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">clusterings</span><span class="p">),</span>
+        <span class="s2">&quot;ClusterID&quot;</span><span class="p">:</span> <span class="n">clusterings</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="s1">&#39;Embeddings_X&#39;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">embeddings_X</span><span class="p">),</span>
+        <span class="s1">&#39;Embeddings_Y&#39;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">embeddings_Y</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">linked_gene</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">row_attrs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Gene&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">feature_names</span><span class="p">),</span>
+            <span class="s2">&quot;Regulons&quot;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">regulons</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">row_attrs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Gene&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">feature_names</span><span class="p">),</span>
+            <span class="s2">&quot;Regulons&quot;</span><span class="p">:</span> <span class="n">create_structure_array</span><span class="p">(</span><span class="n">regulons</span><span class="p">),</span>
+            <span class="s2">&quot;linkedGene&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">linked_gene</span><span class="p">[</span><span class="s1">&#39;0&#39;</span><span class="p">])</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">fetch_logo</span><span class="p">(</span><span class="n">context</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">context</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">elem</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.png&#39;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">elem</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="n">regulon_thresholds</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;regulon&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;defaultThresholdValue&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">threshold</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threshold</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">else</span> <span class="n">threshold</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="s2">&quot;defaultThresholdName&quot;</span><span class="p">:</span> <span class="s2">&quot;gaussian_mixture_split&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;allThresholds&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;gaussian_mixture_split&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">threshold</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threshold</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">else</span> <span class="n">threshold</span><span class="p">[</span><span class="mi">0</span><span class="p">])},</span>
+            <span class="s2">&quot;motifData&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">threshold</span> <span class="ow">in</span> <span class="n">auc_thresholds</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
+    <span class="p">]</span>
+
+    <span class="n">general_attrs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">out_fname</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">title</span><span class="p">,</span>
+        <span class="s2">&quot;MetaData&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;embeddings&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="n">identifier</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">name</span><span class="p">}</span> <span class="k">for</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">id2name</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+                <span class="s2">&quot;annotations&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;values&quot;</span><span class="p">:</span> <span class="p">[]}],</span>
+                <span class="s2">&quot;clusterings&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="s2">&quot;celltype&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Cell Type&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;clusters&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">idx</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">}</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">name2idx</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+                    <span class="p">}</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;regulonThresholds&quot;</span><span class="p">:</span> <span class="n">regulon_thresholds</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;Genome&quot;</span><span class="p">:</span> <span class="n">nomenclature</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Add tree structure.</span>
+    <span class="c1"># All three levels need to be supplied</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tree_structure</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">general_attrs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="p">(</span><span class="s2">&quot;SCopeTreeL</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">category</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">category</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">islice</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="n">tree_structure</span><span class="p">,</span> <span class="n">repeat</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)),</span> <span class="mi">3</span><span class="p">)))</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Compress MetaData global attribute</span>
+    <span class="k">if</span> <span class="n">compress</span><span class="p">:</span>
+        <span class="n">general_attrs</span><span class="p">[</span><span class="s2">&quot;MetaData&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">compress_encode</span><span class="p">(</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">general_attrs</span><span class="p">[</span><span class="s2">&quot;MetaData&quot;</span><span class="p">])</span>
+
+    <span class="c1"># Create loom file for use with the SCope tool.</span>
+    <span class="n">lp</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">filename</span><span class="o">=</span><span class="n">out_fname</span><span class="p">,</span>
+        <span class="n">layers</span><span class="o">=</span><span class="n">ex_mtx</span><span class="p">,</span>
+        <span class="n">row_attrs</span><span class="o">=</span><span class="n">row_attrs</span><span class="p">,</span>
+        <span class="n">col_attrs</span><span class="o">=</span><span class="n">column_attrs</span><span class="p">,</span>
+        <span class="n">file_attrs</span><span class="o">=</span><span class="n">general_attrs</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_metadata</span><span class="p">(</span><span class="n">loom</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to get metadata</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">annot_metadata</span> <span class="o">=</span> <span class="n">loom</span><span class="o">.</span><span class="n">get_meta_data</span><span class="p">()[</span><span class="s1">&#39;annotations&#39;</span><span class="p">]</span>
+    <span class="n">annot_mt_column_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">annot_metadata</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">annot_metadata</span><span class="p">))]</span>
+    <span class="n">annot_mt</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">loom</span><span class="o">.</span><span class="n">col_attrs</span><span class="p">[</span><span class="n">annot_mt_column_names</span><span class="p">[</span><span class="n">x</span><span class="p">]])</span>
+                          <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">annot_mt_column_names</span><span class="p">))],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">annot_mt</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">annot_mt_column_names</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">annot_mt_column_names</span><span class="p">))]</span>
+    <span class="n">annot_mt</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">loom</span><span class="o">.</span><span class="n">get_cell_ids</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">annot_mt</span>
+
+
+<span class="k">def</span> <span class="nf">_add_metrics</span><span class="p">(</span><span class="n">loom</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to add metrics</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">md_metrics</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+        <span class="n">md_metrics</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">})</span>
+        <span class="n">loom</span><span class="o">.</span><span class="n">col_attrs</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="n">metric</span><span class="p">])</span>
+    <span class="n">loom</span><span class="o">.</span><span class="n">global_attrs</span><span class="p">[</span><span class="s2">&quot;MetaData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;metrics&#39;</span><span class="p">:</span> <span class="n">md_metrics</span><span class="p">})</span>
+
+
+<span class="k">def</span> <span class="nf">_add_annotation</span><span class="p">(</span><span class="n">loom</span><span class="p">,</span> <span class="n">annots</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to add annotations</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">md_annot</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">annot</span> <span class="ow">in</span> <span class="n">annots</span><span class="p">:</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">annots</span><span class="p">[</span><span class="n">annot</span><span class="p">])</span>
+        <span class="n">uniq_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+        <span class="n">md_annot</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">annot</span><span class="p">,</span>
+            <span class="s2">&quot;values&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">uniq_vals</span><span class="o">.</span><span class="n">tolist</span><span class="p">()))</span>
+        <span class="p">})</span>
+        <span class="n">loom</span><span class="o">.</span><span class="n">col_attrs</span><span class="p">[</span><span class="n">annot</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">annots</span><span class="p">[</span><span class="n">annot</span><span class="p">])</span>
+    <span class="n">loom</span><span class="o">.</span><span class="n">global_attrs</span><span class="p">[</span><span class="s2">&quot;MetaData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;annotations&#39;</span><span class="p">:</span> <span class="n">md_annot</span><span class="p">})</span>
+
+
+<span class="k">def</span> <span class="nf">_add_clusterings</span><span class="p">(</span><span class="n">loom</span><span class="p">:</span> <span class="n">SCopeLoom</span><span class="p">,</span>
+                    <span class="n">cluster_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to add clusters</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">col_attrs</span> <span class="o">=</span> <span class="n">loom</span><span class="o">.</span><span class="n">col_attrs</span>
+
+    <span class="n">attrs_metadata</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">attrs_metadata</span><span class="p">[</span><span class="s2">&quot;clusterings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">clusterings</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">cluster_data</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">cluster_name</span> <span class="ow">in</span> <span class="n">cluster_data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">clustering_id</span> <span class="o">=</span> <span class="n">j</span>
+        <span class="n">clustering_algorithm</span> <span class="o">=</span> <span class="n">cluster_name</span>
+
+        <span class="n">clustering_resolution</span> <span class="o">=</span> <span class="n">cluster_name</span>
+        <span class="n">cluster_marker_method</span> <span class="o">=</span> <span class="s1">&#39;Wilcoxon&#39;</span>
+
+        <span class="n">num_clusters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cluster_data</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">]))</span>
+        <span class="n">cluster_2_number</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cluster_data</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">])[</span><span class="n">i</span><span class="p">]:</span> <span class="n">i</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Data</span>
+        <span class="n">clusterings</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">clustering_id</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">cluster_2_number</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+                                           <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cluster_data</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+
+        <span class="c1"># Metadata</span>
+        <span class="n">attrs_metadata</span><span class="p">[</span><span class="s2">&quot;clusterings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attrs_metadata</span><span class="p">[</span><span class="s2">&quot;clusterings&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[{</span>
+            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">clustering_id</span><span class="p">,</span>
+            <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="n">clustering_algorithm</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">clustering_algorithm</span><span class="p">,</span>
+            <span class="s2">&quot;clusters&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;clusterMarkerMetrics&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;accessor&quot;</span><span class="p">:</span> <span class="s2">&quot;avg_logFC&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Avg. logFC&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Average log fold change from </span><span class="si">{</span><span class="n">cluster_marker_method</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span><span class="si">}</span><span class="s2"> test&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="s2">&quot;accessor&quot;</span><span class="p">:</span> <span class="s2">&quot;pval&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Adjusted P-Value&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Adjusted P-Value from </span><span class="si">{</span><span class="n">cluster_marker_method</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span><span class="si">}</span><span class="s2"> test&quot;</span>
+                <span class="p">}</span>
+            <span class="p">]</span>
+        <span class="p">}]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_clusters</span><span class="p">):</span>
+            <span class="n">cluster</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">cluster</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">cluster</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cluster_data</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">])[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">attrs_metadata</span><span class="p">[</span><span class="s1">&#39;clusterings&#39;</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="s1">&#39;clusters&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+
+        <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># Update column attribute Dict</span>
+    <span class="n">col_attrs_clusterings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1"># Pick the first one as default clustering (this is purely</span>
+        <span class="c1"># arbitrary)</span>
+        <span class="s2">&quot;ClusterID&quot;</span><span class="p">:</span> <span class="n">clusterings</span><span class="p">[</span><span class="s2">&quot;0&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="s2">&quot;Clusterings&quot;</span><span class="p">:</span> <span class="n">_df_to_named_matrix</span><span class="p">(</span><span class="n">clusterings</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">col_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">col_attrs</span><span class="p">,</span> <span class="o">**</span><span class="n">col_attrs_clusterings</span><span class="p">}</span>
+    <span class="n">loom</span><span class="o">.</span><span class="n">col_attrs</span> <span class="o">=</span> <span class="n">col_attrs</span>
+    <span class="n">loom</span><span class="o">.</span><span class="n">global_attrs</span><span class="p">[</span><span class="s2">&quot;MetaData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="p">{</span><span class="s1">&#39;clusterings&#39;</span><span class="p">:</span> <span class="n">attrs_metadata</span><span class="p">[</span><span class="s2">&quot;clusterings&quot;</span><span class="p">]}</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_add_markers</span><span class="p">(</span><span class="n">loom</span><span class="p">:</span> <span class="n">SCopeLoom</span><span class="p">,</span>
+                <span class="n">markers_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to add markers to clusterings</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">attrs_metadata</span> <span class="o">=</span> <span class="n">loom</span><span class="o">.</span><span class="n">global_attrs</span><span class="p">[</span><span class="s2">&quot;MetaData&quot;</span><span class="p">]</span>
+    <span class="n">row_attrs</span> <span class="o">=</span> <span class="n">loom</span><span class="o">.</span><span class="n">row_attrs</span>
+    <span class="k">for</span> <span class="n">cluster_name</span> <span class="ow">in</span> <span class="n">markers_dict</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">attrs_metadata</span><span class="p">[</span><span class="s1">&#39;clusterings&#39;</span><span class="p">]))</span>
+               <span class="k">if</span> <span class="n">attrs_metadata</span><span class="p">[</span><span class="s1">&#39;clusterings&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">cluster_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">clustering_id</span> <span class="o">=</span> <span class="n">attrs_metadata</span><span class="p">[</span><span class="s1">&#39;clusterings&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="n">num_clusters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">attrs_metadata</span><span class="p">[</span><span class="s1">&#39;clusterings&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;clusters&quot;</span><span class="p">])</span>
+        <span class="n">cluster_description</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">attrs_metadata</span><span class="p">[</span><span class="s1">&#39;clusterings&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;clusters&quot;</span><span class="p">][</span><span class="n">x</span><span class="p">][</span><span class="s1">&#39;description&#39;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Initialize</span>
+        <span class="n">cluster_markers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">loom</span><span class="o">.</span><span class="n">get_genes</span><span class="p">(),</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">cluster_markers_avg_logfc</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">loom</span><span class="o">.</span><span class="n">get_genes</span><span class="p">(),</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">cluster_markers_pval</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">loom</span><span class="o">.</span><span class="n">get_genes</span><span class="p">(),</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Populate</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_clusters</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">gene_names</span> <span class="o">=</span> <span class="n">markers_dict</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">][</span><span class="n">cluster_description</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span>
+                <span class="p">)</span>
+                <span class="n">pvals_adj</span> <span class="o">=</span> <span class="n">markers_dict</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">][</span><span class="n">cluster_description</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                                                       <span class="p">][</span><span class="s1">&#39;Adjusted_pval&#39;</span><span class="p">]</span>
+                <span class="n">logfoldchanges</span> <span class="o">=</span> <span class="n">markers_dict</span><span class="p">[</span><span class="n">cluster_name</span><span class="p">][</span><span class="n">cluster_description</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="s1">&#39;Log2FC&#39;</span><span class="p">]</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">num_genes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">gene_names</span><span class="p">)</span>
+
+                <span class="c1"># Replace</span>
+                <span class="n">cluster_markers</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gene_names</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">cluster_markers_avg_logfc</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gene_names</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">logfoldchanges</span>
+                <span class="n">cluster_markers_pval</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gene_names</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">pvals_adj</span>
+            <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;No markers for &#39;</span><span class="p">,</span> <span class="n">cluster_description</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="c1"># Update row attribute Dict</span>
+        <span class="n">row_attrs_cluster_markers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sa">f</span><span class="s2">&quot;ClusterMarkers_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">_df_to_named_matrix</span><span class="p">(</span>
+                <span class="n">cluster_markers</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)),</span>
+            <span class="sa">f</span><span class="s2">&quot;ClusterMarkers_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="si">}</span><span class="s2">_avg_logFC&quot;</span><span class="p">:</span> <span class="n">_df_to_named_matrix</span><span class="p">(</span><span class="n">cluster_markers_avg_logfc</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)),</span>
+            <span class="sa">f</span><span class="s2">&quot;ClusterMarkers_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="si">}</span><span class="s2">_pval&quot;</span><span class="p">:</span> <span class="n">_df_to_named_matrix</span><span class="p">(</span><span class="n">cluster_markers_pval</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+        <span class="p">}</span>
+        <span class="n">row_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">row_attrs</span><span class="p">,</span> <span class="o">**</span><span class="n">row_attrs_cluster_markers</span><span class="p">}</span>
+        <span class="n">loom</span><span class="o">.</span><span class="n">row_attrs</span> <span class="o">=</span> <span class="n">row_attrs</span>
+
+
+<span class="k">def</span> <span class="nf">_get_regulons</span><span class="p">(</span><span class="n">loom</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to get regulons</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">regulon_dict</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">loom</span><span class="o">.</span><span class="n">get_regulons</span><span class="p">(),</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">loom</span><span class="o">.</span><span class="n">row_attrs</span><span class="p">[</span><span class="s1">&#39;Gene&#39;</span><span class="p">]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">regulon_dict</span><span class="p">:</span>
+        <span class="n">regulon_dict</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">regulon_dict</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">y</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="n">motif_data</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">x</span><span class="p">[</span><span class="s1">&#39;regulon&#39;</span><span class="p">]:</span> <span class="n">x</span><span class="p">[</span><span class="s1">&#39;motifData&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">loom</span><span class="o">.</span><span class="n">global_attrs</span><span class="p">[</span><span class="s1">&#39;MetaData&#39;</span><span class="p">][</span><span class="s1">&#39;regulonThresholds&#39;</span><span class="p">]</span>
+    <span class="p">}</span>
+    <span class="n">regulon_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">Regulon</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>
+            <span class="n">gene2weight</span><span class="o">=</span><span class="n">regulon_dict</span><span class="p">[</span><span class="n">x</span><span class="p">],</span>
+            <span class="n">transcription_factor</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">gene2occurrence</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">context</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span>
+                    <span class="n">motif_data</span><span class="p">[</span><span class="n">x</span><span class="p">]))</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">regulon_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">regulon_list</span>
+
+
+<span class="k">def</span> <span class="nf">_df_to_named_matrix</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to create metadata structure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">],</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">dtypes</span><span class="p">))))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

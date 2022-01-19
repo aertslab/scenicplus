@@ -1,3 +1,7 @@
+"""eRegulon class stores the transcription factor together with its target regions and genes.
+
+"""
+
 import attr
 from typing import List, Tuple
 from collections import namedtuple
@@ -40,7 +44,7 @@ class eRegulon():
         (region, gene, importance score, correlation coefficient)
     context
         The context in which this eRegulon was created
-        (this can be different threshold, activating / repressing, ...)
+        (this can be different threshold, activating / repressing, ...).
         default: frozenset()
     in_leading_edge
         A list specifying which genes are in the leading edge of a gsea analysis.
@@ -55,7 +59,7 @@ class eRegulon():
         A float containing an adjusted p value of a gsea analysis.
         default: None
 
-    Properties
+    Attributes
     ----------
     target_genes
         returns a unique list of target genes.
@@ -66,10 +70,9 @@ class eRegulon():
     n_target_regions
         returns an int containing the number of unique target regions.
 
-    Functions
-    ---------
-    subset_leading_edge
-        subsets eRegulon based on genes in leading edge specified by :param:`in_leading_edge`
+    See Also
+    --------
+    scenicplus.grn_builder.modules.create_emodules
 
     """
 
@@ -85,7 +88,7 @@ class eRegulon():
     gsea_adj_pval = attr.ib(type=float, default=None)
 
     @regions2genes.validator
-    def validate_regions2genes_header(self, attribute, value):
+    def _validate_regions2genes_header(self, attribute, value):
         if value is not None:
             if all([getattr(v, '_fields', None) == None for v in value]):
                 Warning("{} genes2weights should be a list of named tuples".format(
@@ -95,7 +98,7 @@ class eRegulon():
                     self.transcription_factor, REGIONS2GENES_HEADER))
 
     @regions2genes.validator
-    def validate_correlation_coef_same_sign(self, attribute, value):
+    def _validate_correlation_coef_same_sign(self, attribute, value):
         if value is not None:
             correlation_coefficients = [
                 getattr(v, CORRELATION_COEFFICIENT_NAME) for v in value]
@@ -104,7 +107,7 @@ class eRegulon():
                     self.transcription_factor))
 
     @in_leading_edge.validator
-    def validate_length(self, attribute, value):
+    def _validate_length(self, attribute, value):
         if value is not None:
             if not len(value) == self.n_target_genes:
                 Warning(
@@ -140,7 +143,7 @@ class eRegulon():
 
     def subset_leading_edge(self, inplace=True):
         """
-        Subset eReglon on leading edge based on :param:`self.in_leading_edge`
+        Subset eReglon on leading edge.
 
         Parameters
         ---------
@@ -179,7 +182,7 @@ class eRegulon():
         return descr
 
 
-def quantile_thr(adjacencies,
+def _quantile_thr(adjacencies,
                  grouped,
                  threshold,
                  min_regions_per_gene,
@@ -194,7 +197,7 @@ def quantile_thr(adjacencies,
     adjacencies
         A :class:`pandas.DataFrame` containing region-to-gene importance scores.
     grouped
-        A :class:`~scenicplus.utils.Groupby` containing group information on the :param:`adjacencies` grouped on target region.
+        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target region.
     threshold
         float specifying the quantile on the importance score of region-to-gene links to retain.
     min_regions_per_gene
@@ -239,7 +242,7 @@ def quantile_thr(adjacencies,
         yield c, df
 
 
-def top_targets(adjacencies,
+def _top_targets(adjacencies,
                 grouped,
                 n,
                 min_regions_per_gene,
@@ -254,7 +257,7 @@ def top_targets(adjacencies,
     adjacencies
         A :class:`pandas.DataFrame` containing region-to-gene importance scores.
     grouped
-        A :class:`~scenicplus.utils.Groupby` containing group information on the :param:`adjacencies` grouped on target gene.
+        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target gene.
     n
         integer specifying the top n number of region-to-gene links to retain.
     min_regions_per_gene
@@ -303,7 +306,7 @@ def top_targets(adjacencies,
         yield c, df
 
 
-def top_regions(adjacencies,
+def _top_regions(adjacencies,
                 grouped,
                 n,
                 min_regions_per_gene,
@@ -318,7 +321,7 @@ def top_regions(adjacencies,
     adjacencies
         A :class:`pandas.DataFrame` containing region-to-gene importance scores.
     grouped
-        A :class:`~scenicplus.utils.Groupby` containing group information on the :param:`adjacencies` grouped on target region.
+        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target region.
     n
         integer specifying the top n number of region-to-gene links to retain.
     min_regions_per_gene
@@ -371,7 +374,7 @@ def top_regions(adjacencies,
         yield c, df
 
 
-def binarize_BASC(adjacencies,
+def _binarize_BASC(adjacencies,
                   grouped,
                   min_regions_per_gene,
                   context=frozenset(),
@@ -387,7 +390,7 @@ def binarize_BASC(adjacencies,
     adjacencies
         A :class:`pandas.DataFrame` containing region-to-gene importance scores.
     grouped
-        A :class:`~scenicplus.utils.Groupby` containing group information on the :param:`adjacencies` grouped on target gene.
+        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target gene.
     min_regions_per_gene
         An int specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
     context
@@ -463,10 +466,10 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     SCENICPLUS_obj
         An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`, containing motif enrichment data under the slot .menr.
     region_to_gene_key
-        A key specifying under which to find region-to-gene links in the .uns slot of :param: `SCENICPLUS_obj`. 
+        A key specifying under which to find region-to-gene links in the .uns slot of `SCENICPLUS_obj`. 
         Default: "region_to_gene"
     cistromes_key
-        A key specifying which cistromes to use in .uns['Cistromes'] slot of :param: `SCENICPLUS_obj`
+        A key specifying which cistromes to use in .uns['Cistromes'] slot of `SCENICPLUS_obj`
     quantiles
         A tuple specifying the quantiles used to binarize region-to-gene links
         Default: (0.85, 0.90)
@@ -477,10 +480,7 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
         A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
         Default: ()
     binarize_using_basc:
-        A boolean specifying wether or not to binarize region-to-gene links using BASC.
-        See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
-             IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
-        Defailt: False
+        A boolean specifying wether or not to binarize region-to-gene links using BASC. Hopfensitz M, et al.
     min_regions_per_gene:
         An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
         Default: 0
@@ -506,6 +506,9 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     -------
     A set of relevant TFs, A list of :class: `~scenicplus.grn_builder.modules.eRegulon.`
 
+    References
+    ----------
+    Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
     """
     # check input
     if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
@@ -519,27 +522,27 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
         grouped_adj_by_gene = Groupby(adj[TARGET_GENE_NAME].to_numpy())
         grouped_adj_by_region = Groupby(adj[TARGET_REGION_NAME].to_numpy())
         yield from chain(
-            chain.from_iterable(quantile_thr(adjacencies=adj,
+            chain.from_iterable(_quantile_thr(adjacencies=adj,
                                              grouped=grouped_adj_by_gene,
                                              threshold=thr,
                                              min_regions_per_gene=min_regions_per_gene,
                                              context=context,
                                              order_regions_to_genes_by=order_regions_to_genes_by) for thr in quantiles),
 
-            chain.from_iterable(top_targets(adjacencies=adj,
+            chain.from_iterable(_top_targets(adjacencies=adj,
                                             grouped=grouped_adj_by_gene,
                                             n=n,
                                             min_regions_per_gene=min_regions_per_gene,
                                             context=context,
                                             order_regions_to_genes_by=order_regions_to_genes_by) for n in top_n_regionTogenes_per_gene),
 
-            chain.from_iterable(top_regions(adjacencies=adj,
+            chain.from_iterable(_top_regions(adjacencies=adj,
                                             grouped=grouped_adj_by_region,
                                             n=n,
                                             min_regions_per_gene=min_regions_per_gene,
                                             context=context,
                                             order_regions_to_genes_by=order_regions_to_genes_by) for n in top_n_regionTogenes_per_region),
-            binarize_BASC(adjacencies=adj,
+            _binarize_BASC(adjacencies=adj,
                           grouped=grouped_adj_by_gene,
                           min_regions_per_gene=min_regions_per_gene,
                           context=context,
@@ -731,15 +734,15 @@ def merge_emodules(SCENICPLUS_obj: SCENICPLUS = None,
         A list of :class:`eRegulon`.
         default: None
     e_modules_key
-        A string key specifying where to find a list of :class:`eRegulon` under .uns slot of :param:`SCENICPLUS_obj`.
+        A string key specifying where to find a list of :class:`eRegulon` under .uns slot of`SCENICPLUS_obj`.
         default: "eRegulons"
     rho_dichotomize
         A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.
         default: True
     key_to_add
-        A string key specifying where to store the list of merged :class:`eRegulon` in the .uns slot of :param:`SCENICPLUS_obj`.
+        A string key specifying where to store the list of merged :class:`eRegulon` in the .uns slot of `SCENICPLUS_obj`.
     inplace
-        A boolean if set to True update the :param:`SCENICPLUS_obj` otherwise return list of merged :class:`eRegulon`
+        A boolean if set to True update the `SCENICPLUS_obj` otherwise return list of merged :class:`eRegulon`
     """
     # check input
     if SCENICPLUS_obj is not None:

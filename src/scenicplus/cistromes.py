@@ -1,6 +1,10 @@
+# -*- coding: utf-8 -*-
+"""Merging, scoring and assessing TF correlations of cistromes
+
+"""
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import pycistarget
+#import pycistarget
 from pycistarget.motif_enrichment_dem import *
 from pycisTopic.diff_features import *
 from pycisTopic.signature_enrichment import *
@@ -13,14 +17,10 @@ from .utils import region_names_to_coordinates, target_to_overlapping_query, p_a
 
 from .scenicplus_class import SCENICPLUS
 
-# Generate cistromes form motif enrichment tables
-
-
 def merge_cistromes(scplus_obj: SCENICPLUS,
                     cistromes_key: str = 'Unfiltered',
                     subset: pr.PyRanges = None):
-    """
-    Generate cistromes from motif enrichment tables
+    r"""Generate cistromes from motif enrichment tables
 
     Parameters
     ---------

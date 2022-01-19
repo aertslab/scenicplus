@@ -1,3 +1,13 @@
+"""Link transcription factors (TFs) to genes based on co-expression of TF and target genes.
+
+Both linear methods (spearman or pearson correlation) and non-linear methods (random forrest or gradient boosting) are used to link TF to genes.
+
+The correlation methods are used to seperate TFs which are infered to have a positive influence on gene expression (i.e. positive correlation) 
+and TFs which are infered to have a negative influence on gene expression (i.e. negative correlation).
+
+"""
+
+
 import pandas as pd
 import numpy as np
 import ray
@@ -42,10 +52,10 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
     f_adj
         File path to TF2G adjacencies matrix
     inplace
-        Boolean specifying wether or not to store adjacencies matrix in :param:`SCENICPLUS_obj` under slot .uns[key].
+        Boolean specifying wether or not to store adjacencies matrix in `SCENICPLUS_obj` under slot .uns[key].
         Default: True
     key_added
-        String specifying where in the .uns slot to store the adjacencies matrix in :param:`SCENICPLUS_obj`
+        String specifying where in the .uns slot to store the adjacencies matrix in `SCENICPLUS_obj`
         Default: "TF2G_adj"
     rho_threshold
         A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
@@ -60,7 +70,7 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
 
     if not COLUMN_NAME_CORRELATION in df_TF_gene_adj_subset.columns:
         log.info(f'Adding correlation coefficients to adjacencies.')
-        df_TF_gene_adj_subset = add_correlation(
+        df_TF_gene_adj_subset = _add_correlation(
             adjacencies=df_TF_gene_adj_subset,
             ex_mtx=SCENICPLUS_obj.to_df(layer='EXP'),
             rho_threshold=rho_threshold)
@@ -80,7 +90,7 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
         return df_TF_gene_adj_subset
 
 
-def add_correlation(
+def _add_correlation(
         adjacencies: pd.DataFrame,
         ex_mtx: pd.DataFrame,
         rho_threshold=RHO_THRESHOLD,
@@ -134,7 +144,7 @@ def add_correlation(
     )
 
 
-def run_infer_partial_network(target_gene_name,
+def _run_infer_partial_network(target_gene_name,
                               gene_names,
                               ex_matrix,
                               method_params,
@@ -145,7 +155,7 @@ def run_infer_partial_network(target_gene_name,
     """
     from arboreto import core as arboreto_core
 
-    target_gene_name_index = get_position_index([target_gene_name], gene_names)
+    target_gene_name_index = _get_position_index([target_gene_name], gene_names)
     target_gene_expression = ex_matrix[:, target_gene_name_index].ravel()
 
     n = arboreto_core.infer_partial_network(
@@ -162,7 +172,7 @@ def run_infer_partial_network(target_gene_name,
 
 
 @ray.remote
-def run_infer_partial_network_ray(target_gene_name,
+def _run_infer_partial_network_ray(target_gene_name,
                                   gene_names,
                                   ex_matrix,
                                   method_params,
@@ -172,7 +182,7 @@ def run_infer_partial_network_ray(target_gene_name,
     A function to call arboreto with ray
     """
 
-    return run_infer_partial_network(target_gene_name,
+    return _run_infer_partial_network(target_gene_name,
                                      gene_names,
                                      ex_matrix,
                                      method_params,
@@ -237,7 +247,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     try:
         jobs = []
         for gene in tqdm(gene_names, total=len(gene_names), desc='initializing'):
-            jobs.append(run_infer_partial_network_ray.remote(gene,
+            jobs.append(_run_infer_partial_network_ray.remote(gene,
                                                              gene_names,
                                                              ex_matrix,
                                                              method_params,
@@ -267,7 +277,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     adj = pd.concat(tfs_to_genes).sort_values(by='importance', ascending=False)
     ex_matrix = pd.DataFrame(
         scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
-    adj = add_correlation(adj, ex_matrix)
+    adj = _add_correlation(adj, ex_matrix)
     log.info(f'Adding importance x rho scores to adjacencies.')
     adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION] * \
         adj[COLUMN_NAME_WEIGHT]
@@ -277,7 +287,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     scplus_obj.uns[key] = adj
 
 
-def get_position_index(query_list, target_list):
+def _get_position_index(query_list, target_list):
     """
     Helper function to grep an instance in a list
     """

@@ -1,3 +1,7 @@
+"""Score eRegulon target genes and regions in cells using AUC algorithm.
+
+"""
+
 from pycisTopic.diff_features import *
 from pycisTopic.signature_enrichment import *
 from pyscenic.binarization import binarize

@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.dimensionality_reduction &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.dimensionality_reduction</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.dimensionality_reduction</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Dimmensionality reduction and clustering based on target genes and target regions AUC.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">umap</span>
+<span class="kn">import</span> <span class="nn">sklearn</span>
+<span class="kn">import</span> <span class="nn">matplotlib.backends.backend_pdf</span>
+<span class="kn">import</span> <span class="nn">matplotlib.cm</span> <span class="k">as</span> <span class="nn">cm</span>
+<span class="kn">import</span> <span class="nn">matplotlib.colors</span> <span class="k">as</span> <span class="nn">mcolors</span>
+<span class="kn">import</span> <span class="nn">matplotlib.patches</span> <span class="k">as</span> <span class="nn">mpatches</span>
+<span class="kn">import</span> <span class="nn">matplotlib.patheffects</span> <span class="k">as</span> <span class="nn">PathEffects</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">adjustText</span> <span class="kn">import</span> <span class="n">adjust_text</span>
+<span class="kn">import</span> <span class="nn">igraph</span> <span class="k">as</span> <span class="nn">ig</span>
+<span class="kn">import</span> <span class="nn">leidenalg</span> <span class="k">as</span> <span class="nn">la</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">kneighbors_graph</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">sklearn.decomposition</span> <span class="kn">import</span> <span class="n">PCA</span>
+
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+
+<div class="viewcode-block" id="find_clusters"><a class="viewcode-back" href="../../api.html#scenicplus.dimensionality_reduction.find_clusters">[docs]</a><span class="k">def</span> <span class="nf">find_clusters</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                  <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                  <span class="n">signature_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                  <span class="n">k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                  <span class="n">res</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.6</span><span class="p">],</span>
+                  <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">555</span><span class="p">,</span>
+                  <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                  <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                  <span class="n">selected_regulons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Performing leiden cell or region clustering and add results to SCENICPLUS object&#39;s metadata.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">            A SCENICPLUS object with eRegulons AUC computed.</span>
+<span class="sd">    auc_key: str, optional</span>
+<span class="sd">            Key to extract AUC values from. Default: &#39;eRegulon_AUC&#39;</span>
+<span class="sd">    signature_keys: List, optional</span>
+<span class="sd">            Keys to extract AUC values from. Default: [&#39;Gene_based&#39;, &#39;Region_based&#39;]</span>
+<span class="sd">    k: int, optional</span>
+<span class="sd">            Number of neighbours in the k-neighbours graph. Default: 10</span>
+<span class="sd">    res: float, optional</span>
+<span class="sd">            Resolution parameter for the leiden algorithm step. Default: 0.6</span>
+<span class="sd">    seed: int, optional</span>
+<span class="sd">            Seed parameter for the leiden algorithm step. Default: 555</span>
+<span class="sd">    scale: bool, optional</span>
+<span class="sd">            Whether to scale the enrichment prior to the clustering. Default: False</span>
+<span class="sd">    prefix: str, optional</span>
+<span class="sd">            Prefix to add to the clustering name when adding it to the correspondent metadata attribute. Default: &#39;&#39;</span>
+<span class="sd">    selected_regulons: list, optional</span>
+<span class="sd">            A list with selected regulons to be used for clustering. Default: None (use all regulons)</span>
+<span class="sd">    selected_cels: list, optional</span>
+<span class="sd">            A list with selected features cells to cluster. Default: None (use all cells)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">selected_regulons</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">selected_regulons</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">selected_regulons</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_regulons</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+        <span class="n">data_names</span> <span class="o">=</span> <span class="n">selected_cells</span>
+
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">A</span> <span class="o">=</span> <span class="n">kneighbors_graph</span><span class="p">(</span><span class="n">data_mat</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+    <span class="n">sources</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">ig</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">directed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">G</span><span class="o">.</span><span class="n">add_vertices</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">edges</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span> <span class="n">targets</span><span class="p">))</span>
+    <span class="n">G</span><span class="o">.</span><span class="n">add_edges</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">C</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+        <span class="n">partition</span> <span class="o">=</span> <span class="n">la</span><span class="o">.</span><span class="n">find_partition</span><span class="p">(</span>
+            <span class="n">G</span><span class="p">,</span>
+            <span class="n">la</span><span class="o">.</span><span class="n">RBConfigurationVertexPartition</span><span class="p">,</span>
+            <span class="n">resolution_parameter</span><span class="o">=</span><span class="n">C</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">cluster</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">partition</span><span class="o">.</span><span class="n">membership</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">data_names</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">prefix</span> <span class="o">+</span>
+                <span class="s1">&#39;leiden_&#39;</span> <span class="o">+</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">+</span>
+                <span class="s1">&#39;_&#39;</span> <span class="o">+</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">C</span><span class="p">)])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">add_cell_data</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="run_eRegulons_tsne"><a class="viewcode-back" href="../../api.html#scenicplus.dimensionality_reduction.run_eRegulons_tsne">[docs]</a><span class="k">def</span> <span class="nf">run_eRegulons_tsne</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                       <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                       <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                       <span class="n">signature_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                       <span class="n">reduction_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulons_tSNE&#39;</span><span class="p">,</span>
+                       <span class="n">random_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">555</span><span class="p">,</span>
+                       <span class="n">selected_regulons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run TSNE and add it to the dimensionality reduction dictionary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">            A SCENICPLUS object with eRegulons AUC computed.</span>
+<span class="sd">    scale: bool, optional</span>
+<span class="sd">            Whether to scale the enrichments prior to the dimensionality reduction. Default: False</span>
+<span class="sd">    auc_key: str, optional</span>
+<span class="sd">            Key to extract AUC values from. Default: &#39;eRegulon_AUC&#39;</span>
+<span class="sd">    signature_keys: List, optional</span>
+<span class="sd">            Keys to extract AUC values from. Default: [&#39;Gene_based&#39;, &#39;Region_based&#39;]</span>
+<span class="sd">    reduction_name: str, optional</span>
+<span class="sd">            Key used to store dimensionality reduction in scplud_obj.dr_cell. Default: eRegulon_AUC.</span>
+<span class="sd">    random_state: int, optional</span>
+<span class="sd">            Seed parameter for running UMAP. Default: 555</span>
+<span class="sd">    selected_regulons: list, optional</span>
+<span class="sd">            A list with selected regulons to be used for clustering. Default: None (use all regulons)</span>
+<span class="sd">    selected_cells: list, optional</span>
+<span class="sd">            A list with selected features cells to cluster. Default: None (use all cells)</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">            Parameters to pass to the tSNE functions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">selected_regulons</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">selected_regulons</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">selected_regulons</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_regulons</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+        <span class="n">data_names</span> <span class="o">=</span> <span class="n">selected_cells</span>
+
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">fitsne</span>
+        <span class="n">embedding</span> <span class="o">=</span> <span class="n">fitsne</span><span class="o">.</span><span class="n">FItSNE</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span>
+                <span class="n">data_mat</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()),</span>
+            <span class="n">rand_seed</span><span class="o">=</span><span class="n">random_state</span><span class="p">,</span>
+            <span class="n">perplexity</span><span class="o">=</span><span class="n">perplexity</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+        <span class="n">embedding</span> <span class="o">=</span> <span class="n">sklearn</span><span class="o">.</span><span class="n">manifold</span><span class="o">.</span><span class="n">TSNE</span><span class="p">(</span>
+            <span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">)</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">data_mat</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">dr</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">embedding</span><span class="p">,</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">data_names</span><span class="p">,</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+            <span class="s1">&#39;tSNE_1&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;tSNE_2&#39;</span><span class="p">])</span>
+
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">reduction_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dr</span></div>
+
+
+<div class="viewcode-block" id="run_eRegulons_umap"><a class="viewcode-back" href="../../api.html#scenicplus.dimensionality_reduction.run_eRegulons_umap">[docs]</a><span class="k">def</span> <span class="nf">run_eRegulons_umap</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                       <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                       <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                       <span class="n">signature_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                       <span class="n">reduction_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulons_UMAP&#39;</span><span class="p">,</span>
+                       <span class="n">random_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">555</span><span class="p">,</span>
+                       <span class="n">selected_regulons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run UMAP and add it to the dimensionality reduction dictionary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">            A SCENICPLUS object with eRegulons AUC computed.</span>
+<span class="sd">    scale: bool, optional</span>
+<span class="sd">            Whether to scale the cell-topic or topic-regions contributions prior to the dimensionality reduction. Default: False</span>
+<span class="sd">    auc_key: str, optional</span>
+<span class="sd">            Key to extract AUC values from. Default: &#39;eRegulon_AUC&#39;</span>
+<span class="sd">    signature_keys: List, optional</span>
+<span class="sd">            Keys to extract AUC values from. Default: [&#39;Gene_based&#39;, &#39;Region_based&#39;]</span>
+<span class="sd">    reduction_name: str, optional</span>
+<span class="sd">            Key used to store dimensionality reduction in scplud_obj.dr_cell. Default: eRegulon_AUC.</span>
+<span class="sd">    random_state: int, optional</span>
+<span class="sd">            Seed parameter for running UMAP. Default: 555</span>
+<span class="sd">    selected_regulons: list, optional</span>
+<span class="sd">            A list with selected regulons to be used for clustering. Default: None (use all regulons)</span>
+<span class="sd">    selected_cels: list, optional</span>
+<span class="sd">            A list with selected features cells to cluster. Default: None (use all cells)</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">            Parameters to pass to umap.UMAP.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">selected_regulons</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">selected_regulons</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">selected_regulons</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_regulons</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+        <span class="n">data_names</span> <span class="o">=</span> <span class="n">selected_cells</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">data_mat</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">reducer</span> <span class="o">=</span> <span class="n">umap</span><span class="o">.</span><span class="n">UMAP</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">reducer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">data_mat</span><span class="p">)</span>
+    <span class="n">dr</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">embedding</span><span class="p">,</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">data_names</span><span class="p">,</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+            <span class="s1">&#39;UMAP_1&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;UMAP_2&#39;</span><span class="p">])</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">reduction_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dr</span></div>
+
+
+<div class="viewcode-block" id="run_eRegulons_pca"><a class="viewcode-back" href="../../api.html#scenicplus.dimensionality_reduction.run_eRegulons_pca">[docs]</a><span class="k">def</span> <span class="nf">run_eRegulons_pca</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                      <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                      <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                      <span class="n">signature_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                      <span class="n">reduction_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulons_PCA&#39;</span><span class="p">,</span>
+                      <span class="n">random_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">555</span><span class="p">,</span>
+                      <span class="n">selected_regulons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">n_pcs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+                      <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run UMAP and add it to the dimensionality reduction dictionary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">            A SCENICPLUS object with eRegulons AUC computed.</span>
+<span class="sd">    scale: bool, optional</span>
+<span class="sd">            Whether to scale the cell-topic or topic-regions contributions prior to the dimensionality reduction. Default: False</span>
+<span class="sd">    auc_key: str, optional</span>
+<span class="sd">            Key to extract AUC values from. Default: &#39;eRegulon_AUC&#39;</span>
+<span class="sd">    signature_keys: List, optional</span>
+<span class="sd">            Keys to extract AUC values from. Default: [&#39;Gene_based&#39;, &#39;Region_based&#39;]</span>
+<span class="sd">    reduction_name: str, optional</span>
+<span class="sd">            Key used to store dimensionality reduction in scplud_obj.dr_cell. Default: eRegulon_AUC.</span>
+<span class="sd">    random_state: int, optional</span>
+<span class="sd">            Seed parameter for running UMAP. Default: 555</span>
+<span class="sd">    selected_regulons: list, optional</span>
+<span class="sd">            A list with selected regulons to be used for clustering. Default: None (use all regulons)</span>
+<span class="sd">    selected_cels: list, optional</span>
+<span class="sd">            A list with selected features cells to cluster. Default: None (use all cells)</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">            Parameters to pass to umap.UMAP.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">selected_regulons</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">selected_regulons</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">selected_regulons</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_regulons</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+        <span class="n">data_names</span> <span class="o">=</span> <span class="n">selected_cells</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">data_mat</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">reducer</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">n_pcs</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">)</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">reducer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">data_mat</span><span class="p">)</span>
+
+    <span class="n">dr</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">embedding</span><span class="p">,</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">data_names</span><span class="p">,</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;PC_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_pcs</span><span class="p">)])[[</span><span class="s1">&#39;PC_0&#39;</span><span class="p">,</span> <span class="s1">&#39;PC_1&#39;</span><span class="p">]]</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">reduction_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dr</span></div>
+
+
+<div class="viewcode-block" id="plot_metadata"><a class="viewcode-back" href="../../api.html#scenicplus.dimensionality_reduction.plot_metadata">[docs]</a><span class="k">def</span> <span class="nf">plot_metadata</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                  <span class="n">reduction_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                  <span class="n">variables</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                  <span class="n">remove_nan</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                  <span class="n">show_label</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                  <span class="n">show_legend</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                  <span class="n">cmap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s1">&#39;matplotlib.cm&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">viridis</span><span class="p">,</span>
+                  <span class="n">dot_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                  <span class="n">text_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                  <span class="n">alpha</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">555</span><span class="p">,</span>
+                  <span class="n">color_dictionary</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{},</span>
+                  <span class="n">figsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">6.4</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">),</span>
+                  <span class="n">num_columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">save</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot categorical and continuous metadata into dimensionality reduction.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">            A SCENICPLUS object with dimensionality reductions.</span>
+<span class="sd">    reduction_name: str</span>
+<span class="sd">            Name of the dimensionality reduction to use</span>
+<span class="sd">    variables: list</span>
+<span class="sd">            List of variables to plot. They should be included in `class::SCENICPLUS.metadata_cell`.</span>
+<span class="sd">    remove_nan: bool, optional</span>
+<span class="sd">            Whether to remove data points for which the variable value is &#39;nan&#39;. Default: True</span>
+<span class="sd">    show_label: bool, optional</span>
+<span class="sd">            For categorical variables, whether to show the label in the plot. Default: True</span>
+<span class="sd">    show_legend: bool, optional</span>
+<span class="sd">            For categorical variables, whether to show the legend next to the plot. Default: False</span>
+<span class="sd">    cmap: str or &#39;matplotlib.cm&#39;, optional</span>
+<span class="sd">            For continuous variables, color map to use for the legend color bar. Default: cm.viridis</span>
+<span class="sd">    dot_size: int, optional</span>
+<span class="sd">            Dot size in the plot. Default: 10</span>
+<span class="sd">    text_size: int, optional</span>
+<span class="sd">            For categorical variables and if show_label is True, size of the labels in the plot. Default: 10</span>
+<span class="sd">    alpha: float, optional</span>
+<span class="sd">            Transparency value for the dots in the plot. Default: 1</span>
+<span class="sd">    seed: int, optional</span>
+<span class="sd">            Random seed used to select random colors. Default: 555</span>
+<span class="sd">    color_dictionary: dict, optional</span>
+<span class="sd">            A dictionary containing an entry per variable, whose values are dictionaries with variable levels as keys and corresponding colors as values.</span>
+<span class="sd">            Default: None</span>
+<span class="sd">    figsize: tuple, optional</span>
+<span class="sd">            Size of the figure. If num_columns is 1, this is the size for each figure; if num_columns is above 1, this is the overall size of the figure (if keeping</span>
+<span class="sd">            default, it will be the size of each subplot in the figure). Default: (6.4, 4.8)</span>
+<span class="sd">    num_columns: int, optional</span>
+<span class="sd">            For multiplot figures, indicates the number of columns (the number of rows will be automatically determined based on the number of plots). Default: 1</span>
+<span class="sd">    selected_cells: list, optional</span>
+<span class="sd">            A list with selected cells to plot.</span>
+<span class="sd">    save: str, optional</span>
+<span class="sd">            Path to save plot. Default: None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">reduction_name</span><span class="p">]</span>
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+        <span class="n">embedding</span> <span class="o">=</span> <span class="n">embedding</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">embedding</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">()]</span>
+
+    <span class="n">pdf</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">pdf</span> <span class="o">=</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">backend_pdf</span><span class="o">.</span><span class="n">PdfPages</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">num_rows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_columns</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">figsize</span> <span class="o">==</span> <span class="p">(</span><span class="mf">6.4</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">):</span>
+            <span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mf">6.4</span> <span class="o">*</span> <span class="n">num_columns</span><span class="p">,</span> <span class="mf">4.8</span> <span class="o">*</span> <span class="n">num_rows</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
+        <span class="n">var_data</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">remove_nan</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">data_mat</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">var_data</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+                <span class="n">emb_nan</span> <span class="o">=</span> <span class="n">embedding</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+                <span class="n">label_pd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">emb_nan</span><span class="p">,</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="n">var</span><span class="p">]]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">var_data</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                    <span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s1">&#39;NA&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+                <span class="n">label_pd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">embedding</span><span class="p">,</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                    <span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s1">&#39;NA&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="n">var</span><span class="p">]]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="n">categories</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">var_data</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">color_dict</span> <span class="o">=</span> <span class="n">color_dictionary</span><span class="p">[</span><span class="n">var</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+                <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+                <span class="n">color</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span>
+                    <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span>
+                    <span class="s2">&quot;</span><span class="si">%06x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                        <span class="mi">0</span><span class="p">,</span> <span class="mh">0xFFFFFF</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">categories</span><span class="p">))</span>
+                <span class="p">))</span>
+                <span class="n">color_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">categories</span><span class="p">,</span> <span class="n">color</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_columns</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">remove_nan</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">data_mat</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">emb_nan</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">emb_nan</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">data_mat</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">color_dict</span><span class="p">[</span><span class="n">x</span><span class="p">]),</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">emb_nan</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">emb_nan</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">data_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span>
+                    <span class="s1">&#39;NA&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">color_dict</span><span class="p">[</span><span class="n">x</span><span class="p">]),</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">show_label</span><span class="p">:</span>
+                <span class="n">label_pos</span> <span class="o">=</span> <span class="n">label_pd</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+                    <span class="p">{</span><span class="n">label_pd</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">label_pd</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">})</span>
+                <span class="n">texts</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">label_pos</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">():</span>
+                    <span class="n">texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">plt</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+                            <span class="n">label_pos</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                            <span class="n">label_pos</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                            <span class="n">label</span><span class="p">,</span>
+                            <span class="n">horizontalalignment</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span>
+                            <span class="n">verticalalignment</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span>
+                            <span class="n">size</span><span class="o">=</span><span class="n">text_size</span><span class="p">,</span>
+                            <span class="n">weight</span><span class="o">=</span><span class="s1">&#39;bold&#39;</span><span class="p">,</span>
+                            <span class="n">color</span><span class="o">=</span><span class="n">color_dict</span><span class="p">[</span><span class="n">label</span><span class="p">],</span>
+                            <span class="n">path_effects</span><span class="o">=</span><span class="p">[</span>
+                                <span class="n">PathEffects</span><span class="o">.</span><span class="n">withStroke</span><span class="p">(</span>
+                                    <span class="n">linewidth</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                                    <span class="n">foreground</span><span class="o">=</span><span class="s1">&#39;w&#39;</span><span class="p">)]))</span>
+                <span class="n">adjust_text</span><span class="p">(</span><span class="n">texts</span><span class="p">)</span>
+
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+            <span class="n">patchList</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">color_dict</span><span class="p">:</span>
+                <span class="n">data_key</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Patch</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">color_dict</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+                <span class="n">patchList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">show_legend</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span>
+                    <span class="n">handles</span><span class="o">=</span><span class="n">patchList</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span>
+                        <span class="mf">1.04</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">pdf</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">var_data</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+            <span class="n">o</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">var_data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_columns</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                <span class="n">var_data</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+            <span class="c1"># setup the colorbar</span>
+            <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                <span class="n">vmin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">var_data</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+                <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">var_data</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="n">scalarmappaple</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="n">scalarmappaple</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">var_data</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">scalarmappaple</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">pdf</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">pdf</span> <span class="o">=</span> <span class="n">pdf</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">subset_list</span><span class="p">(</span><span class="n">target_list</span><span class="p">,</span> <span class="n">index_list</span><span class="p">):</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">target_list</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">,</span> <span class="n">index_list</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">X</span>
+
+
+<div class="viewcode-block" id="plot_eRegulon"><a class="viewcode-back" href="../../api.html#scenicplus.dimensionality_reduction.plot_eRegulon">[docs]</a><span class="k">def</span> <span class="nf">plot_eRegulon</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                  <span class="n">reduction_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                  <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                  <span class="n">signature_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                  <span class="n">normalize_tf_expression</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                  <span class="n">cmap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s1">&#39;matplotlib.cm&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">viridis</span><span class="p">,</span>
+                  <span class="n">dot_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                  <span class="n">alpha</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                  <span class="n">selected_regulons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">selected_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">figsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">6.4</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">),</span>
+                  <span class="n">num_columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+                  <span class="n">save</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot TF expression and eRegulon AUC (gene and region based) into dimensionality reduction.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">            A cisTopic object with dimensionality reductions in `class::CistopicObject.projections`.</span>
+<span class="sd">    reduction_name: str</span>
+<span class="sd">            Name of the dimensionality reduction to use</span>
+<span class="sd">    auc_key: str, optional</span>
+<span class="sd">            Key to extract AUC values from. Default: &#39;eRegulon_AUC&#39;</span>
+<span class="sd">    signature_keys: List, optional</span>
+<span class="sd">            Keys to extract AUC values from. Default: [&#39;Gene_based&#39;, &#39;Region_based&#39;] </span>
+<span class="sd">    normalize_tf_expression: bool, optional</span>
+<span class="sd">            Whether logCPM normalize TF expression. Default: True    </span>
+<span class="sd">    cmap: str or &#39;matplotlib.cm&#39;, optional</span>
+<span class="sd">            For continuous variables, color map to use for the legend color bar. Default: cm.viridis</span>
+<span class="sd">    dot_size: int, optional</span>
+<span class="sd">            Dot size in the plot. Default: 10</span>
+<span class="sd">    alpha: float, optional</span>
+<span class="sd">            Transparency value for the dots in the plot. Default: 1</span>
+<span class="sd">    scale: bool, optional</span>
+<span class="sd">            Whether to scale the cell-topic or topic-regions contributions prior to plotting. Default: False</span>
+<span class="sd">    selected_regulons: list, optional</span>
+<span class="sd">            A list with selected regulons to be used for clustering. Default: None (use all regulons)</span>
+<span class="sd">    selected_cells: list, optional</span>
+<span class="sd">            A list with selected features cells to cluster. Default: None (use all cells)</span>
+<span class="sd">    figsize: tuple, optional</span>
+<span class="sd">            Size of the figure. If num_columns is 1, this is the size for each figure; if num_columns is above 1, this is the overall size of the figure (if keeping</span>
+<span class="sd">            default, it will be the size of each subplot in the figure). Default: (6.4, 4.8)</span>
+<span class="sd">    num_columns: int, optional</span>
+<span class="sd">            For multiplot figures, indicates the number of columns (the number of rows will be automatically determined based on the number of plots). Default: 1</span>
+<span class="sd">    save: str, optional</span>
+<span class="sd">            Path to save plot. Default: None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">reduction_name</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">scale</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sklearn</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">selected_cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">selected_cells</span><span class="p">]</span>
+        <span class="n">data_names</span> <span class="o">=</span> <span class="n">selected_cells</span>
+
+    <span class="k">if</span> <span class="n">selected_regulons</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">selected_regulons</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">pdf</span> <span class="o">=</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">backend_pdf</span><span class="o">.</span><span class="n">PdfPages</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">num_rows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">selected_regulons</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="n">figsize</span> <span class="o">==</span> <span class="p">(</span><span class="mf">6.4</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">):</span>
+            <span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mf">6.4</span> <span class="o">*</span> <span class="n">num_columns</span><span class="p">,</span> <span class="mf">4.8</span> <span class="o">*</span> <span class="n">num_rows</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="n">dgem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span>
+                        <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">normalize_tf_expression</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="mi">6</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">dgem</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">dgem</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">data_mat</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">regulon</span> <span class="ow">in</span> <span class="n">selected_regulons</span><span class="p">:</span>
+        <span class="n">tf_name</span> <span class="o">=</span> <span class="n">regulon</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">regulon_names</span> <span class="o">=</span> <span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">data_mat</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span>
+            <span class="n">regulon</span> <span class="o">+</span> <span class="s1">&#39;_(&#39;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+        <span class="n">gene_based_name</span> <span class="o">=</span> <span class="n">regulon_names</span><span class="p">[</span><span class="n">regulon_names</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span>
+            <span class="s1">&#39;g)&#39;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+        <span class="n">region_based_name</span> <span class="o">=</span> <span class="n">regulon_names</span><span class="p">[</span><span class="n">regulon_names</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span>
+            <span class="s1">&#39;r)&#39;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">tf_name</span> <span class="ow">in</span> <span class="n">dgem</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+            <span class="c1"># TF expression</span>
+            <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tf_name</span><span class="p">]</span>
+            <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">tf_expr</span><span class="o">.</span><span class="n">sort_values</span><span class="p">()</span>
+            <span class="n">embedding_plot</span> <span class="o">=</span> <span class="n">embedding</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tf_expr</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+            <span class="n">o</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_columns</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">scale</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                    <span class="n">tf_expr</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">))</span>
+                <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                    <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                    <span class="n">tf_expr</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                    <span class="n">vmin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+                    <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">tf_name</span><span class="o">+</span><span class="s1">&#39;_expression&#39;</span><span class="p">)</span>
+            <span class="c1"># setup the colorbar</span>
+            <span class="n">scalarmappaple</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="n">scalarmappaple</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">scalarmappaple</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">pdf</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="c1"># Gene data</span>
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_columns</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="s1">&#39;Gene_based&#39;</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">:</span>
+                <span class="n">gene_data</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">gene_based_name</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+                <span class="n">gene_data</span> <span class="o">=</span> <span class="n">gene_data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">()</span>
+                <span class="n">embedding_plot</span> <span class="o">=</span> <span class="n">embedding</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gene_data</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">gene_data</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">scale</span><span class="p">:</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                        <span class="n">gene_data</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">gene_data</span><span class="p">))</span>
+                    <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                        <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">gene_data</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                        <span class="n">gene_data</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                        <span class="n">vmin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">gene_data</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+                        <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">gene_data</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">gene_based_name</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="c1"># setup the colorbar</span>
+                <span class="n">scalarmappaple</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+                <span class="n">scalarmappaple</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">gene_data</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">scalarmappaple</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">pdf</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+            <span class="c1"># Region data</span>
+            <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_columns</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="s1">&#39;Region_based&#39;</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">:</span>
+                <span class="n">region_data</span> <span class="o">=</span> <span class="n">data_mat</span><span class="p">[</span><span class="n">region_based_name</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+                <span class="n">region_data</span> <span class="o">=</span> <span class="n">region_data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">()</span>
+                <span class="n">embedding_plot</span> <span class="o">=</span> <span class="n">embedding</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_data</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">region_data</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">scale</span><span class="p">:</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                        <span class="n">region_data</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">region_data</span><span class="p">))</span>
+                    <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                        <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">region_data</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">embedding_plot</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">subset_list</span><span class="p">(</span>
+                        <span class="n">region_data</span><span class="p">,</span> <span class="n">o</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">dot_size</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">normalize</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                        <span class="n">vmin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">region_data</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+                        <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">region_data</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">embedding_plot</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">region_based_name</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="c1"># setup the colorbar</span>
+                <span class="n">scalarmappaple</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+                <span class="n">scalarmappaple</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">region_data</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">scalarmappaple</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">pdf</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">num_columns</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">num_columns</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">pdf</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

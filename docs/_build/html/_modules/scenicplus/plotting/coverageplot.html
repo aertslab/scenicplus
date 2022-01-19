@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.plotting.coverageplot &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.plotting.coverageplot</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.plotting.coverageplot</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Plot chromatin accessibility profiles and region to gene arcs.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">import</span> <span class="nn">pyBigWig</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">cm</span>
+<span class="kn">import</span> <span class="nn">pyranges</span> <span class="k">as</span> <span class="nn">pr</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
+<span class="kn">import</span> <span class="nn">matplotlib.patches</span> <span class="k">as</span> <span class="nn">mpatches</span>
+<span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">from</span> <span class="nn">..scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+
+<span class="k">def</span> <span class="nf">_region_to_chrom_start_end</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+                                          <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                                              <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]),</span>
+                                          <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)[</span><span class="mi">2</span><span class="p">])]</span>
+
+
+<div class="viewcode-block" id="coverage_plot"><a class="viewcode-back" href="../../../api.html#scenicplus.plotting.coverageplot.coverage_plot">[docs]</a><span class="k">def</span> <span class="nf">coverage_plot</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                  <span class="n">bw_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                  <span class="n">region</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                  <span class="n">genes_violin_plot</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">genes_arcs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">gene_height</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">exon_height</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+                  <span class="n">meta_data_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">pr_consensus_bed</span><span class="p">:</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">region_bed_height</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">pr_gtf</span><span class="p">:</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">pr_interact</span><span class="p">:</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">bw_ymax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">color_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;tab20&#39;</span><span class="p">,</span>
+                  <span class="n">plot_order</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">figsize</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+                  <span class="n">fontsize_dict</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;bigwig_label&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
+                                 <span class="s1">&#39;gene_label&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
+                                 <span class="s1">&#39;violinplots_xlabel&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
+                                 <span class="s1">&#39;violinplots_ylabel&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
+                                 <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span>
+                                 <span class="s1">&#39;bigwig_tick_label&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+                  <span class="n">gene_label_offset</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                  <span class="n">arc_rad</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                  <span class="n">arc_lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                  <span class="n">cmap_violinplots</span><span class="o">=</span><span class="s1">&#39;Greys&#39;</span><span class="p">,</span>
+                  <span class="n">violinplots_means_color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span>
+                  <span class="n">violinplots_edge_color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span>
+                  <span class="n">violoinplots_alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                  <span class="n">width_ratios_dict</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;bigwig&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+                                     <span class="s1">&#39;violinplots&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                  <span class="n">height_ratios_dict</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;bigwig_violin&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                                      <span class="s1">&#39;genes&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+                                      <span class="s1">&#39;arcs&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+                                      <span class="s1">&#39;custom_ax&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
+                  <span class="n">sort_vln_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                  <span class="n">add_custom_ax</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Inspired by: https://satijalab.org/signac/reference/coverageplot</span>
+
+<span class="sd">    Generates a figure showing chromatin accessibility coverage tracks, gene expression violin plots and region to gene interactions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj</span>
+<span class="sd">        An instance of class `~scenicplus.scenicplus_class.SCENICPLUS`.</span>
+<span class="sd">    bw_dict</span>
+<span class="sd">        A dict containing celltype annotations/cell groups as keys and paths to bigwig files as values.</span>
+<span class="sd">    region</span>
+<span class="sd">        A string specifying the region of interest, in chr:start-end format.</span>
+<span class="sd">    genes_violin_plot</span>
+<span class="sd">        A list or string specifying for which gene(s) to plot gene expression violin plots.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    genes_arcs</span>
+<span class="sd">        A list or string specifying for which gene(s) to plot arcs</span>
+<span class="sd">        default: None (i.e. all genes in window)</span>
+<span class="sd">    gene_height</span>
+<span class="sd">        An int specifying the size of non-exon parts of a gene (shown underneath the coverage plot).</span>
+<span class="sd">        default: 1</span>
+<span class="sd">    exon_height</span>
+<span class="sd">        An int specifying the size of nexon parts of a gene (shown underneath the coverage plot).</span>
+<span class="sd">        default: 2</span>
+<span class="sd">    meta_data_key</span>
+<span class="sd">        A key specifying were to find annotations corresponding to the keys in `bw_dict` in `SCENICPLUS_obj.metadata_cell`</span>
+<span class="sd">        default: None</span>
+<span class="sd">    pr_consensus_bed</span>
+<span class="sd">        An instance of class `pyranges.PyRanges` containing consensus peaks. Names of these peaks should correspond to annotations.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    region_bed_height</span>
+<span class="sd">        An int specifying with which height to draw lines corresponding to regions in `pr_consensus_bed`</span>
+<span class="sd">        default: 1</span>
+<span class="sd">    pr_gtf</span>
+<span class="sd">        An instance of class `pyranges.PyRanges` containing gtf-formatted information about gene structure.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    pr_interact</span>
+<span class="sd">        An instance of class `pyranges.PyRanges` containing region to gene link information in ucsc interact format (use `scenicplus.utils.get_interaction_pr` to create such an object).</span>
+<span class="sd">        default: None</span>
+<span class="sd">    bw_ymax</span>
+<span class="sd">        A float specifying the maximum height at which to draw coverage plots.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    color_dict</span>
+<span class="sd">        A dict specifying colors for each key in `bw_dict`.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    cmap</span>
+<span class="sd">        A string specifying a `matplotlib.cm` colormap to use for coloring coverage plots.</span>
+<span class="sd">        default: &#39;tab20&#39;</span>
+<span class="sd">    plot_order</span>
+<span class="sd">        A list specifying the order to use for plotting coverage plots and violin plots.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    figsize</span>
+<span class="sd">        A tuple specifying the fig size/</span>
+<span class="sd">        default: (6, 8)</span>
+<span class="sd">    fontsize_dict</span>
+<span class="sd">        A dictionary specifying the fontsize of various labels in the plot.</span>
+<span class="sd">        default: {&#39;bigwig_label&#39;: 9, &#39;gene_label&#39;: 9, &#39;violinplots_xlabel&#39;: 9, &#39;title&#39;: 12, &#39;bigwig_tick_label&#39;: 5}</span>
+<span class="sd">    gene_label_offset</span>
+<span class="sd">        The y-offset of the label underneath each gene.</span>
+<span class="sd">        default: 3</span>
+<span class="sd">    arc_rad</span>
+<span class="sd">        The amount of radians the region-to-gene arc should be bend.</span>
+<span class="sd">        default: 0.5</span>
+<span class="sd">    arc_lw</span>
+<span class="sd">        The linewidth of the region-to-gene arcs.</span>
+<span class="sd">        default: 1</span>
+<span class="sd">    cmap_violinplots</span>
+<span class="sd">        A string specifying a `matplotlib.cm` colormap to use for coloring violinplots. </span>
+<span class="sd">        default: &#39;Greys&#39;</span>
+<span class="sd">    violinplots_means_color</span>
+<span class="sd">        A string specifying which color to use to indicate the mean value in violinplots.</span>
+<span class="sd">        default: &#39;black&#39;</span>
+<span class="sd">    violinplots_edge_color</span>
+<span class="sd">        A string specifying which color to use for the edge of the violinplots.</span>
+<span class="sd">        default: &#39;black&#39;</span>
+<span class="sd">    violoinplots_alpha</span>
+<span class="sd">        The alpha value of the violinplots facecolor.</span>
+<span class="sd">        default: 1</span>
+<span class="sd">    width_ratios_dict</span>
+<span class="sd">        A dict specifying the ratio in vertical direction each part of the plot should use.</span>
+<span class="sd">        default: {&#39;bigwig&#39;: 3, &#39;violinplots&#39;: 1}</span>
+<span class="sd">    height_ratios_dict</span>
+<span class="sd">        A dict specifying the ratio in horizontal direction each part of the plot should use.</span>
+<span class="sd">        default: {&#39;bigwig_violin&#39;: 1, &#39;genes&#39;: 0.5, &#39;arcs&#39;: 5}</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    plt.Figure</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fig_nrows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bw_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">pr_interact</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fig_nrows</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">pr_gtf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fig_nrows</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">add_custom_ax</span><span class="p">:</span>
+        <span class="n">fig_nrows</span> <span class="o">+=</span> <span class="n">add_custom_ax</span>
+    <span class="n">height_ratios</span> <span class="o">=</span> <span class="p">[</span><span class="n">height_ratios_dict</span><span class="p">[</span><span class="s1">&#39;bigwig_violin&#39;</span><span class="p">]</span>
+                     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bw_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()))]</span>
+    <span class="k">if</span> <span class="n">pr_gtf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">height_ratios</span> <span class="o">+=</span> <span class="p">[</span><span class="n">height_ratios_dict</span><span class="p">[</span><span class="s1">&#39;genes&#39;</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">pr_interact</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">height_ratios</span> <span class="o">+=</span> <span class="p">[</span><span class="n">height_ratios_dict</span><span class="p">[</span><span class="s1">&#39;arcs&#39;</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">add_custom_ax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">height_ratios</span> <span class="o">+=</span> <span class="p">[</span><span class="n">height_ratios_dict</span><span class="p">[</span><span class="s1">&#39;custom_ax&#39;</span><span class="p">]</span>
+                          <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">add_custom_ax</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="n">genes_violin_plot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ncols</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="n">width_ratios</span> <span class="o">=</span> <span class="p">[</span><span class="n">width_ratios_dict</span><span class="p">[</span><span class="s1">&#39;bigwig&#39;</span><span class="p">],</span>
+                        <span class="n">width_ratios_dict</span><span class="p">[</span><span class="s1">&#39;violinplots&#39;</span><span class="p">]]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ncols</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">width_ratios</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">nrows</span><span class="o">=</span><span class="n">fig_nrows</span><span class="p">,</span>
+                            <span class="n">ncols</span><span class="o">=</span><span class="n">ncols</span><span class="p">,</span>
+                            <span class="n">gridspec_kw</span><span class="o">=</span><span class="p">{</span>
+                                <span class="s1">&#39;height_ratios&#39;</span><span class="p">:</span> <span class="n">height_ratios</span><span class="p">,</span> <span class="s1">&#39;width_ratios&#39;</span><span class="p">:</span> <span class="n">width_ratios</span><span class="p">},</span>
+                            <span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+    <span class="n">axs_bw</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">genes_violin_plot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">axs_vln</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">subplot_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># get coordinates from region string</span>
+    <span class="n">chrom</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">_region_to_chrom_start_end</span><span class="p">(</span><span class="n">region</span><span class="p">)</span>
+    <span class="n">pr_region</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">chromosomes</span><span class="o">=</span><span class="p">[</span><span class="n">chrom</span><span class="p">],</span> <span class="n">starts</span><span class="o">=</span><span class="p">[</span><span class="n">start</span><span class="p">],</span> <span class="n">ends</span><span class="o">=</span><span class="p">[</span><span class="n">end</span><span class="p">])</span>
+    <span class="c1"># calculate bw_ymax for scaling</span>
+    <span class="n">bw_ymax_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">bw_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">bw_file</span> <span class="o">=</span> <span class="n">bw_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="c1"># calculate max value of the bigwig within our region</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">pyBigWig</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">bw_file</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">bw</span><span class="o">.</span><span class="n">values</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">bw_ymax_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># set y_max</span>
+    <span class="k">if</span> <span class="n">bw_ymax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bw_ymax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">bw_ymax_dict</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+    <span class="c1"># set colors if not provided</span>
+    <span class="k">if</span> <span class="n">color_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="n">cmap</span><span class="p">)</span>
+        <span class="n">color_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">cmap</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bw_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())}</span>
+
+    <span class="c1"># iterate over all bigwigs</span>
+    <span class="k">if</span> <span class="n">plot_order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">plot_order</span> <span class="o">=</span> <span class="n">bw_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">plot_order</span><span class="p">:</span>
+        <span class="c1"># create a new subplot</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axs_bw</span><span class="p">[</span><span class="n">subplot_idx</span><span class="p">]</span>
+        <span class="n">subplot_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># open the bigwig</span>
+        <span class="n">bw_file</span> <span class="o">=</span> <span class="n">bw_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">pyBigWig</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">bw_file</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">bw</span><span class="o">.</span><span class="n">values</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+        <span class="c1"># now plot the bigwig in the gridspec</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y1</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">y2</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="s2">&quot;mid&quot;</span><span class="p">,</span>
+                        <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color_dict</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">patch</span><span class="o">.</span><span class="n">set_alpha</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># figure settings</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">()])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span>
+            <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">bw_ymax</span><span class="p">])</span> <span class="k">if</span> <span class="n">pr_consensus_bed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="n">bw_ymax</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;both&#39;</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s1">&#39;major&#39;</span><span class="p">,</span>
+                       <span class="n">labelsize</span><span class="o">=</span><span class="n">fontsize_dict</span><span class="p">[</span><span class="s1">&#39;bigwig_tick_label&#39;</span><span class="p">])</span>
+
+        <span class="c1"># remove negative yticks</span>
+        <span class="n">y_ticks</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_yticks</span><span class="p">()</span>
+        <span class="c1">#y_tick_labels = ax.get_yticklabels()</span>
+        <span class="n">y_ticks_to_keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">y_ticks</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y_ticks</span> <span class="o">=</span> <span class="n">y_ticks</span><span class="p">[</span><span class="n">y_ticks_to_keep</span><span class="p">]</span>
+        <span class="c1">#y_tick_labels = [y_tick_labels[i] for i in y_ticks_to_keep]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">y_ticks</span><span class="p">)</span>
+        <span class="c1"># ax.set_yticklabels(list(y_tick_labels))</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y</span><span class="o">=</span><span class="n">bw_ymax</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize_dict</span><span class="p">[</span><span class="s1">&#39;bigwig_label&#39;</span><span class="p">])</span>
+
+        <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">pr_consensus_bed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">consensus_bed_region_intersect</span> <span class="o">=</span> <span class="n">pr_consensus_bed</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span>
+                <span class="n">pr_region</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">consensus_bed_region_intersect</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+                <span class="n">region_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_peak&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">region_names</span><span class="p">:</span>
+                    <span class="n">bed_chrom</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;Chromosome&#39;</span><span class="p">]</span>
+                    <span class="n">bed_start</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span>
+                    <span class="n">bed_end</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">pr_interact</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">pr_tmp</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">chromosomes</span><span class="o">=</span><span class="p">[</span><span class="n">bed_chrom</span><span class="p">],</span> <span class="n">starts</span><span class="o">=</span><span class="p">[</span>
+                                             <span class="n">bed_start</span><span class="p">],</span> <span class="n">ends</span><span class="o">=</span><span class="p">[</span><span class="n">bed_end</span><span class="p">])</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pr_interact</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">pr_tmp</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;black&#39;</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;grey&#39;</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;grey&#39;</span>
+                    <span class="n">rect</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">bed_start</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">),</span> <span class="n">bed_end</span><span class="o">-</span><span class="n">bed_start</span><span class="p">,</span> <span class="n">region_bed_height</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">rect</span><span class="p">)</span>
+
+    <span class="c1"># draw the genes of interest, from our gtf</span>
+    <span class="c1"># intersect genes gtf with the region of interest</span>
+    <span class="k">if</span> <span class="n">pr_gtf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># intersect gtf with region and get first 9 columns</span>
+        <span class="n">gtf_region_intersect</span> <span class="o">=</span> <span class="n">pr_gtf</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">pr_region</span><span class="p">)</span>
+        <span class="c1"># only keep exon and gene info</span>
+        <span class="n">gtf_region_intersect</span> <span class="o">=</span> <span class="n">gtf_region_intersect</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">Feature</span> <span class="o">==</span> <span class="s1">&#39;gene&#39;</span><span class="p">,</span>
+                          <span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">Feature</span> <span class="o">==</span> <span class="s1">&#39;exon&#39;</span><span class="p">),</span>
+            <span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">gene_type</span> <span class="o">==</span> <span class="s1">&#39;protein_coding&#39;</span><span class="p">)]</span>
+        <span class="c1"># iterate over all genes in intersect</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axs_bw</span><span class="p">[</span><span class="n">subplot_idx</span><span class="p">]</span>
+        <span class="n">subplot_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">genes_in_window</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">gene_name</span><span class="p">)</span>
+        <span class="n">n_genes_in_window</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">genes_in_window</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">_gene</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">genes_in_window</span><span class="p">):</span>
+            <span class="n">_gene_height</span> <span class="o">=</span> <span class="n">gene_height</span> <span class="o">/</span> <span class="n">n_genes_in_window</span>
+            <span class="n">_gene_bottom</span> <span class="o">=</span> <span class="o">-</span><span class="n">gene_height</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">_gene_height</span> <span class="o">*</span> <span class="n">idx</span>
+            <span class="n">_exon_bottom</span> <span class="o">=</span> <span class="n">_gene_bottom</span> <span class="o">-</span> \
+                <span class="p">(((</span><span class="n">exon_height</span> <span class="o">/</span> <span class="n">n_genes_in_window</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">_gene_height</span><span class="p">)</span>
+            <span class="n">_exon_height</span> <span class="o">=</span> <span class="p">(((</span><span class="n">exon_height</span> <span class="o">/</span> <span class="n">n_genes_in_window</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">_gene_height</span><span class="p">)</span> <span class="o">+</span> \
+                <span class="n">_gene_height</span> <span class="o">+</span> \
+                <span class="p">(((</span><span class="n">exon_height</span> <span class="o">/</span> <span class="n">n_genes_in_window</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">_gene_height</span><span class="p">)</span>
+            <span class="c1"># don&#39;t plot non-protein coding transcripts (e.g. nonsense_mediated_decay)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;gene_name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">_gene</span><span class="p">,</span> <span class="s1">&#39;transcript_type&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;protein_coding&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="c1"># plot the gene parts (gene body and gene exon)</span>
+            <span class="c1"># iterate over all parts to plot them</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gtf_region_intersect</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;gene_name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">_gene</span><span class="p">]</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+                <span class="c1"># make exons thick</span>
+                <span class="k">if</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;Feature&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;exon&#39;</span><span class="p">:</span>
+                    <span class="n">exon_start</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span>
+                    <span class="n">exon_end</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span>
+                    <span class="c1"># draw rectangle for exon</span>
+                    <span class="n">rect</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">exon_start</span><span class="p">,</span> <span class="n">_exon_bottom</span><span class="p">),</span> <span class="n">exon_end</span><span class="o">-</span><span class="n">exon_start</span><span class="p">,</span> <span class="n">_exon_height</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">rect</span><span class="p">)</span>
+                <span class="c1"># make the gene body a thin line, drawn at the end so it will always display on top</span>
+                <span class="k">elif</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;Feature&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;gene&#39;</span><span class="p">:</span>
+                    <span class="n">gene_start</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;Start&#39;</span><span class="p">]</span>
+                    <span class="n">gene_end</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;End&#39;</span><span class="p">]</span>
+                    <span class="n">rect</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">gene_start</span><span class="p">,</span> <span class="n">_gene_bottom</span><span class="p">),</span> <span class="n">gene_end</span><span class="o">-</span><span class="n">gene_start</span><span class="p">,</span> <span class="n">_gene_height</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">rect</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">gene_start</span><span class="p">,</span> <span class="n">_gene_bottom</span> <span class="o">-</span> <span class="n">gene_label_offset</span><span class="p">,</span>
+                        <span class="n">_gene</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize_dict</span><span class="p">[</span><span class="s1">&#39;gene_label&#39;</span><span class="p">])</span>
+            <span class="c1"># figure settings</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="o">-</span><span class="n">exon_height</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">exon_height</span><span class="o">/</span><span class="mi">2</span><span class="p">])</span>
+            <span class="c1">#ax.set_xlabel(gene, fontsize=10)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">()])</span>
+            <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">patch</span><span class="o">.</span><span class="n">set_alpha</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># make sure that each individual subplot is transparent! otherwise the underlying plots won&#39;t be shown. this is important e.g. for the dar/peak visualisaton, since the DARs are drawn directly on top of the peaks. if the DAR plot is not transparent, no peaks will be visible!!</span>
+
+    <span class="c1"># Draw arcs from region to gene</span>
+    <span class="k">if</span> <span class="n">pr_interact</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pr_gtf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axs_bw</span><span class="p">[</span><span class="n">subplot_idx</span><span class="p">]</span>
+        <span class="n">subplot_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="c1"># intersect region with pr_interact</span>
+        <span class="n">pr_region</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span>
+            <span class="n">chromosomes</span><span class="o">=</span><span class="p">[</span><span class="n">chrom</span><span class="p">],</span> <span class="n">starts</span><span class="o">=</span><span class="p">[</span><span class="n">start</span><span class="p">],</span> <span class="n">ends</span><span class="o">=</span><span class="p">[</span><span class="n">end</span><span class="p">])</span>
+        <span class="n">region_interact_intersect</span> <span class="o">=</span> <span class="n">pr_interact</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">pr_region</span><span class="p">)</span>
+        <span class="c1"># only keep interactions to genes within window</span>
+        <span class="k">if</span> <span class="n">genes_arcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">genes_arcs</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">genes_arcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">genes_arcs</span><span class="p">]</span>
+            <span class="n">region_interact_intersect</span> <span class="o">=</span> <span class="n">region_interact_intersect</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+                <span class="n">region_interact_intersect</span><span class="o">.</span><span class="n">targetName</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">genes_in_window</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">genes_arcs</span><span class="p">)))]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">region_interact_intersect</span> <span class="o">=</span> <span class="n">region_interact_intersect</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+                <span class="n">region_interact_intersect</span><span class="o">.</span><span class="n">targetName</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">genes_in_window</span><span class="p">))]</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">r2g</span> <span class="ow">in</span> <span class="n">region_interact_intersect</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">posA</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">r2g</span><span class="p">[</span><span class="s1">&#39;sourceStart&#39;</span><span class="p">]),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">posB</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">r2g</span><span class="p">[</span><span class="s1">&#39;targetStart&#39;</span><span class="p">]),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="c1"># this to ensure arcs are always down</span>
+            <span class="n">sign</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span> <span class="k">if</span> <span class="n">posA</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">posB</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="n">r2g</span><span class="p">[</span><span class="s1">&#39;color&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">posA</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="ow">and</span> <span class="n">posA</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="ow">and</span> <span class="p">(</span><span class="n">posB</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="ow">and</span> <span class="n">posB</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">()):</span>
+                <span class="n">arrow</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">FancyArrowPatch</span><span class="p">(</span><span class="n">posA</span><span class="o">=</span><span class="n">posA</span><span class="p">,</span>
+                                                 <span class="n">posB</span><span class="o">=</span><span class="n">posB</span><span class="p">,</span>
+                                                 <span class="n">connectionstyle</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;arc3,rad=</span><span class="si">{</span><span class="n">sign</span><span class="si">}{</span><span class="n">arc_rad</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                                                 <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                                                 <span class="n">lw</span><span class="o">=</span><span class="n">arc_lw</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">arrow</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">()])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
+
+    <span class="k">if</span> <span class="n">genes_violin_plot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># plot expression of gene/genes</span>
+
+        <span class="k">if</span> <span class="n">meta_data_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">meta_data_key</span><span class="si">}</span><span class="s1"> not found in SCENICPLUS_obj.metadata_cell.columns&#39;</span><span class="p">)</span>
+
+        <span class="c1"># check that bw_dict keys is a subset of scplus_obj.metadata_cell[meta_data_key]</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="p">[</span><span class="n">meta_data_key</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">plot_order</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">annotations</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">not_found</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plot_order</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">annotations</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Following keys were not found in SCENICPLUS_obj.metadata_cell[</span><span class="si">{</span><span class="n">meta_data_key</span><span class="si">}</span><span class="s1">]</span><span class="se">\n</span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">not_found</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># normalize scores</span>
+        <span class="n">mtx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">((</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span>
+                       <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">10</span> <span class="o">**</span> <span class="mi">4</span><span class="p">))</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="c1"># get expression values for gene/genes</span>
+        <span class="n">idx_gene</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">genes_violin_plot</span><span class="p">)</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span>
+            <span class="n">genes_violin_plot</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span> <span class="k">else</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">genes_violin_plot</span><span class="p">]</span>
+        <span class="n">expr_vals</span> <span class="o">=</span> <span class="n">mtx</span><span class="p">[:,</span> <span class="n">idx_gene</span><span class="p">]</span>
+
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">plot_order</span><span class="p">))</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap_violinplots</span><span class="p">)</span>
+        <span class="n">expr_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">Inf</span>
+        <span class="n">expr_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">NINF</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_order</span><span class="p">):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">axs_vln</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">annotations</span> <span class="o">==</span> <span class="n">annotation</span><span class="p">)</span>
+            <span class="n">expr_vals_sub</span> <span class="o">=</span> <span class="n">expr_vals</span><span class="p">[</span><span class="n">cells</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">sort_vln_plots</span><span class="p">:</span>
+                <span class="n">idx_sorted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">expr_vals_sub</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">expr_vals_sub</span> <span class="o">=</span> <span class="n">expr_vals_sub</span><span class="p">[:,</span> <span class="n">idx_sorted</span><span class="p">]</span>
+                <span class="n">genes_violin_plot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="nb">list</span><span class="p">(</span><span class="n">genes_violin_plot</span><span class="p">))[</span><span class="n">idx_sorted</span><span class="p">]</span>
+
+            <span class="n">expr_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">expr_min</span><span class="p">,</span> <span class="n">expr_vals_sub</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+            <span class="n">expr_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">expr_max</span><span class="p">,</span> <span class="n">expr_vals_sub</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+
+            <span class="n">vln_plot_part</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">violinplot</span><span class="p">(</span>
+                <span class="n">expr_vals_sub</span><span class="p">,</span> <span class="n">vert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">showmeans</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">showextrema</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pc</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">vln_plot_part</span><span class="p">[</span><span class="s1">&#39;bodies&#39;</span><span class="p">]):</span>
+                <span class="n">facecolor</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">to_rgba</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">pc</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="n">color_dict</span><span class="p">[</span><span class="n">annotation</span><span class="p">])</span>
+                <span class="n">pc</span><span class="o">.</span><span class="n">set_edgecolor</span><span class="p">(</span><span class="n">violinplots_edge_color</span><span class="p">)</span>
+                <span class="n">pc</span><span class="o">.</span><span class="n">set_alpha</span><span class="p">(</span><span class="n">violoinplots_alpha</span><span class="p">)</span>
+            <span class="n">vln_plot_part</span><span class="p">[</span><span class="s1">&#39;cmeans&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">set_edgecolor</span><span class="p">(</span><span class="n">violinplots_means_color</span><span class="p">)</span>
+            <span class="n">n_labels</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">genes_violin_plot</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span>
+                <span class="n">genes_violin_plot</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">ticks</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_labels</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">genes_violin_plot</span><span class="p">,</span>
+                               <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize_dict</span><span class="p">[</span><span class="s1">&#39;violinplots_ylabel&#39;</span><span class="p">])</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xmin</span><span class="o">=</span><span class="nb">round</span><span class="p">(</span><span class="n">expr_min</span><span class="p">),</span> <span class="n">xmax</span><span class="o">=</span><span class="nb">round</span><span class="p">(</span><span class="n">expr_max</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">plot_order</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;log-normalised</span><span class="se">\n</span><span class="s1">Expression counts&#39;</span><span class="p">,</span>
+                              <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize_dict</span><span class="p">[</span><span class="s1">&#39;violinplots_xlabel&#39;</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">axs_vln</span><span class="p">)):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">axs_vln</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
+
+    <span class="c1"># finally, add a little text that shows which regions you&#39;re plotting</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="nb">round</span><span class="p">((</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="p">)</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">region</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s1"> kb)&#39;</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize_dict</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">add_custom_ax</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">axs</span><span class="p">[</span><span class="n">axs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">add_custom_ax</span><span class="p">:</span> <span class="n">axs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">fig</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">fig</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

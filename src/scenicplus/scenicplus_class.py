@@ -1,3 +1,14 @@
+"""Combine single-cell expression data and single-cell accessibility into a single SCENIC+ object.
+
+This object will be used for downstream analysis, including: region-to-gene and TF-to-gene linking, enhancer-driven-GRN building and further downstream analysis.
+
+This object can be generated from both single-cell multi-omics data (i.e. gene expression and chromatin accessibility from the same cell),
+and seperate single-cell chromatin accessbility data and single-cell gene expression data from the same or similar sample.
+
+In the second case both data modalities should have a common cell metadata field with values linking both modalities (e.g. common celltype annotation).
+
+"""
+
 import attr
 from numpy.lib.function_base import iterable
 import scipy.sparse as sparse
@@ -15,25 +26,6 @@ from scenicplus.utils import Groupby
 
 # hardcoded variables
 TOPIC_FACTOR_NAME = 'topic'
-
-"""
-Create a SCENIC (or SCENIC+, if allowed) class with:
-
-Functions (Additional slots to fill in the object):
-- Cistrome pruning
-
-Exploratory functions (after running pipeline)
-- Plot region2gene (with option to give custom bigwigs)
-- Dot płot
-- eGRN
-- Embeddings (plot metadata, genes, regions,…)
-- Combinations TF
-- Cytoscape
-- Once we have network, predict perturbation effect (boolean modelling?)
-
-Feel free to comment/edit/add extra things :)!!
-"""
-
 
 def _check_dimmensions(instance, attribute, value):
     if attribute.name == 'X_ACC':
@@ -57,56 +49,48 @@ class SCENICPLUS():
     :attr:`X_EXP` (gene expression) together with region annotation :attr:`metadata_regions`, gene annotation :attr:`metadata_genes`,
     cell annotation :attr:`metadata_cell` and motif enrichment data :attr:`menr`.
 
+    Use create_SCENICPLUS_object to generate instances of this class.
+
     Parameters
     ----------
-    X_ACC
+    X_ACC: sparse.spmatrix, np.ndarray, pd.DataFrame
         A #regions x #cells data matrix
-    X_EXP
+    X_EXP: sparse.spmatrix, np.ndarray, pd.DataFrame
         A #cells x #genes data matrix
-    metadata_regions
+    metadata_regions: pd.DataFrame
         A :class:`pandas.DataFrame` containing region metadata annotation of length #regions
-    metadata_genes
+    metadata_genes: pd.DataFrame
         A :class:`pandas.DataFrame` containing gene metadata annotation of length #genes
-    metadata_cell
+    metadata_cell: pd.DataFrame
         A :class:`pandas.DataFrame` containing cell metadata annotation of lenght #cells
-    menr
+    menr: dict
         A Dict containing motif enrichment results for topics of differentially accessbile regions (DARs), generate by pycistarget.
-        Should take the form {'region_set_name1': {region_set1: result, 'region_set2': result}, 
-                              'region_set_name2': {'region_set1': result, 'region_set2': result},
-                              'topic': {'topic1': result, 'topic2': result}} 
+        Should take the form {'region_set_name1': {region_set1: result, 'region_set2': result}, 'region_set_name2': {'region_set1': result, 'region_set2': result},
+        'topic': {'topic1': result, 'topic2': result}} 
         region set names, which aren't topics, should be columns in the :attr:`metadata_cell` dataframe
-    dr_cell
+    dr_cell: dict
         A Dict containing dimmensional reduction coordinates of cells.
-    dr_region
+    dr_region: dct
         A Dict containing dimmensional reduction coordinates of regions.
 
-    Properties
+    Attributes
     ----------
-    n_cells
+    n_cells: int
         Returns number of cells.
-    n_genes
+    n_genes: int
         Returns number of genes.
-    n_regions
+    n_regions: int
         Returns number of regions.
-    cell_names
+    cell_names: List[str]
         Returns cell names
-    gene_names
+    gene_names: List[str]
         Returns gene names
-    region_names
+    region_names: List[str]
         Returns region names
-    to_df
-        Returns a :class:`~pd.DataFame` containing gene expression or region accessbility data
-
-    Functions
+    
+    See Also
     --------
-    add_cell_data
-        Add cell metadata
-    add_region_data
-        Add region metadata
-    add_gene_data
-        Add gene metadata
-    subset 
-        Subset object
+    scenicplus.scenicplus_class.create_SCENICPLUS_object
     """
 
     # mandatory attributes
@@ -129,28 +113,28 @@ class SCENICPLUS():
     # validation
 
     @metadata_regions.validator
-    def check_n_regions(self, attribute, value):
+    def _check_n_regions(self, attribute, value):
         if not len(value) == self.n_regions:
             raise ValueError(
                 "`metadata_regions` must have the same number of annotations as rows in `X_ACC`"
                 f" ({self.n_regions}), but has {len(value)} rows.")
 
     @metadata_genes.validator
-    def check_n_genes(self, attribute, value):
+    def _check_n_genes(self, attribute, value):
         if not len(value) == self.n_genes:
             raise ValueError(
                 "`metadata_genes` must have the same number of annotations as columns in `X_EXP`"
                 f" ({self.n_genes}), but has {len(value)} rows.")
 
     @metadata_cell.validator
-    def check_n_cells(self, attribute, value):
+    def _check_n_cells(self, attribute, value):
         if not len(value) == self.n_cells:
             raise ValueError(
                 "`metadata_cell` must have the same number of cells as rows in `X_EXP` and columns `X_ACC`"
                 f" ({self.n_cells}), but has {len(value)} rows.")
 
     @dr_cell.validator
-    def check_cell_dimmensions(self, attribute, value):
+    def _check_cell_dimmensions(self, attribute, value):
         if value is not None:
             if not all([value[k].shape[0] == self.n_cells for k in value.keys()]):
                 raise ValueError(
@@ -158,7 +142,7 @@ class SCENICPLUS():
                 )
 
     @dr_region.validator
-    def check_region_dimmensions(self, attribute, value):
+    def _check_region_dimmensions(self, attribute, value):
         if value is not None:
             if not all([value[k].shape[0] == self.n_regions for k in value.keys()]):
                 raise ValueError(
@@ -230,7 +214,7 @@ class SCENICPLUS():
 
         Parameters
         ----------
-        cell_data
+        cell_data: pd.DataFrame
             A :class:`~pd.DataFrame` containing cell metdata indexed with cell barcodes.
         """
         if not set(self.cell_names) <= set(cell_data.index):
@@ -256,7 +240,7 @@ class SCENICPLUS():
 
         Parameters
         ----------
-        region_data
+        region_data: pd.DataFrame
             A :class:`~pd.DataFrame` containing region metadata indexed with region names.
         """
         if not set(self.region_names) <= set(region_data.index):
@@ -282,8 +266,8 @@ class SCENICPLUS():
         Add gene metadata
 
         Parameters
-        ---------
-        gene_data
+        ----------
+        gene_data: pd.DataFrame
             A :class:`~pd.DataFrame` containing gene metadata indexed with gene names.
         """
         if not set(self.gene_names) <= set(gene_data.index):
@@ -310,16 +294,16 @@ class SCENICPLUS():
 
         Parameters
         ----------
-        cells
+        cells: List[str]
             A list of cells to keep
             default: None
-        regions
+        regions: List[str]
             A list of regions to keep
             default: None
-        genes
+        genes: List[str]
             A list of genes to keep
             default:None
-        return_copy
+        return_copy: bool
             A boolean specifying wether to update the object (False) or return a copy (True)
         """
         def _subset(X, row_idx, col_idx):
@@ -445,62 +429,66 @@ def create_SCENICPLUS_object(
 
     Parameters
     ----------
-    GEX_anndata
+    GEX_anndata: sc.AnnData
         An instance of :class:`~sc.AnnData` containing gene expression data and metadata.
-    cisTopic_obj
+    cisTopic_obj: CistopicObject
         An instance of :class:`pycisTopic.cistopic_class.CistopicObject` containing chromatin accessibility data and metadata.
-    menr
+    menr: dict
         A dict mapping annotations to motif enrichment results
-    multi_ome_mode
+    multi_ome_mode: bool
         A boolean specifying wether data is multi-ome (i.e. combined scATAC-seq and scRNA-seq from the same cell) or not
         default: True
-    nr_metacells
+    nr_metacells: int
         For non multi_ome_mode, use this number of meta cells to link scRNA-seq and scATAC-seq
         If this is a single integer the same number of metacells will be used for all annotations.
         This can also be a mapping between an annotation and the number of metacells per annotation.
         default: None
-    nr_cells_per_metacells
+    nr_cells_per_metacells: int
         For non multi_ome_mode, use this number of cells per metacell to link scRNA-seq and scATAC-seq.
         If this is a single integer the same number of cells will be used for all annotations.
         This can also be a mapping between an annotation and the number of cells per metacell per annotation.
         default: 10
-    meta_cell_split
+    meta_cell_split: str
         Character which is used as seperator in metacell names
         default: '_'
-    key_to_group_by
+    key_to_group_by: str
         For non multi_ome_mode, use this cell metadata key to generate metacells from scRNA-seq and scATAC-seq. 
         Key should be common in scRNA-seq and scATAC-seq side
         default: None
-    imputed_acc_obj
+    imputed_acc_obj: CistopicImputedFeatures
         An instance of :class:`~pycisTopic.diff_features.CistopicImputedFeatures` containing imputed chromatin accessibility.
         default: None
-    imputed_acc_kwargs
+    imputed_acc_kwargs: dict
         Dict with keyword arguments for imputed chromatin accessibility.
         default: {'scale_factor': 10**6}
-    normalize_imputed_acc
+    normalize_imputed_acc: bool
         A boolean specifying wether or not to normalize imputed chromatin accessbility.
         default: False
-    normalize_imputed_acc_kwargs
+    normalize_imputed_acc_kwargs: dict
         Dict with keyword arguments for normalizing imputed accessibility.
         default: {'scale_factor': 10 ** 4}
-    cell_metadata
+    cell_metadata: pd.DataFrame
         An instance of :class:`~pd.DataFrame` containing extra cell metadata
         default: None
-    region_metadata
+    region_metadata: pd.DataFrame
         An instance of :class:`~pd.DataFrame` containing extra region metadata
         default: None
-    gene_metadata
+    gene_metadata: pd.DataFrame
         An instance of :class:`~pd.DataFrame` containing extra gene metadata
         default: None
-    bc_transform_func
+    bc_transform_func: func
         A function used to transform gene expression barcode layout to chromatin accessbility layout.
         default: None
-    ACC_prefix
-        String prefix to add to cell metadata coming from :param:`cisTopic_obj`
-        default: "ACC_"
-    GEX_prefix
-        String prefix to add to cell metadata coming from :param:`GEX_anndata`
-        default: "GEX_"
+    ACC_prefix: str
+        String prefix to add to cell metadata coming from cisTopic_obj
+    GEX_prefix: str
+        String prefix to add to cell metadata coming from GEX_anndata
+    
+    
+    Examples
+    --------
+    >>> scplus_obj = create_SCENICPLUS_object(GEX_anndata = rna_anndata, cisTopic_obj = cistopic_obj, menr = motif_enrichment_dict)
+    
     """
     # Create logger
     level = logging.INFO

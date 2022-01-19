@@ -1,3 +1,7 @@
+"""Calculate differentially expressed genes (DEGs) and differentially accessible regions (DARs).
+
+"""
+
 import anndata
 import scanpy as sc
 from typing import Optional, List
@@ -11,7 +15,7 @@ from .scenicplus_class import SCENICPLUS
 pd.options.mode.chained_assignment = None
 
 
-def format_df(df, key, adjpval_thr, log2fc_thr):
+def _format_df(df, key, adjpval_thr, log2fc_thr):
     """
     A helper function to format differential test results
     """
@@ -84,7 +88,7 @@ def get_differential_features(scplus_obj: SCENICPLUS,
         sc.tl.rank_genes_groups(
             adata, variable, method='wilcoxon', corr_method='bonferroni')
         groups = adata.uns['rank_genes_groups']['names'].dtype.names
-        diff_dict = {group: format_df(sc.get.rank_genes_groups_df(
+        diff_dict = {group: _format_df(sc.get.rank_genes_groups_df(
             adata, group=group), group, adjpval_thr, log2fc_thr) for group in groups}
         if contrast not in scplus_obj.uns.keys():
             scplus_obj.uns[contrast] = {}

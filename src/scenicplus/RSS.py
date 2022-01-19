@@ -1,3 +1,9 @@
+"""Calculate the specificty of eRegulons in clusters of cells.
+
+Calculates the distance between the real distribution of eRegulon AUC values and a fictional distribution where the eRegulon is only expressed/accessible in cells of a certain cluster.
+
+"""
+
 import pandas as pd
 import numpy as np
 from scipy.spatial.distance import jensenshannon
@@ -131,7 +137,7 @@ def plot_rss(scplus_obj: SCENICPLUS,
         else:
             fig = plt.figure(figsize=figsize)
             ax = plt.axes()
-        plot_rss_internal(data_mat, c, top_n=top_n, max_n=None, ax=ax)
+        _plot_rss_internal(data_mat, c, top_n=top_n, max_n=None, ax=ax)
         ax.set_ylim(x.min()-(x.max()-x.min())*0.05,
                     x.max()+(x.max()-x.min())*0.05)
         for t in ax.texts:
@@ -179,7 +185,7 @@ def plot_rss(scplus_obj: SCENICPLUS,
         pdf = pdf.close()
 
 
-def plot_rss_internal(rss, cell_type, top_n=5, max_n=None, ax=None):
+def _plot_rss_internal(rss, cell_type, top_n=5, max_n=None, ax=None):
     """
     Helper function to plot RSS
     """

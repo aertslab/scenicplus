@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.cistromes &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.cistromes</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.cistromes</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Merging, scoring and assessing TF correlations of cistromes</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">matplotlib.patches</span> <span class="k">as</span> <span class="nn">mpatches</span>
+<span class="c1">#import pycistarget</span>
+<span class="kn">from</span> <span class="nn">pycistarget.motif_enrichment_dem</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pycisTopic.diff_features</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pycisTopic.signature_enrichment</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">pyranges</span> <span class="k">as</span> <span class="nn">pr</span>
+<span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">sample</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">pearsonr</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">region_names_to_coordinates</span><span class="p">,</span> <span class="n">target_to_overlapping_query</span><span class="p">,</span> <span class="n">p_adjust_bh</span>
+
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+<div class="viewcode-block" id="merge_cistromes"><a class="viewcode-back" href="../../api.html#scenicplus.cistromes.merge_cistromes">[docs]</a><span class="k">def</span> <span class="nf">merge_cistromes</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                    <span class="n">cistromes_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                    <span class="n">subset</span><span class="p">:</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Generate cistromes from motif enrichment tables</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: :class:`SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).</span>
+<span class="sd">        Several analyses can be included in the slot (topics/DARs/other; and different methods [Homer/DEM/cistarget]).</span>
+<span class="sd">    cistromes_key: str, optional</span>
+<span class="sd">        Key to store cistromes. Cistromes will stored at `scplus_obj.uns[&#39;Cistromes&#39;][siganture_key]`</span>
+<span class="sd">    subset: list</span>
+<span class="sd">        A PyRanges containing a set of regions that regions in cistromes must overlap. This is useful when</span>
+<span class="sd">        aiming for cell type specific cistromes for example (e.g. providing the cell type&#39;s MACS peaks)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">menr</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">menr</span>
+    <span class="c1"># Get signatures from Homer/Cistarget outputs</span>
+    <span class="n">signatures</span> <span class="o">=</span> <span class="p">{</span><span class="n">z</span><span class="o">+</span><span class="s1">&#39;__&#39;</span><span class="o">+</span><span class="n">x</span><span class="o">+</span><span class="s1">&#39;__&#39;</span><span class="o">+</span><span class="n">y</span><span class="p">:</span> <span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="n">y</span><span class="p">]</span><span class="o">.</span><span class="n">cistromes</span><span class="p">[</span><span class="s1">&#39;Region_set&#39;</span><span class="p">][</span><span class="n">z</span><span class="p">]</span>
+                  <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                  <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">pycistarget</span><span class="o">.</span><span class="n">motif_enrichment_dem</span><span class="o">.</span><span class="n">DEM</span><span class="p">)</span>
+                  <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                  <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="n">y</span><span class="p">]</span><span class="o">.</span><span class="n">cistromes</span><span class="p">[</span><span class="s1">&#39;Region_set&#39;</span><span class="p">]</span>
+                  <span class="p">}</span>
+    <span class="c1"># For DEM results dictionary structure is different</span>
+    <span class="n">signatures_DEM</span> <span class="o">=</span> <span class="p">{</span><span class="n">z</span><span class="o">+</span><span class="s1">&#39;__&#39;</span><span class="o">+</span><span class="n">x</span><span class="o">+</span><span class="s1">&#39;__&#39;</span><span class="o">+</span><span class="n">y</span><span class="p">:</span> <span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">cistromes</span><span class="p">[</span><span class="s1">&#39;Region_set&#39;</span><span class="p">][</span><span class="n">y</span><span class="p">][</span><span class="n">z</span><span class="p">]</span>
+                      <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                      <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">pycistarget</span><span class="o">.</span><span class="n">motif_enrichment_dem</span><span class="o">.</span><span class="n">DEM</span><span class="p">)</span>
+                      <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">cistromes</span><span class="p">[</span><span class="s1">&#39;Region_set&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                      <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">cistromes</span><span class="p">[</span><span class="s1">&#39;Region_set&#39;</span><span class="p">][</span><span class="n">y</span><span class="p">]</span>
+                      <span class="p">}</span>
+    <span class="c1"># Merge dictionaries</span>
+    <span class="n">signatures</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">signatures</span><span class="p">,</span> <span class="o">**</span><span class="n">signatures_DEM</span><span class="p">}</span>
+    <span class="n">tfs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">signatures</span><span class="o">.</span><span class="n">keys</span><span class="p">()]))</span>
+    <span class="n">regions</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">region_names_to_coordinates</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">region_names</span><span class="p">))</span>
+    <span class="c1"># Merge signatures (Direct)</span>
+    <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="n">signatures</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="p">[</span>
+                                        <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="o">*</span><span class="n">signatures</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span> <span class="o">+</span> <span class="s1">&#39;_(&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">]],</span> <span class="p">[])))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">tfs</span><span class="p">}</span>
+    <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">region_names_to_coordinates</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+        <span class="n">merged_signatures_direct</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">subset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="n">target_to_overlapping_query</span><span class="p">(</span><span class="n">regions</span><span class="p">,</span> <span class="n">subset</span><span class="p">)</span>
+        <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">target_to_overlapping_query</span><span class="p">(</span>
+            <span class="n">subset</span><span class="p">,</span> <span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="o">.</span><span class="n">keys</span><span class="p">())}</span>
+        <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">merged_signatures_direct</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">target_to_overlapping_query</span><span class="p">(</span>
+            <span class="n">regions</span><span class="p">,</span> <span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="o">.</span><span class="n">keys</span><span class="p">())}</span>
+        <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">merged_signatures_direct</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="c1"># Merge signatures (Extended)</span>
+    <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="n">signatures</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="p">[</span>
+                                          <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="o">*</span><span class="n">signatures</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span> <span class="o">+</span> <span class="s1">&#39;_extended&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">]],</span> <span class="p">[])))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">tfs</span><span class="p">}</span>
+    <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="o">+</span> <span class="s1">&#39;_extended&#39;</span><span class="p">:</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">region_names_to_coordinates</span><span class="p">(</span>
+        <span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">subset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="n">target_to_overlapping_query</span><span class="p">(</span><span class="n">regions</span><span class="p">,</span> <span class="n">subset</span><span class="p">)</span>
+        <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">target_to_overlapping_query</span><span class="p">(</span>
+            <span class="n">subset</span><span class="p">,</span> <span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="o">.</span><span class="n">keys</span><span class="p">())}</span>
+        <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">merged_signatures_extended</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">target_to_overlapping_query</span><span class="p">(</span>
+            <span class="n">regions</span><span class="p">,</span> <span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="o">.</span><span class="n">keys</span><span class="p">())}</span>
+        <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">merged_signatures_extended</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="c1"># Sort alphabetically</span>
+    <span class="n">merged_signatures_direct</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="nb">sorted</span><span class="p">(</span><span class="n">merged_signatures_direct</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()))</span>
+    <span class="n">merged_signatures_extended</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="nb">sorted</span><span class="p">(</span><span class="n">merged_signatures_extended</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()))</span>
+    <span class="c1"># Combine</span>
+    <span class="n">merged_signatures</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">merged_signatures_direct</span><span class="p">,</span>
+                         <span class="o">**</span><span class="n">merged_signatures_extended</span><span class="p">}</span>
+    <span class="c1"># Add number of regions</span>
+    <span class="n">merged_signatures</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">x</span> <span class="o">+</span> <span class="s1">&#39;_(&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">merged_signatures</span><span class="p">[</span><span class="n">x</span><span class="p">]))</span> <span class="o">+</span> <span class="s1">&#39;r)&#39;</span><span class="p">:</span> <span class="n">merged_signatures</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">merged_signatures</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+    <span class="c1"># Store in object</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;Cistromes&#39;</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Cistromes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Cistromes&#39;</span><span class="p">][</span><span class="n">cistromes_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">merged_signatures</span></div>
+
+<span class="c1"># Score cistromes in cells</span>
+
+
+<div class="viewcode-block" id="score_cistromes"><a class="viewcode-back" href="../../api.html#scenicplus.cistromes.score_cistromes">[docs]</a><span class="k">def</span> <span class="nf">score_cistromes</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                    <span class="n">ranking</span><span class="p">:</span> <span class="n">CistopicImputedFeatures</span><span class="p">,</span>
+                    <span class="n">cistromes_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                    <span class="n">enrichment_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;region&#39;</span><span class="p">,</span>
+                    <span class="n">auc_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+                    <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="n">n_cpu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get enrichment of a region signature in cells  using AUCell (Van de Sande et al., 2020)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: :class:`SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).</span>
+<span class="sd">    rankings: CistopicImputedFeatures</span>
+<span class="sd">        A CistopicImputedFeatures object with ranking values</span>
+<span class="sd">    cistromes_key: str, optional</span>
+<span class="sd">        Key to store where cistromes are stored. Cistromes will retrieved from `scplus_obj.uns[&#39;Cistromes&#39;][siganture_key]`</span>
+<span class="sd">        and AUC values will be stored in `scplus_obj.uns[&#39;Cistromes_AUC&#39;][cistromes_key]`.</span>
+<span class="sd">    enrichment_type: str</span>
+<span class="sd">        Whether features are genes or regions</span>
+<span class="sd">    auc_threshold: float</span>
+<span class="sd">        The fraction of the ranked genome to take into account for the calculation of the Area Under the recovery Curve. Default: 0.05</span>
+<span class="sd">    normalize: bool</span>
+<span class="sd">        Normalize the AUC values to a maximum of 1.0 per regulon. Default: False</span>
+<span class="sd">    num_workers: int</span>
+<span class="sd">        The number of cores to use. Default: 1</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ---------</span>
+<span class="sd">    Van de Sande, B., Flerin, C., Davie, K., De Waegeneer, M., Hulselmans, G., Aibar, S., ... &amp; Aerts, S. (2020). A scalable SCENIC workflow for single-cell gene </span>
+<span class="sd">    regulatory network analysis. Nature Protocols, 15(7), 2247-2276.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;Cistromes_AUC&#39;</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Cistromes_AUC&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Cistromes_AUC&#39;</span><span class="p">][</span><span class="n">cistromes_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">signature_enrichment</span><span class="p">(</span><span class="n">ranking</span><span class="p">,</span>
+                                                                          <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Cistromes&#39;</span><span class="p">][</span><span class="n">cistromes_key</span><span class="p">],</span>
+                                                                          <span class="n">enrichment_type</span><span class="p">,</span>
+                                                                          <span class="n">auc_threshold</span><span class="p">,</span>
+                                                                          <span class="n">normalize</span><span class="p">,</span>
+                                                                          <span class="n">n_cpu</span><span class="p">)</span></div>
+<span class="c1"># Create pseudobulks</span>
+
+
+<div class="viewcode-block" id="generate_pseudobulks"><a class="viewcode-back" href="../../api.html#scenicplus.cistromes.generate_pseudobulks">[docs]</a><span class="k">def</span> <span class="nf">generate_pseudobulks</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                         <span class="n">normalize_expression</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                         <span class="n">auc_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Cistromes_AUC&#39;</span><span class="p">,</span>
+                         <span class="n">signature_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                         <span class="n">nr_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                         <span class="n">nr_pseudobulks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+                         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">555</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate pseudobulks based on the cistrome AUC matrix and gene expression</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: :class:`SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with scored cistromes (`scplus_obj.uns[&#39;Cistromes_AUC&#39;][cistromes_key]`)</span>
+<span class="sd">    variable: str, optional</span>
+<span class="sd">        Variable to create pseudobulks by. It must ve a column in `scplus_obj.metadata_cell`</span>
+<span class="sd">    cistromes_key: str, optional</span>
+<span class="sd">        Key to store where cistromes AUC values are stored. Cistromes AUC will retrieved from </span>
+<span class="sd">        `scplus_obj.uns[&#39;Cistromes_AUC&#39;][cistromes_key]` and the pseudobulk matrix will be stored</span>
+<span class="sd">        at `scplus_obj.uns[&#39;Pseudobulk&#39;][&#39;Cistromes_AUC&#39;][variable][cistromes_key]` and `scplus_obj.uns[&#39;Pseudobulk&#39;][variable][&#39;Expression&#39;]`</span>
+<span class="sd">    nr_cells : int, optional</span>
+<span class="sd">        Number of cells to include per pseudobulk.</span>
+<span class="sd">    nr_pseudobulks: int, optional</span>
+<span class="sd">        Number of pseudobulks to generate per class</span>
+<span class="sd">    seed: int</span>
+<span class="sd">        Seed to ensure that pseudobulk are reproducible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cell_data</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span>
+    <span class="n">cistromes_auc</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span>
+    <span class="n">cell_data</span> <span class="o">=</span> <span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">dgem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span>
+    <span class="n">categories</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">variable</span><span class="p">]))</span>
+    <span class="n">cistrome_auc_agg_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">dgem_agg_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">cell_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">normalize_expression</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="mi">6</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">dgem</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">categories</span><span class="p">:</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">variable</span><span class="p">]</span>
+                          <span class="o">==</span> <span class="n">category</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nr_pseudobulks</span><span class="p">):</span>
+            <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">sample_cells</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">nr_cells</span><span class="p">)</span>
+            <span class="n">sub_dgem</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sample_cells</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">sub_auc</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sample_cells</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">cistrome_auc_agg_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_auc</span><span class="p">)</span>
+            <span class="n">dgem_agg_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_dgem</span><span class="p">)</span>
+            <span class="n">cell_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">category</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="n">cistrome_auc_agg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">cistrome_auc_agg_list</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">cistrome_auc_agg</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">cell_names</span>
+    <span class="n">dgem_agg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dgem_agg_list</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">dgem_agg</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">cell_names</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;Pseudobulk&#39;</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">][</span><span class="s1">&#39;Expression&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dgem_agg</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">auc_key</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">][</span><span class="n">auc_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">][</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">cistrome_auc_agg</span></div>
+
+
+<div class="viewcode-block" id="TF_cistrome_correlation"><a class="viewcode-back" href="../../api.html#scenicplus.cistromes.TF_cistrome_correlation">[docs]</a><span class="k">def</span> <span class="nf">TF_cistrome_correlation</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                            <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">use_pseudobulk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="n">auc_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Cistromes_AUC&#39;</span><span class="p">,</span>
+                            <span class="n">signature_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                            <span class="n">out_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                            <span class="n">subset</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get correlation between gene expression and cistrome accessibility</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: :class:`SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with pseudobulk matrices (`scplus_obj.uns[&#39;Pseudobulk&#39;]`)</span>
+<span class="sd">    variable: str, optional</span>
+<span class="sd">        Variable used to create the pseudobulks. Must be a key in `scplus_obj.uns[&#39;Pseudobulk&#39;]`.</span>
+<span class="sd">        Only required if use_pseudobulk is False.</span>
+<span class="sd">    use_pseudobulk: bool, optional</span>
+<span class="sd">        Whether to use pseudobulk matrix or actual values.</span>
+<span class="sd">    cistromes_key: str, optional</span>
+<span class="sd">        Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from</span>
+<span class="sd">        `scplus_obj.uns[&#39;Pseudobulk&#39;][variable][&#39;Cistromes_AUC&#39;][cistromes_key]` and </span>
+<span class="sd">        gene expression from `scplus_obj.uns[&#39;Pseudobulk&#39;][variable][&#39;Expression&#39;]`.</span>
+<span class="sd">    out_key : str, optional</span>
+<span class="sd">        Ouput key. Correlations will be stored at `scplus_obj.uns[&#39;TF_cistrome_correlation&#39;][variable][out_key]`.</span>
+<span class="sd">    subset: List, optional</span>
+<span class="sd">        Subset of cells to be used to calculate correlations. Default: None (All)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">use_pseudobulk</span><span class="p">:</span>
+        <span class="n">dgem_agg</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">][</span><span class="s1">&#39;Expression&#39;</span><span class="p">]</span>
+        <span class="n">cistromes_auc_agg</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">variable</span><span class="p">][</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dgem_agg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">cistromes_auc_agg</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">if</span> <span class="n">subset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cistromes_auc_agg</span><span class="o">.</span><span class="n">columns</span><span class="p">],</span>
+                                 <span class="n">index</span><span class="o">=</span><span class="n">cistromes_auc_agg</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">subset_cells</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">subset</span><span class="p">)]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">cistromes_auc_agg</span> <span class="o">=</span> <span class="n">cistromes_auc_agg</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">subset_cells</span><span class="p">]</span>
+        <span class="n">dgem_agg</span> <span class="o">=</span> <span class="n">dgem_agg</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">subset_cells</span><span class="p">]</span>
+    <span class="n">corr_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Cistrome&#39;</span><span class="p">,</span> <span class="s1">&#39;Rho&#39;</span><span class="p">,</span> <span class="s1">&#39;P-value&#39;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">tf</span> <span class="ow">in</span> <span class="n">cistromes_auc_agg</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="c1"># Handle _extended</span>
+        <span class="n">tf_rna</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">tf_rna</span> <span class="ow">in</span> <span class="n">dgem_agg</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+            <span class="n">cistromes_auc_tf</span> <span class="o">=</span> <span class="n">cistromes_auc_agg</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tf</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">dgem_agg</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tf_rna</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="c1"># Exception in case TF is only expressed in 1 cell</span>
+            <span class="c1"># TFs expressed in few cells could be filtered too</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">corr_1</span><span class="p">,</span> <span class="n">_1</span> <span class="o">=</span> <span class="n">pearsonr</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">,</span> <span class="n">cistromes_auc_tf</span><span class="p">)</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;TF&#39;</span><span class="p">:</span> <span class="n">tf_rna</span><span class="p">,</span>
+                     <span class="s1">&#39;Cistrome&#39;</span><span class="p">:</span> <span class="n">tf</span><span class="p">,</span>
+                     <span class="s1">&#39;Rho&#39;</span><span class="p">:</span> <span class="n">corr_1</span><span class="p">,</span>
+                     <span class="s1">&#39;P-value&#39;</span><span class="p">:</span> <span class="n">_1</span><span class="p">}</span>
+                <span class="n">corr_df</span> <span class="o">=</span> <span class="n">corr_df</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">continue</span>
+    <span class="n">corr_df</span> <span class="o">=</span> <span class="n">corr_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+    <span class="n">corr_df</span><span class="p">[</span><span class="s1">&#39;Adjusted_p-value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p_adjust_bh</span><span class="p">(</span><span class="n">corr_df</span><span class="p">[</span><span class="s1">&#39;P-value&#39;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;TF_cistrome_correlation&#39;</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;TF_cistrome_correlation&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">out_key</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;TF_cistrome_correlation&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;TF_cistrome_correlation&#39;</span><span class="p">][</span><span class="n">out_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;TF_cistrome_correlation&#39;</span><span class="p">][</span><span class="n">out_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">corr_df</span></div>
+
+
+<div class="viewcode-block" id="prune_plot"><a class="viewcode-back" href="../../api.html#scenicplus.cistromes.prune_plot">[docs]</a><span class="k">def</span> <span class="nf">prune_plot</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+               <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+               <span class="n">pseudobulk_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">auc_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Cistromes_AUC&#39;</span><span class="p">,</span>
+               <span class="n">signature_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+               <span class="n">use_pseudobulk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+               <span class="n">show_dot_plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+               <span class="n">show_line_plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+               <span class="n">color_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="n">subset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="n">seed</span><span class="o">=</span><span class="mi">555</span><span class="p">,</span>
+               <span class="n">ax</span><span class="p">:</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot cistrome accessibility versus TF expression</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: :class:`SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object.</span>
+<span class="sd">    cistrome_name: str, optional</span>
+<span class="sd">        Cistrome to plot. The TF name (or followed by extended) is enough to quert.</span>
+<span class="sd">    pseudobulk_variable: str, optional</span>
+<span class="sd">        Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from</span>
+<span class="sd">        `scplus_obj.uns[&#39;Pseudobulk&#39;][pseudobulk_variable][&#39;Cistromes_AUC&#39;][cistromes_key]` and </span>
+<span class="sd">        gene expression from `scplus_obj.uns[&#39;Pseudobulk&#39;][pseudobulk_variable][&#39;Expression&#39;]`.</span>
+<span class="sd">    cistromes_key: str, optional</span>
+<span class="sd">        Key to retrieve the pseudobulk matrices.  Cistrome accessibility will be retrieved from</span>
+<span class="sd">        `scplus_obj.uns[&#39;Pseudobulk&#39;][pseudobulk_variable][&#39;Cistromes_AUC&#39;][cistromes_key]` and </span>
+<span class="sd">        gene expression from `scplus_obj.uns[&#39;Pseudobulk&#39;][pseudobulk_variable][&#39;Expression&#39;]`.</span>
+<span class="sd">    use_pseudobulk: bool, optional</span>
+<span class="sd">        Whether to use pseudobulk matrix or actual values.</span>
+<span class="sd">    show_dot_plot: bool, optional</span>
+<span class="sd">        Whether to show dots in plot</span>
+<span class="sd">    show_line_plot: bool, optional</span>
+<span class="sd">        Whether to show line fitting to plot</span>
+<span class="sd">    color_dict: Dict, optional</span>
+<span class="sd">        Color dictionary to specify colors</span>
+<span class="sd">    subset: List, optional</span>
+<span class="sd">        Subset of pseudobulks/cells to use</span>
+<span class="sd">    seed: int</span>
+<span class="sd">        Seed to ensure that pseudobulk are reproducible.</span>
+<span class="sd">    ax: plt.axes, optional</span>
+<span class="sd">        matplotlib axes to plot to.</span>
+<span class="sd">    **kwargs:</span>
+<span class="sd">        Parameters for seaborn plotting.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">use_pseudobulk</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">pseudobulk_variable</span><span class="p">][</span><span class="s1">&#39;Expression&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+        <span class="p">)</span>
+        <span class="n">cistromes_auc</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">pseudobulk_variable</span><span class="p">][</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+        <span class="p">)</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span>
+                                 <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">columns</span><span class="p">],</span> <span class="n">index</span><span class="o">=</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span>
+                            <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">cistromes_auc</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span>
+                                                 <span class="n">pseudobulk_variable</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">subset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="p">:]</span>
+        <span class="n">tf_acc</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span>
+            <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_(&#39;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">False</span><span class="p">)][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cistromes_auc_tf</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tf_acc</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">subset_cells</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">subset</span><span class="p">)]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subset_cells</span><span class="p">]</span>
+        <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">subset_cells</span><span class="p">]</span>
+        <span class="n">tf_acc</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span>
+            <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_(&#39;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">False</span><span class="p">)][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cistromes_auc_tf</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tf_acc</span><span class="p">,</span> <span class="n">subset_cells</span><span class="p">]</span>
+    <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cell_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">categories</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">color_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span>
+                <span class="s2">&quot;</span><span class="si">%06x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mh">0xFFFFFF</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">categories</span><span class="p">))</span>
+            <span class="p">))</span>
+            <span class="n">color_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">categories</span><span class="p">,</span> <span class="n">color</span><span class="p">))</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="p">[</span><span class="n">color_dict</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cell_data</span><span class="p">]</span>
+        <span class="n">patchList</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">color_dict</span><span class="p">:</span>
+            <span class="n">data_key</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Patch</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">color_dict</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">patchList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">show_dot_plot</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">,</span> <span class="n">cistromes_auc_tf</span><span class="p">,</span> <span class="n">cell_data</span><span class="p">)),</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF_Expression&#39;</span><span class="p">,</span> <span class="n">auc_key</span><span class="p">,</span> <span class="s1">&#39;Variable&#39;</span><span class="p">])</span>
+            <span class="n">sns</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;TF_Expression&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">auc_key</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                            <span class="n">hue</span><span class="o">=</span><span class="s1">&#39;Variable&#39;</span><span class="p">,</span> <span class="n">palette</span><span class="o">=</span><span class="n">color_dict</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>  <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="n">patchList</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span>
+                    <span class="mf">1.04</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="n">patchList</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span>
+                    <span class="mf">1.04</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">show_line_plot</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">,</span> <span class="n">cistromes_auc_tf</span><span class="p">,</span> <span class="n">cell_data</span><span class="p">)),</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF_Expression&#39;</span><span class="p">,</span> <span class="n">auc_key</span><span class="p">,</span> <span class="s1">&#39;Variable&#39;</span><span class="p">])</span>
+            <span class="n">sns</span><span class="o">.</span><span class="n">regplot</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;TF_Expression&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">auc_key</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                        <span class="n">scatter_kws</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;color&#39;</span><span class="p">:</span> <span class="n">color</span><span class="p">},</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="n">patchList</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span>
+                    <span class="mf">1.04</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="n">patchList</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span>
+                    <span class="mf">1.04</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">show_dot_plot</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">,</span> <span class="n">cistromes_auc_tf</span><span class="p">,</span> <span class="n">cell_data</span><span class="p">)),</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF_Expression&#39;</span><span class="p">,</span> <span class="n">auc_key</span><span class="p">,</span> <span class="s1">&#39;Variable&#39;</span><span class="p">])</span>
+            <span class="n">sns</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;TF_Expression&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">auc_key</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>  <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">show_line_plot</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">,</span> <span class="n">cistromes_auc_tf</span><span class="p">)),</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF_Expression&#39;</span><span class="p">,</span> <span class="n">auc_key</span><span class="p">])</span>
+            <span class="n">sns</span><span class="o">.</span><span class="n">regplot</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;TF_Expression&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">auc_key</span><span class="p">,</span>
+                        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">corr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pearsonr</span><span class="p">(</span><span class="n">tf_expr</span><span class="p">,</span> <span class="n">cistromes_auc_tf</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;TF_Expression</span><span class="se">\n</span><span class="s1">Correlation &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span> <span class="o">+</span>
+                   <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="s1">&#39;P-value:&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">),</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;TF_Expression</span><span class="se">\n</span><span class="s1">Correlation &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span> <span class="o">+</span>
+                      <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="s1">&#39;P-value:&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">),</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,3 +1,9 @@
+"""export SCENIC+ object to target genes and target regions loom file.
+
+These files can be visualized in the SCope single cell viewer.
+
+"""
+
 import json
 import logging
 import numpy as np
@@ -34,6 +40,7 @@ def export_to_loom(scplus_obj: SCENICPLUS,
                    nomenclature: str = "Unknown"):
     """
     Create SCope [Davie et al, 2018] compatible loom files 
+    
     Parameters
     ---------
     scplus_obj: class::SCENICPLUS
@@ -204,7 +211,7 @@ def export_to_loom(scplus_obj: SCENICPLUS,
     linked_gene.columns = ['0']
     # Create minimal loom
     log.info('Creating minimal loom')
-    export_minimal_loom(ex_mtx=ex_mtx,
+    _export_minimal_loom(ex_mtx=ex_mtx,
                         cell_names=cell_names,
                         feature_names=feature_names,
                         out_fname=out_fname,
@@ -223,14 +230,14 @@ def export_to_loom(scplus_obj: SCENICPLUS,
     path_to_loom = out_fname
     loom = SCopeLoom.read_loom(path_to_loom)
     if len(metrics):
-        add_metrics(loom, metrics)
+        _add_metrics(loom, metrics)
     if len(annotations):
-        add_annotation(loom, annotations)
+        _add_annotation(loom, annotations)
 
     # Add clusterings
     if cluster_annotation is not None:
         log.info('Adding clusterings')
-        add_clusterings(loom, pd.DataFrame(cell_data[cluster_annotation]))
+        _add_clusterings(loom, pd.DataFrame(cell_data[cluster_annotation]))
     # Add markers
     if cluster_markers is not None:
         log.info('Adding markers')
@@ -252,13 +259,13 @@ def export_to_loom(scplus_obj: SCENICPLUS,
                                          [x].index.isin(feature_names)]
                 for x in cluster_markers[y].keys()
             }
-        add_markers(loom, cluster_markers)
+        _add_markers(loom, cluster_markers)
 
     log.info('Exporting')
     loom.export(out_fname)
 
 
-def export_minimal_loom(
+def _export_minimal_loom(
     ex_mtx: sparse.csr_matrix,
     cell_names: List[str],
     feature_names: List[str],
@@ -417,7 +424,7 @@ def export_minimal_loom(
     )
 
 
-def get_metadata(loom):
+def _get_metadata(loom):
     """
     A helper function to get metadata
     """
@@ -432,7 +439,7 @@ def get_metadata(loom):
     return annot_mt
 
 
-def add_metrics(loom, metrics: pd.DataFrame):
+def _add_metrics(loom, metrics: pd.DataFrame):
     """
     A helper function to add metrics
     """
@@ -443,7 +450,7 @@ def add_metrics(loom, metrics: pd.DataFrame):
     loom.global_attrs["MetaData"].update({'metrics': md_metrics})
 
 
-def add_annotation(loom, annots: pd.DataFrame):
+def _add_annotation(loom, annots: pd.DataFrame):
     """
     A helper function to add annotations
     """
@@ -459,7 +466,7 @@ def add_annotation(loom, annots: pd.DataFrame):
     loom.global_attrs["MetaData"].update({'annotations': md_annot})
 
 
-def add_clusterings(loom: SCopeLoom,
+def _add_clusterings(loom: SCopeLoom,
                     cluster_data: pd.DataFrame):
     """
     A helper function to add clusters
@@ -520,7 +527,7 @@ def add_clusterings(loom: SCopeLoom,
         # Pick the first one as default clustering (this is purely
         # arbitrary)
         "ClusterID": clusterings["0"].values,
-        "Clusterings": df_to_named_matrix(clusterings)
+        "Clusterings": _df_to_named_matrix(clusterings)
     }
 
     col_attrs = {**col_attrs, **col_attrs_clusterings}
@@ -530,7 +537,7 @@ def add_clusterings(loom: SCopeLoom,
     )
 
 
-def add_markers(loom: SCopeLoom,
+def _add_markers(loom: SCopeLoom,
                 markers_dict: Dict[str, Dict[str, pd.DataFrame]]):
     """
     A helper function to add markers to clusterings
@@ -581,16 +588,16 @@ def add_markers(loom: SCopeLoom,
 
         # Update row attribute Dict
         row_attrs_cluster_markers = {
-            f"ClusterMarkers_{str(idx)}": df_to_named_matrix(
+            f"ClusterMarkers_{str(idx)}": _df_to_named_matrix(
                 cluster_markers.astype(np.int8)),
-            f"ClusterMarkers_{str(idx)}_avg_logFC": df_to_named_matrix(cluster_markers_avg_logfc.astype(np.float32)),
-            f"ClusterMarkers_{str(idx)}_pval": df_to_named_matrix(cluster_markers_pval.astype(np.float32))
+            f"ClusterMarkers_{str(idx)}_avg_logFC": _df_to_named_matrix(cluster_markers_avg_logfc.astype(np.float32)),
+            f"ClusterMarkers_{str(idx)}_pval": _df_to_named_matrix(cluster_markers_pval.astype(np.float32))
         }
         row_attrs = {**row_attrs, **row_attrs_cluster_markers}
         loom.row_attrs = row_attrs
 
 
-def get_regulons(loom):
+def _get_regulons(loom):
     """
     A helper function to get regulons
     """
@@ -619,7 +626,7 @@ def get_regulons(loom):
     return regulon_list
 
 
-def df_to_named_matrix(df: pd.DataFrame):
+def _df_to_named_matrix(df: pd.DataFrame):
     """
     A helper function to create metadata structure.
     """

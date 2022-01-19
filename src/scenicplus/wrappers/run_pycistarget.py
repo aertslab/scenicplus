@@ -1,3 +1,11 @@
+"""Wrapper functions to run motif enrichment analysis using pycistarget
+
+After sets of regions have been defined (e.g. topics or DARs). The complete pycistarget workflo can be run using a single function.
+
+this function will run cistarget based and DEM based motif enrichment analysis with or without promoter regions.
+"""
+
+from typing import Mapping
 import pandas as pd
 import dill
 from pycistarget.motif_enrichment_cistarget import *
@@ -6,9 +14,9 @@ from pycistarget.utils import *
 import pybiomart as pbm
 import time
 
-def run_pycistarget(region_sets,
-                 species,
-                 save_path,
+def run_pycistarget(region_sets: Mapping[str, pr.PyRanges],
+                 species: str,
+                 save_path: str,
                  ctx_db_path: str = None,
                  dem_db_path: str = None,
                  run_without_promoters: bool = False,
@@ -24,9 +32,62 @@ def run_pycistarget(region_sets,
                  path_to_motif_annotations: str = None,
                  annotation_version: str = 'v9',
                  n_cpu : int = 1,
-                 _temp_dir: str = '/scratch/leuven/313/vsc31305/ray_spill',
+                 _temp_dir: str = None,
                  exclude_motifs: str = None,
                  exclude_collection: List[str] = None):
+    """Wrapper function for pycistarget
+    
+
+    Parameters
+    ---------
+    region_sets: Mapping[str, pr.PyRanges]
+         A dictionary of PyRanges containing region coordinates for the region sets to be analyzed.
+    species: str
+        Species from which genomic coordinates come from, options are: homo_sapiens, mus_musculus and drosophila_melanogaster.
+    save_path: str
+        Directory in which to save outputs.
+    ctx_db_path: str = None
+        Path to cistarget database containing rankings of motif scores
+    dem_db_path: str = None
+        Path to dem database containing motif scores
+    run_without_promoters: bool = False
+        Boolean specifying wether the analysis should also be run without including promoter regions.
+    biomart_host: str = 'http://www.ensembl.org'
+        url to biomart host, make sure this host matches your assembly
+    promoter_space: int = 500
+        integer defining space around the TSS to consider as promoter
+    ctx_auc_threshold: float = 0.005
+          The fraction of the ranked genome to take into account for the calculation of the Area Under the recovery Curve
+    ctx_nes_threshold: float = 3.0
+        The Normalized Enrichment Score (NES) threshold to select enriched features.
+    ctx_rank_threshold: float = 0.05
+        The total number of ranked genes to take into account when creating a recovery curve.
+    dem_log2fc_thr: float = 0.5
+        Log2 Fold-change threshold to consider a motif enriched.
+    dem_motif_hit_thr: float = 3.0
+        Minimul mean signal in the foreground to consider a motif enriched.
+    dem_max_bg_regions: int = 500
+        Maximum number of regions to use as background. When set to None, all regions are used
+    annotation : List[str] = ['Direct_annot', 'Orthology_annot']
+        Annotation to use for forming cistromes. It can be 'Direct_annot' (direct evidence that the motif is 
+        linked to that TF), 'Motif_similarity_annot' (based on tomtom motif similarity), 'Orthology_annot'
+        (based on orthology with a TF that is directly linked to that motif) or 'Motif_similarity_and_Orthology_annot'.
+    path_to_motif_annotations: str = None
+        Path to motif annotations. If not provided, they will be downloaded from 
+        https://resources.aertslab.org based on the specie name provided (only possible for mus_musculus,
+        homo_sapiens and drosophila_melanogaster).
+    annotation_version: str = 'v9'
+         Motif collection version.
+    n_cpu : int = 1
+        Number of cores to use.
+    _temp_dir: str = None
+        temp_dir to use for ray.
+    exclude_motifs: str = None
+        Path to csv file containing motif to exclude from the analysis.
+    exclude_collection: List[str] = None
+        List of strings identifying which motif collections to exclude from analysis.
+
+    """
     
     # Create logger
     level = logging.INFO

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.scenicplus_class &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.scenicplus_class</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.scenicplus_class</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Combine single-cell expression data and single-cell accessibility into a single SCENIC+ object.</span>
+
+<span class="sd">This object will be used for downstream analysis, including: region-to-gene and TF-to-gene linking, enhancer-driven-GRN building and further downstream analysis.</span>
+
+<span class="sd">This object can be generated from both single-cell multi-omics data (i.e. gene expression and chromatin accessibility from the same cell),</span>
+<span class="sd">and seperate single-cell chromatin accessbility data and single-cell gene expression data from the same or similar sample.</span>
+
+<span class="sd">In the second case both data modalities should have a common cell metadata field with values linking both modalities (e.g. common celltype annotation).</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">attr</span>
+<span class="kn">from</span> <span class="nn">numpy.lib.function_base</span> <span class="kn">import</span> <span class="n">iterable</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sparse</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">pycisTopic.diff_features</span> <span class="kn">import</span> <span class="n">CistopicImputedFeatures</span><span class="p">,</span> <span class="n">impute_accessibility</span><span class="p">,</span> <span class="n">normalize_scores</span>
+<span class="kn">from</span> <span class="nn">pycisTopic.cistopic_class</span> <span class="kn">import</span> <span class="n">CistopicObject</span>
+<span class="kn">from</span> <span class="nn">scanpy</span> <span class="kn">import</span> <span class="n">AnnData</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">scenicplus.utils</span> <span class="kn">import</span> <span class="n">Groupby</span>
+
+<span class="c1"># hardcoded variables</span>
+<span class="n">TOPIC_FACTOR_NAME</span> <span class="o">=</span> <span class="s1">&#39;topic&#39;</span>
+
+<span class="k">def</span> <span class="nf">_check_dimmensions</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;X_ACC&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">instance</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;RNA and ATAC matrix should have the same number of cells.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; RNA has </span><span class="si">{</span><span class="n">instance</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> number of cells and ATAC has </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> number of cells.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;X_EXP&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">instance</span><span class="o">.</span><span class="n">X_ACC</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;RNA and ATAC matrix should have the same number of cells.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; RNA has </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> number of cells and ATAC has </span><span class="si">{</span><span class="n">instance</span><span class="o">.</span><span class="n">X_ACC</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> number of cells.&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SCENICPLUS"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.SCENICPLUS">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">SCENICPLUS</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An object containing: gene expression, chromatin accessbility and motif enrichment data.</span>
+
+<span class="sd">    :class:`~scenicplus_class.SCENICPLUS` stores the data matrices :attr:`X_ACC` (chromatin accessbility) and</span>
+<span class="sd">    :attr:`X_EXP` (gene expression) together with region annotation :attr:`metadata_regions`, gene annotation :attr:`metadata_genes`,</span>
+<span class="sd">    cell annotation :attr:`metadata_cell` and motif enrichment data :attr:`menr`.</span>
+
+<span class="sd">    Use create_SCENICPLUS_object to generate instances of this class.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    X_ACC: sparse.spmatrix, np.ndarray, pd.DataFrame</span>
+<span class="sd">        A #regions x #cells data matrix</span>
+<span class="sd">    X_EXP: sparse.spmatrix, np.ndarray, pd.DataFrame</span>
+<span class="sd">        A #cells x #genes data matrix</span>
+<span class="sd">    metadata_regions: pd.DataFrame</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing region metadata annotation of length #regions</span>
+<span class="sd">    metadata_genes: pd.DataFrame</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing gene metadata annotation of length #genes</span>
+<span class="sd">    metadata_cell: pd.DataFrame</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing cell metadata annotation of lenght #cells</span>
+<span class="sd">    menr: dict</span>
+<span class="sd">        A Dict containing motif enrichment results for topics of differentially accessbile regions (DARs), generate by pycistarget.</span>
+<span class="sd">        Should take the form {&#39;region_set_name1&#39;: {region_set1: result, &#39;region_set2&#39;: result}, &#39;region_set_name2&#39;: {&#39;region_set1&#39;: result, &#39;region_set2&#39;: result},</span>
+<span class="sd">        &#39;topic&#39;: {&#39;topic1&#39;: result, &#39;topic2&#39;: result}} </span>
+<span class="sd">        region set names, which aren&#39;t topics, should be columns in the :attr:`metadata_cell` dataframe</span>
+<span class="sd">    dr_cell: dict</span>
+<span class="sd">        A Dict containing dimmensional reduction coordinates of cells.</span>
+<span class="sd">    dr_region: dct</span>
+<span class="sd">        A Dict containing dimmensional reduction coordinates of regions.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n_cells: int</span>
+<span class="sd">        Returns number of cells.</span>
+<span class="sd">    n_genes: int</span>
+<span class="sd">        Returns number of genes.</span>
+<span class="sd">    n_regions: int</span>
+<span class="sd">        Returns number of regions.</span>
+<span class="sd">    cell_names: List[str]</span>
+<span class="sd">        Returns cell names</span>
+<span class="sd">    gene_names: List[str]</span>
+<span class="sd">        Returns gene names</span>
+<span class="sd">    region_names: List[str]</span>
+<span class="sd">        Returns region names</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    scenicplus.scenicplus_class.create_SCENICPLUS_object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># mandatory attributes</span>
+    <span class="n">X_ACC</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">sparse</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span>
+                    <span class="n">validator</span><span class="o">=</span><span class="n">_check_dimmensions</span><span class="p">)</span>
+    <span class="n">X_EXP</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">sparse</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span>
+                    <span class="n">validator</span><span class="o">=</span><span class="n">_check_dimmensions</span><span class="p">)</span>
+    <span class="n">metadata_regions</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span>
+    <span class="n">metadata_genes</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span>
+    <span class="n">metadata_cell</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span>
+    <span class="n">menr</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span>
+
+    <span class="c1"># optional attributes</span>
+    <span class="n">dr_cell</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">iterable</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">dr_region</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">iterable</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># unstructured attributes like: region to gene, eregulons, ...</span>
+    <span class="n">uns</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span>
+
+    <span class="c1"># validation</span>
+
+    <span class="nd">@metadata_regions</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_check_n_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_regions</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`metadata_regions` must have the same number of annotations as rows in `X_ACC`&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_regions</span><span class="si">}</span><span class="s2">), but has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@metadata_genes</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_check_n_genes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_genes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`metadata_genes` must have the same number of annotations as columns in `X_EXP`&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_genes</span><span class="si">}</span><span class="s2">), but has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@metadata_cell</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_check_n_cells</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_cells</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`metadata_cell` must have the same number of cells as rows in `X_EXP` and columns `X_ACC`&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_cells</span><span class="si">}</span><span class="s2">), but has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@dr_cell</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_check_cell_dimmensions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">value</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_cells</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">keys</span><span class="p">()]):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cell dimmensional reductions `dr_cell` should have :attr:`n_cells`</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_cells</span><span class="si">}</span><span class="s2"> entries along its 0th dimmension.&quot;</span>
+                <span class="p">)</span>
+
+    <span class="nd">@dr_region</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_check_region_dimmensions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">value</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_regions</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">keys</span><span class="p">()]):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Region dimmensional reductions `dr_region` should have :attr:`n_regions`</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_regions</span><span class="si">}</span><span class="s2"> entries along its 0th dimmension.&quot;</span>
+                <span class="p">)</span>
+    <span class="c1"># properties:</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">n_cells</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># we already checked that both RNA and ATAC have the same number of cells so we can return the number of cells from RNA</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">n_genes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">n_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_ACC</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cell_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">gene_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">region_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span><span class="o">.</span><span class="n">index</span>
+
+<div class="viewcode-block" id="SCENICPLUS.to_df"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.SCENICPLUS.to_df">[docs]</a>    <span class="k">def</span> <span class="nf">to_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">layer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a :class:`~pandas.DataFrame`.</span>
+
+<span class="sd">        The data matrix :attr:`X_EXP` or :attr:`X_ACC` is returned as</span>
+<span class="sd">        :class:`~pandas.DataFrame`, with :attr:`cell_names` as index,</span>
+<span class="sd">        and :attr:`gene_names` or :attr:`region_names` as columns.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        layer: str</span>
+<span class="sd">            ACC to return accessibility data and EXP to return expression data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">layer</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;ACC&#39;</span><span class="p">,</span> <span class="s1">&#39;EXP&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`layer` should be either `ACC` or `EXP`, not </span><span class="si">{</span><span class="n">layer</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">layer</span> <span class="o">==</span> <span class="s1">&#39;ACC&#39;</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_ACC</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">region_names</span>
+            <span class="n">cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span>
+        <span class="k">elif</span> <span class="n">layer</span> <span class="o">==</span> <span class="s1">&#39;EXP&#39;</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_EXP</span>
+            <span class="n">cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gene_names</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span>
+
+        <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span></div>
+
+    <span class="c1"># The three functions below can probably be combined in a single function.</span>
+<div class="viewcode-block" id="SCENICPLUS.add_cell_data"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.SCENICPLUS.add_cell_data">[docs]</a>    <span class="k">def</span> <span class="nf">add_cell_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cell_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add cell metadata</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cell_data: pd.DataFrame</span>
+<span class="sd">            A :class:`~pd.DataFrame` containing cell metdata indexed with cell barcodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="ne">Warning</span><span class="p">(</span>
+                <span class="s2">&quot;`cell_data` does not contain metadata for all cells in :attr:`cell_names`. This wil result in NaNs.&quot;</span><span class="p">)</span>
+
+        <span class="n">columns_to_overwrite</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="ne">Warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Columns: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> will be overwritten.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">common_cells</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span><span class="p">,</span> <span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_cells</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SCENICPLUS.add_region_data"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.SCENICPLUS.add_region_data">[docs]</a>    <span class="k">def</span> <span class="nf">add_region_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add region metadata</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        region_data: pd.DataFrame</span>
+<span class="sd">            A :class:`~pd.DataFrame` containing region metadata indexed with region names.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">region_names</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">region_data</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="ne">Warning</span><span class="p">(</span>
+                <span class="s2">&quot;`region_data` does not contain metadata for all regions in :attr:`region_names`. This wil result in NaNs.&quot;</span><span class="p">)</span>
+
+        <span class="n">columns_to_overwrite</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">region_data</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="ne">Warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Columns: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> will be overwritten.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+                <span class="n">columns_to_overwrite</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">common_regions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">region_names</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">region_data</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span><span class="p">,</span> <span class="n">region_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_regions</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SCENICPLUS.add_gene_data"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.SCENICPLUS.add_gene_data">[docs]</a>    <span class="k">def</span> <span class="nf">add_gene_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gene_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add gene metadata</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        gene_data: pd.DataFrame</span>
+<span class="sd">            A :class:`~pd.DataFrame` containing gene metadata indexed with gene names.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">gene_data</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="ne">Warning</span><span class="p">(</span>
+                <span class="s2">&quot;`gene_data` does not contain metadata for all genes in :attr:`gene_names`. This wil result in NaNs.&quot;</span><span class="p">)</span>
+
+        <span class="n">columns_to_overwrite</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">gene_data</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="ne">Warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Columns: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">columns_to_overwrite</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> will be overwritten.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+                <span class="n">columns_to_overwrite</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">common_genes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">gene_data</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span><span class="p">,</span> <span class="n">gene_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_genes</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SCENICPLUS.subset"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.SCENICPLUS.subset">[docs]</a>    <span class="k">def</span> <span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cells</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">regions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">genes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_copy</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Subset object</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cells: List[str]</span>
+<span class="sd">            A list of cells to keep</span>
+<span class="sd">            default: None</span>
+<span class="sd">        regions: List[str]</span>
+<span class="sd">            A list of regions to keep</span>
+<span class="sd">            default: None</span>
+<span class="sd">        genes: List[str]</span>
+<span class="sd">            A list of genes to keep</span>
+<span class="sd">            default:None</span>
+<span class="sd">        return_copy: bool</span>
+<span class="sd">            A boolean specifying wether to update the object (False) or return a copy (True)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_subset</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">row_idx</span><span class="p">,</span> <span class="n">col_idx</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">X</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">row_idx</span><span class="p">,</span> <span class="n">col_idx</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">X</span><span class="p">[</span><span class="n">row_idx</span><span class="p">,</span> <span class="p">:][:,</span> <span class="n">col_idx</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">cells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># keep subset of cells</span>
+            <span class="n">cell_idx_to_keep</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># keep all cells</span>
+            <span class="n">cell_idx_to_keep</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span>
+                <span class="n">cell</span><span class="p">)</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_names</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">regions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># keep subset of regions</span>
+            <span class="n">region_idx_to_keep</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">region_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span>
+                <span class="n">region</span><span class="p">)</span> <span class="k">for</span> <span class="n">region</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># keep all regions</span>
+            <span class="n">region_idx_to_keep</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">region_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span>
+                <span class="n">region</span><span class="p">)</span> <span class="k">for</span> <span class="n">region</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">region_names</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">genes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># keep subset of genes</span>
+            <span class="n">gene_idx_to_keep</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">gene_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span> <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">genes</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># keep all genes</span>
+            <span class="n">gene_idx_to_keep</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span>
+                <span class="n">gene</span><span class="p">)</span> <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gene_names</span><span class="p">]</span>
+
+        <span class="c1"># subset gene expression and chromatin accessibility</span>
+        <span class="n">X_EXP_subset</span> <span class="o">=</span> <span class="n">_subset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">cell_idx_to_keep</span><span class="p">,</span> <span class="n">gene_idx_to_keep</span><span class="p">)</span>
+        <span class="n">X_ACC_subset</span> <span class="o">=</span> <span class="n">_subset</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X_ACC</span><span class="p">,</span> <span class="n">region_idx_to_keep</span><span class="p">,</span> <span class="n">cell_idx_to_keep</span><span class="p">)</span>
+
+        <span class="c1"># subset dimmensional reductions</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dr_cell</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dr_cell_subset</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_subset</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                <span class="n">cell_idx_to_keep</span><span class="p">,</span>
+                <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dr_cell</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dr_cell_subset</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dr_region</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dr_region_subset</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_subset</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dr_region</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                <span class="n">region_idx_to_keep</span><span class="p">,</span>
+                <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dr_region</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dr_region</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dr_region_subset</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># subset metadata</span>
+        <span class="n">metadata_cell_subset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">cell_idx_to_keep</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">metadata_gene_subset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">gene_idx_to_keep</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">metadata_region_subset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">region_idx_to_keep</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="k">if</span> <span class="n">return_copy</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SCENICPLUS</span><span class="p">(</span>
+                <span class="n">X_ACC</span><span class="o">=</span><span class="n">X_ACC_subset</span><span class="p">,</span>
+                <span class="n">X_EXP</span><span class="o">=</span><span class="n">X_EXP_subset</span><span class="p">,</span>
+                <span class="n">metadata_regions</span><span class="o">=</span><span class="n">metadata_region_subset</span><span class="p">,</span>
+                <span class="n">metadata_genes</span><span class="o">=</span><span class="n">metadata_gene_subset</span><span class="p">,</span>
+                <span class="n">metadata_cell</span><span class="o">=</span><span class="n">metadata_cell_subset</span><span class="p">,</span>
+                <span class="n">menr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">menr</span><span class="p">,</span>
+                <span class="n">dr_cell</span><span class="o">=</span><span class="n">dr_cell_subset</span><span class="p">,</span>
+                <span class="n">dr_region</span><span class="o">=</span><span class="n">dr_region_subset</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X_ACC</span> <span class="o">=</span> <span class="n">X_ACC_subset</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X_EXP</span> <span class="o">=</span> <span class="n">X_EXP_subset</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_regions</span> <span class="o">=</span> <span class="n">metadata_region_subset</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_genes</span> <span class="o">=</span> <span class="n">metadata_gene_subset</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cell</span> <span class="o">=</span> <span class="n">metadata_cell_subset</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">menr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">menr</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dr_cell</span> <span class="o">=</span> <span class="n">dr_cell_subset</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dr_region</span> <span class="o">=</span> <span class="n">dr_region_subset</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># inspired by AnnData</span>
+        <span class="n">descr</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;SCENIC+ object with n_cells x n_genes = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_cells</span><span class="si">}</span><span class="s2"> x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_genes</span><span class="si">}</span><span class="s2"> and n_cells x n_regions = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_cells</span><span class="si">}</span><span class="s2"> x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_regions</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">&quot;metadata_regions&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;metadata_genes&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;metadata_cell&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;menr&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dr_cell&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dr_region&quot;</span>
+        <span class="p">]:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">keys</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">descr</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\t</span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">keys</span><span class="p">))[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">continue</span>
+        <span class="k">return</span> <span class="n">descr</span></div>
+
+
+<div class="viewcode-block" id="create_SCENICPLUS_object"><a class="viewcode-back" href="../../api.html#scenicplus.scenicplus_class.create_SCENICPLUS_object">[docs]</a><span class="k">def</span> <span class="nf">create_SCENICPLUS_object</span><span class="p">(</span>
+        <span class="n">GEX_anndata</span><span class="p">:</span> <span class="n">AnnData</span><span class="p">,</span>
+        <span class="n">cisTopic_obj</span><span class="p">:</span> <span class="n">CistopicObject</span><span class="p">,</span>
+        <span class="n">menr</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+        <span class="n">multi_ome_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">nr_metacells</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nr_cells_per_metacells</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">meta_cell_split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;_&#39;</span><span class="p">,</span>
+        <span class="n">key_to_group_by</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">imputed_acc_obj</span><span class="p">:</span> <span class="n">CistopicImputedFeatures</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">imputed_acc_kwargs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;scale_factor&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="o">**</span><span class="mi">6</span><span class="p">},</span>
+        <span class="n">normalize_imputed_acc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">normalize_imputed_acc_kwargs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;scale_factor&#39;</span><span class="p">:</span> <span class="mi">10</span> <span class="o">**</span> <span class="mi">4</span><span class="p">},</span>
+        <span class="n">cell_metadata</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">region_metadata</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">gene_metadata</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bc_transform_func</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ACC_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;ACC_&#39;</span><span class="p">,</span>
+        <span class="n">GEX_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;GEX_&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SCENICPLUS</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to create instances of :class:`SCENICPLUS`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    GEX_anndata: sc.AnnData</span>
+<span class="sd">        An instance of :class:`~sc.AnnData` containing gene expression data and metadata.</span>
+<span class="sd">    cisTopic_obj: CistopicObject</span>
+<span class="sd">        An instance of :class:`pycisTopic.cistopic_class.CistopicObject` containing chromatin accessibility data and metadata.</span>
+<span class="sd">    menr: dict</span>
+<span class="sd">        A dict mapping annotations to motif enrichment results</span>
+<span class="sd">    multi_ome_mode: bool</span>
+<span class="sd">        A boolean specifying wether data is multi-ome (i.e. combined scATAC-seq and scRNA-seq from the same cell) or not</span>
+<span class="sd">        default: True</span>
+<span class="sd">    nr_metacells: int</span>
+<span class="sd">        For non multi_ome_mode, use this number of meta cells to link scRNA-seq and scATAC-seq</span>
+<span class="sd">        If this is a single integer the same number of metacells will be used for all annotations.</span>
+<span class="sd">        This can also be a mapping between an annotation and the number of metacells per annotation.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    nr_cells_per_metacells: int</span>
+<span class="sd">        For non multi_ome_mode, use this number of cells per metacell to link scRNA-seq and scATAC-seq.</span>
+<span class="sd">        If this is a single integer the same number of cells will be used for all annotations.</span>
+<span class="sd">        This can also be a mapping between an annotation and the number of cells per metacell per annotation.</span>
+<span class="sd">        default: 10</span>
+<span class="sd">    meta_cell_split: str</span>
+<span class="sd">        Character which is used as seperator in metacell names</span>
+<span class="sd">        default: &#39;_&#39;</span>
+<span class="sd">    key_to_group_by: str</span>
+<span class="sd">        For non multi_ome_mode, use this cell metadata key to generate metacells from scRNA-seq and scATAC-seq. </span>
+<span class="sd">        Key should be common in scRNA-seq and scATAC-seq side</span>
+<span class="sd">        default: None</span>
+<span class="sd">    imputed_acc_obj: CistopicImputedFeatures</span>
+<span class="sd">        An instance of :class:`~pycisTopic.diff_features.CistopicImputedFeatures` containing imputed chromatin accessibility.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    imputed_acc_kwargs: dict</span>
+<span class="sd">        Dict with keyword arguments for imputed chromatin accessibility.</span>
+<span class="sd">        default: {&#39;scale_factor&#39;: 10**6}</span>
+<span class="sd">    normalize_imputed_acc: bool</span>
+<span class="sd">        A boolean specifying wether or not to normalize imputed chromatin accessbility.</span>
+<span class="sd">        default: False</span>
+<span class="sd">    normalize_imputed_acc_kwargs: dict</span>
+<span class="sd">        Dict with keyword arguments for normalizing imputed accessibility.</span>
+<span class="sd">        default: {&#39;scale_factor&#39;: 10 ** 4}</span>
+<span class="sd">    cell_metadata: pd.DataFrame</span>
+<span class="sd">        An instance of :class:`~pd.DataFrame` containing extra cell metadata</span>
+<span class="sd">        default: None</span>
+<span class="sd">    region_metadata: pd.DataFrame</span>
+<span class="sd">        An instance of :class:`~pd.DataFrame` containing extra region metadata</span>
+<span class="sd">        default: None</span>
+<span class="sd">    gene_metadata: pd.DataFrame</span>
+<span class="sd">        An instance of :class:`~pd.DataFrame` containing extra gene metadata</span>
+<span class="sd">        default: None</span>
+<span class="sd">    bc_transform_func: func</span>
+<span class="sd">        A function used to transform gene expression barcode layout to chromatin accessbility layout.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    ACC_prefix: str</span>
+<span class="sd">        String prefix to add to cell metadata coming from cisTopic_obj</span>
+<span class="sd">    GEX_prefix: str</span>
+<span class="sd">        String prefix to add to cell metadata coming from GEX_anndata</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; scplus_obj = create_SCENICPLUS_object(GEX_anndata = rna_anndata, cisTopic_obj = cistopic_obj, menr = motif_enrichment_dict)</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;create scenicplus object&#39;</span><span class="p">)</span>
+
+    <span class="n">GEX_gene_metadata</span> <span class="o">=</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ACC_region_metadata</span> <span class="o">=</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">region_data</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">multi_ome_mode</span><span class="p">:</span>
+        <span class="c1"># PROCESS DATA LIKE IT IS MULTI-OME</span>
+        <span class="n">GEX_cell_metadata</span> <span class="o">=</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">GEX_cell_names</span> <span class="o">=</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs_names</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bc_transform_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># transform GEX barcodes to ACC barcodes</span>
+            <span class="n">GEX_cell_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc_transform_func</span><span class="p">(</span>
+                <span class="n">bc</span><span class="p">)</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">]</span>
+            <span class="n">GEX_cell_metadata</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">GEX_cell_names</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">GEX_cell_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">GEX_cell_names</span><span class="p">)</span>
+
+        <span class="n">GEX_dr_cell</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+        <span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">GEX_cell_names</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obsm</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+        <span class="n">ACC_cell_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="n">ACC_cell_metadata</span> <span class="o">=</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s1">&#39;cell&#39;</span> <span class="ow">in</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">ACC_dr_cell</span> <span class="o">=</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">projections</span><span class="p">[</span><span class="s1">&#39;cell&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ACC_dr_cell</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="s1">&#39;region&#39;</span> <span class="ow">in</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">ACC_dr_region</span> <span class="o">=</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">projections</span><span class="p">[</span><span class="s1">&#39;region&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ACC_dr_region</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># get cells with high quality (HQ cells) chromatin accessbility AND gene expression profile</span>
+        <span class="n">common_cells</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">GEX_cell_names</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">ACC_cell_names</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">common_cells</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;No cells found which are present in both assays, check input and consider using `bc_transform_func`!&quot;</span><span class="p">)</span>
+
+        <span class="c1"># impute accessbility if not given as parameter and subset for HQ cells</span>
+        <span class="k">if</span> <span class="n">imputed_acc_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">imputed_acc_obj</span> <span class="o">=</span> <span class="n">impute_accessibility</span><span class="p">(</span>
+                <span class="n">cisTopic_obj</span><span class="p">,</span> <span class="n">selected_cells</span><span class="o">=</span><span class="n">common_cells</span><span class="p">,</span> <span class="o">**</span><span class="n">imputed_acc_kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">cells</span><span class="o">=</span><span class="n">common_cells</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">normalize_imputed_acc</span><span class="p">:</span>
+            <span class="n">imputed_acc_obj</span> <span class="o">=</span> <span class="n">normalize_scores</span><span class="p">(</span>
+                <span class="n">imputed_acc_obj</span><span class="p">,</span> <span class="o">**</span><span class="n">normalize_imputed_acc_kwargs</span><span class="p">)</span>
+
+        <span class="c1"># subset gene expression data and metadata</span>
+        <span class="n">ACC_region_metadata_subset</span> <span class="o">=</span> <span class="n">ACC_region_metadata</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">feature_names</span><span class="p">]</span>
+
+        <span class="n">GEX_cell_metadata_subset</span> <span class="o">=</span> <span class="n">GEX_cell_metadata</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_cells</span><span class="p">]</span>
+        <span class="n">GEX_dr_cell_subset</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">GEX_dr_cell</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_cells</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">GEX_dr_cell</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+            <span class="n">X_EXP_subset</span> <span class="o">=</span> <span class="n">GEX_anndata</span><span class="p">[[</span><span class="n">GEX_cell_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span>
+                <span class="n">bc</span><span class="p">)</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">common_cells</span><span class="p">],</span> <span class="p">:]</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">ACC_cell_metadata_subset</span> <span class="o">=</span> <span class="n">ACC_cell_metadata</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_cells</span><span class="p">]</span>
+        <span class="n">ACC_dr_cell_subset</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">ACC_dr_cell</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">common_cells</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ACC_dr_cell</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="n">X_ACC_subset</span> <span class="o">=</span> <span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">mtx</span>
+
+        <span class="c1"># add prefixes</span>
+        <span class="k">if</span> <span class="n">GEX_prefix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">GEX_cell_metadata_subset</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">GEX_prefix</span> <span class="o">+</span> <span class="n">colname</span> <span class="k">for</span> <span class="n">colname</span> <span class="ow">in</span> <span class="n">GEX_cell_metadata_subset</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+            <span class="n">GEX_dr_cell_subset</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">GEX_prefix</span> <span class="o">+</span> <span class="n">k</span><span class="p">:</span> <span class="n">GEX_dr_cell_subset</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">GEX_dr_cell_subset</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+        <span class="k">if</span> <span class="n">ACC_prefix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ACC_cell_metadata_subset</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">ACC_prefix</span> <span class="o">+</span> <span class="n">colname</span> <span class="k">for</span> <span class="n">colname</span> <span class="ow">in</span> <span class="n">ACC_cell_metadata_subset</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+            <span class="n">ACC_dr_cell_subset</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">ACC_prefix</span> <span class="o">+</span> <span class="n">k</span><span class="p">:</span> <span class="n">ACC_dr_cell_subset</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ACC_dr_cell_subset</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+        <span class="c1"># concatenate cell metadata and cell dimmensional reductions</span>
+        <span class="n">ACC_GEX_cell_metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">GEX_cell_metadata_subset</span><span class="p">,</span> <span class="n">ACC_cell_metadata_subset</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">dr_cell</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">GEX_dr_cell_subset</span><span class="p">,</span> <span class="o">**</span><span class="n">ACC_dr_cell_subset</span><span class="p">}</span>
+
+        <span class="n">SCENICPLUS_obj</span> <span class="o">=</span> <span class="n">SCENICPLUS</span><span class="p">(</span>
+            <span class="n">X_ACC</span><span class="o">=</span><span class="n">X_ACC_subset</span><span class="p">,</span>
+            <span class="n">X_EXP</span><span class="o">=</span><span class="n">X_EXP_subset</span><span class="p">,</span>
+            <span class="n">metadata_regions</span><span class="o">=</span><span class="n">ACC_region_metadata_subset</span><span class="p">,</span>
+            <span class="n">metadata_genes</span><span class="o">=</span><span class="n">GEX_gene_metadata</span><span class="p">,</span>
+            <span class="n">metadata_cell</span><span class="o">=</span><span class="n">ACC_GEX_cell_metadata</span><span class="p">,</span>
+            <span class="n">menr</span><span class="o">=</span><span class="n">menr</span><span class="p">,</span>
+            <span class="n">dr_cell</span><span class="o">=</span><span class="n">dr_cell</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dr_cell</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">dr_region</span><span class="o">=</span><span class="n">ACC_dr_region</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ACC_dr_region</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">generate_pseudocells_for_numpy</span><span class="p">,</span> <span class="n">generate_pseudocell_names</span>
+        <span class="c1"># PROCESS NON-MULTI-OME DATA</span>
+        <span class="k">if</span> <span class="n">key_to_group_by</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">key_to_group_by</span><span class="si">}</span><span class="s1"> not found in GEX_anndata.obs.columns&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key_to_group_by</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">key_to_group_by</span><span class="si">}</span><span class="s1"> not found in cisTopic_obj.cell_data.columns&#39;</span><span class="p">)</span>
+
+        <span class="c1"># if imputed accessibility is not provided compute it</span>
+        <span class="k">if</span> <span class="n">imputed_acc_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">imputed_acc_obj</span> <span class="o">=</span> <span class="n">impute_accessibility</span><span class="p">(</span>
+                <span class="n">cisTopic_obj</span><span class="p">,</span> <span class="o">**</span><span class="n">imputed_acc_kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">normalize_imputed_acc</span><span class="p">:</span>
+            <span class="n">imputed_acc_obj</span> <span class="o">=</span> <span class="n">normalize_scores</span><span class="p">(</span>
+                <span class="n">imputed_acc_obj</span><span class="p">,</span> <span class="o">**</span><span class="n">normalize_imputed_acc_kwargs</span><span class="p">)</span>
+
+        <span class="c1"># check which annotations are common and if necessary subset</span>
+        <span class="n">common_annotations</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]))</span>
+        <span class="n">GEX_cells_to_keep</span> <span class="o">=</span> <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+            <span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">],</span> <span class="n">common_annotations</span><span class="p">)]</span>
+        <span class="n">ACC_cells_to_keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">)[</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+            <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">],</span> <span class="n">common_annotations</span><span class="p">)]</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Following annotations were found in both assays under key </span><span class="si">{</span><span class="n">key_to_group_by</span><span class="si">}</span><span class="s1">:</span><span class="se">\n\t</span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">common_annotations</span><span class="p">)</span><span class="si">}</span><span class="s1">.</span><span class="se">\n</span><span class="s1">Keeping </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">GEX_cells_to_keep</span><span class="p">)</span><span class="si">}</span><span class="s1"> cells for RNA and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ACC_cells_to_keep</span><span class="p">)</span><span class="si">}</span><span class="s1"> for ATAC.&#39;</span><span class="p">)</span>
+        <span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">cells</span><span class="o">=</span><span class="n">ACC_cells_to_keep</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">cells</span><span class="o">=</span><span class="n">ACC_cells_to_keep</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">GEX_anndata</span> <span class="o">=</span> <span class="n">GEX_anndata</span><span class="p">[</span><span class="n">GEX_cells_to_keep</span><span class="p">]</span>
+
+        <span class="c1"># generate metacells</span>
+        <span class="n">grouper_EXP</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span><span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">grouper_ACC</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span>
+            <span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">grouper_EXP</span><span class="o">.</span><span class="n">keys</span> <span class="o">==</span>
+                   <span class="n">grouper_ACC</span><span class="o">.</span><span class="n">keys</span><span class="p">),</span> <span class="s1">&#39;grouper_EXP.keys should be the same as grouper_ACC.keys&#39;</span>
+        <span class="c1"># this assertion is here because below we use only one of them for a step which affects both assays</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">nr_metacells</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="n">l_nr_metacells</span> <span class="o">=</span> <span class="p">[</span><span class="n">nr_metacells</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">common_annotations</span><span class="p">))]</span>
+        <span class="k">elif</span> <span class="n">nr_metacells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># it is a mapping</span>
+            <span class="c1"># for this we need the assertion above</span>
+            <span class="n">l_nr_metacells</span> <span class="o">=</span> <span class="p">[</span><span class="n">nr_metacells</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">grouper_EXP</span><span class="o">.</span><span class="n">keys</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">nr_metacells</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># automatically set this parameters</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">nr_cells_per_metacells</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">:</span>
+                <span class="n">l_nr_metacells</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">grouper_EXP</span><span class="o">.</span><span class="n">keys</span><span class="p">:</span>  <span class="c1"># for this we need the assertion above</span>
+                    <span class="n">nr_cells_wi_annotation</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">k</span><span class="p">),</span>
+                                                 <span class="nb">sum</span><span class="p">(</span><span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">k</span><span class="p">))</span>
+                    <span class="c1"># using this formula each cell can be included in a metacell on average 2 times</span>
+                    <span class="n">l_nr_metacells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">nr_cells_wi_annotation</span> <span class="o">/</span> <span class="n">nr_cells_per_metacells</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">nr_cells_per_metacells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">l_nr_metacells</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">grouper_EXP</span><span class="o">.</span><span class="n">keys</span><span class="p">:</span>  <span class="c1"># for this we need the assertion above</span>
+                    <span class="n">nr_cells_wi_annotation</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">GEX_anndata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">k</span><span class="p">),</span>
+                                                 <span class="nb">sum</span><span class="p">(</span><span class="n">cisTopic_obj</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="n">key_to_group_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">k</span><span class="p">))</span>
+                    <span class="n">n</span> <span class="o">=</span> <span class="n">nr_cells_per_metacells</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                    <span class="c1"># using this formula each cell can be included in a metacell on average 2 times</span>
+                    <span class="n">l_nr_metacells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">nr_cells_wi_annotation</span> <span class="o">/</span> <span class="n">n</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Automatically set `nr_metacells` to: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">grouper_EXP</span><span class="o">.</span><span class="n">keys</span><span class="p">,</span> <span class="n">l_nr_metacells</span><span class="p">)])</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">nr_cells_per_metacells</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="n">l_nr_cells</span> <span class="o">=</span> <span class="p">[</span><span class="n">nr_cells_per_metacells</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">common_annotations</span><span class="p">))]</span>
+        <span class="k">elif</span> <span class="n">nr_cells_per_metacells</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># it is a mapping</span>
+            <span class="c1"># for this we need the assertion above</span>
+            <span class="n">l_nr_cells</span> <span class="o">=</span> <span class="p">[</span><span class="n">nr_cells_per_metacells</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">grouper_EXP</span><span class="o">.</span><span class="n">keys</span><span class="p">]</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Generating pseudo multi-ome data&#39;</span><span class="p">)</span>
+        <span class="n">meta_X_ACC</span> <span class="o">=</span> <span class="n">generate_pseudocells_for_numpy</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">mtx</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">mtx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">mtx</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span>
+                                                    <span class="n">grouper</span><span class="o">=</span><span class="n">grouper_ACC</span><span class="p">,</span>
+                                                    <span class="n">nr_cells</span><span class="o">=</span><span class="n">l_nr_cells</span><span class="p">,</span>
+                                                    <span class="n">nr_pseudobulks</span><span class="o">=</span><span class="n">l_nr_metacells</span><span class="p">,</span>
+                                                    <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">meta_cell_names_ACC</span> <span class="o">=</span> <span class="n">generate_pseudocell_names</span><span class="p">(</span><span class="n">grouper</span><span class="o">=</span><span class="n">grouper_ACC</span><span class="p">,</span>
+                                                        <span class="n">nr_pseudobulks</span><span class="o">=</span><span class="n">l_nr_metacells</span><span class="p">,</span>
+                                                        <span class="n">sep</span><span class="o">=</span><span class="n">meta_cell_split</span><span class="p">)</span>
+        <span class="n">meta_X_EXP</span> <span class="o">=</span> <span class="n">generate_pseudocells_for_numpy</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">GEX_anndata</span><span class="o">.</span><span class="n">X</span><span class="p">,</span>
+                                                    <span class="n">grouper</span><span class="o">=</span><span class="n">grouper_EXP</span><span class="p">,</span>
+                                                    <span class="n">nr_cells</span><span class="o">=</span><span class="n">l_nr_cells</span><span class="p">,</span>
+                                                    <span class="n">nr_pseudobulks</span><span class="o">=</span><span class="n">l_nr_metacells</span><span class="p">,</span>
+                                                    <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">meta_cell_names_EXP</span> <span class="o">=</span> <span class="n">generate_pseudocell_names</span><span class="p">(</span><span class="n">grouper</span><span class="o">=</span><span class="n">grouper_EXP</span><span class="p">,</span>
+                                                        <span class="n">nr_pseudobulks</span><span class="o">=</span><span class="n">l_nr_metacells</span><span class="p">,</span>
+                                                        <span class="n">sep</span><span class="o">=</span><span class="n">meta_cell_split</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">meta_cell_names_ACC</span> <span class="o">==</span> <span class="n">meta_cell_names_EXP</span>
+
+        <span class="c1"># generate cell metadata</span>
+        <span class="n">metadata_cell</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">meta_cell_names_ACC</span><span class="p">,</span>
+                                     <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="n">key_to_group_by</span><span class="p">:</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">meta_cell_split</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">meta_cell_names_ACC</span><span class="p">]})</span>
+
+        <span class="c1"># create the object</span>
+        <span class="n">ACC_region_metadata_subset</span> <span class="o">=</span> <span class="n">ACC_region_metadata</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">imputed_acc_obj</span><span class="o">.</span><span class="n">feature_names</span><span class="p">]</span>
+        <span class="n">SCENICPLUS_obj</span> <span class="o">=</span> <span class="n">SCENICPLUS</span><span class="p">(</span>
+            <span class="n">X_ACC</span><span class="o">=</span><span class="n">meta_X_ACC</span><span class="p">,</span>
+            <span class="n">X_EXP</span><span class="o">=</span><span class="n">meta_X_EXP</span><span class="p">,</span>
+            <span class="n">metadata_regions</span><span class="o">=</span><span class="n">ACC_region_metadata_subset</span><span class="p">,</span>
+            <span class="n">metadata_genes</span><span class="o">=</span><span class="n">GEX_gene_metadata</span><span class="p">,</span>
+            <span class="n">metadata_cell</span><span class="o">=</span><span class="n">metadata_cell</span><span class="p">,</span>
+            <span class="n">menr</span><span class="o">=</span><span class="n">menr</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">region_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">add_region_data</span><span class="p">(</span><span class="n">region_metadata</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">gene_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">add_gene_data</span><span class="p">(</span><span class="n">gene_metadata</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">cell_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">add_cell_data</span><span class="p">(</span><span class="n">cell_metadata</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">SCENICPLUS_obj</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

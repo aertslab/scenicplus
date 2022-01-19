@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.hdf5 &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.hdf5</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.hdf5</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Write SCENIC+ object to hdf5 file.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">h5py</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pyranges</span> <span class="k">as</span> <span class="nn">pr</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+
+<span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">csr_matrix</span><span class="p">,</span> <span class="n">issparse</span>
+
+<span class="kn">from</span> <span class="nn">anndata._io.h5ad</span> <span class="kn">import</span> <span class="n">write_attribute</span><span class="p">,</span> <span class="n">read_attribute</span>
+
+<span class="c1">#from pycistarget.hdf5 import write_hdf5 as pycistarget_write_hdf5</span>
+<span class="c1">#from pycistarget.hdf5 import read_h5ad as pycistarget_read_hdf5</span>
+
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+<span class="kn">from</span> <span class="nn">.grn_builder.modules</span> <span class="kn">import</span> <span class="n">eRegulon</span><span class="p">,</span> <span class="n">REGIONS2GENES_HEADER</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">annotate_eregulon_by_influence</span>
+
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+
+<span class="n">EREGULON_ATTRIBUTES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;transcription_factor&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;cistrome_name&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;is_extended&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;context&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;gsea_enrichment_score&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;gsea_pval&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;gsea_adj_pval&#39;</span>
+<span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_write_eRegulon_hdf5</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">:</span> <span class="n">eRegulon</span><span class="p">,</span> <span class="n">hdf5_grp</span><span class="p">:</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+
+    <span class="k">for</span> <span class="n">attribute_name</span> <span class="ow">in</span> <span class="n">EREGULON_ATTRIBUTES</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">):</span>
+            <span class="n">attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">attribute</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span> <span class="o">==</span> <span class="nb">frozenset</span><span class="p">:</span>
+                    <span class="n">attribute</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+                <span class="n">hdf5_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">attribute_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span>
+    
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">,</span> <span class="s1">&#39;regions2genes&#39;</span><span class="p">):</span>
+        <span class="n">attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">,</span> <span class="s1">&#39;regions2genes&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">attribute</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_grp</span><span class="p">,</span> <span class="s1">&#39;regions2genes&#39;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">attribute</span><span class="p">))</span>
+    
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">,</span> <span class="s1">&#39;in_leading_edge&#39;</span><span class="p">):</span>
+        <span class="n">attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eRegulon</span><span class="p">,</span> <span class="s1">&#39;in_leading_edge&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">attribute</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_grp</span><span class="p">,</span> <span class="s1">&#39;in_leading_edge&#39;</span><span class="p">,</span> <span class="n">attribute</span><span class="p">)</span>
+
+<span class="c1">#helper functions for nested dicts</span>
+<span class="k">def</span> <span class="nf">_flatten_dict</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">yield from</span> <span class="n">_flatten_dict</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">v</span>
+
+<span class="k">def</span> <span class="nf">_traverse_dict_and_set_pyranges_to_pandas</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">_traverse_dict_and_set_pyranges_to_pandas</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">df</span>
+
+<span class="k">def</span> <span class="nf">_travserse_dict_and_set_pandas_to_pyranges</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">_travserse_dict_and_set_pandas_to_pyranges</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">_traverse_dict_and_set_series_to_dataframe</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">_traverse_dict_and_set_series_to_dataframe</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">_traverse_dict_and_set_dataframe_to_series</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">_traverse_dict_and_set_dataframe_to_series</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;a&#39;</span><span class="p">])</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1">#helper functions for nested lists</span>
+<span class="k">def</span> <span class="nf">_flatten_list</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">yield from</span> <span class="n">_flatten_list</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">v</span>
+
+<span class="k">def</span> <span class="nf">_traverse_list_and_set_pyranges_to_pandas</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">_traverse_list_and_set_pyranges_to_pandas</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">df</span>
+
+<span class="k">def</span> <span class="nf">_traverse_list_and_set_series_to_dataframe</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">_traverse_list_and_set_series_to_dataframe</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">_traverse_list_and_set_pandas_to_pyranges</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">_traverse_list_and_set_pandas_to_pyranges</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_traverse_list_and_set_dataframe_to_series</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">_traverse_list_and_set_dataframe_to_series</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">])</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+
+<div class="viewcode-block" id="write_hdf5"><a class="viewcode-back" href="../../api.html#scenicplus.hdf5.write_hdf5">[docs]</a><span class="k">def</span> <span class="nf">write_hdf5</span><span class="p">(</span>
+    <span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+    <span class="n">f_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">force_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">verbose</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Write SCENIC+ object to hdf5</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    scplus_obj: SCENICPLUS</span>
+<span class="sd">        An instance of scenicplus_class.SCENICPLUS</span>
+<span class="sd">    fname: str</span>
+<span class="sd">        Path to out file.</span>
+<span class="sd">    force_sparse: bool = True</span>
+<span class="sd">        Wether or not to force sparsity of expression and chromatin accessibility matrix.</span>
+<span class="sd">    verbose = False</span>
+<span class="sd">        Wether or not to print debug messages.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="c1">#TODO: add version!!</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+        <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;hdf5&#39;</span><span class="p">)</span>
+
+    <span class="n">hdf5_file</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f_name</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1">#save expression and accessibility matrices</span>
+        <span class="k">if</span> <span class="n">force_sparse</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">issparse</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Making .X_EXP sparse&#39;</span><span class="p">)</span>
+            <span class="n">X_EXP</span> <span class="o">=</span> <span class="n">csr_matrix</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">X_EXP</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .X_EXP&#39;</span><span class="p">)</span>
+        <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;X_EXP&#39;</span><span class="p">,</span> <span class="n">X_EXP</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">6</span><span class="p">})</span>
+
+        <span class="k">if</span> <span class="n">force_sparse</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">issparse</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Making .X_ACC sparse&#39;</span><span class="p">)</span>
+            <span class="n">X_ACC</span> <span class="o">=</span> <span class="n">csr_matrix</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">X_ACC</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .X_ACC&#39;</span><span class="p">)</span>
+        <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;X_ACC&#39;</span><span class="p">,</span> <span class="n">X_ACC</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">6</span><span class="p">})</span>
+
+        <span class="c1">#write metadata</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .metadata_regions&#39;</span><span class="p">)</span>
+        <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;metadata_regions&#39;</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_regions</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .metadata_genes&#39;</span><span class="p">)</span>
+        <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;metadata_genes&#39;</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_genes</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .metadata_cell&#39;</span><span class="p">)</span>
+        <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;metadata_cell&#39;</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+
+        <span class="c1">#write motif enrichment results</span>
+        <span class="n">grp_menr</span> <span class="o">=</span> <span class="n">hdf5_file</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;menr&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">menr_name</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">menr</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">grp_sub_menr</span> <span class="o">=</span> <span class="n">grp_menr</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="n">menr_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .menr: </span><span class="si">{</span><span class="n">menr_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">pycistarget_write_hdf5</span><span class="p">(</span><span class="n">result</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">menr</span><span class="p">[</span><span class="n">menr_name</span><span class="p">],</span> <span class="n">f_name_or_grp</span> <span class="o">=</span> <span class="n">grp_sub_menr</span><span class="p">)</span>
+        
+        <span class="c1">#save dimensionality reductions</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="s1">&#39;dr_cell&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .dr_cell&#39;</span><span class="p">)</span>
+            <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;dr_cell&#39;</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+        
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="s1">&#39;dr_region&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Writing .dr_region:&#39;</span><span class="p">)</span>
+            <span class="n">write_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">,</span> <span class="s1">&#39;dr_region&#39;</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_region</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+
+        <span class="c1">#save uns</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="s1">&#39;uns&#39;</span><span class="p">):</span>
+            <span class="n">grp_uns</span> <span class="o">=</span> <span class="n">hdf5_file</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;uns&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                    <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>  <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                    <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pd.DataFrame&#39;</span>
+
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="o">==</span> <span class="nb">dict</span><span class="p">:</span>
+                    <span class="n">dict_iter</span> <span class="o">=</span> <span class="n">_flatten_dict</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                    <span class="n">type_dict</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dict_iter</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">type_dict</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;dict of multiple types </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">type_dict</span><span class="p">])</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">type_dict</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">type_dict</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">type_dict</span> <span class="o">==</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">:</span>
+                            <span class="n">attribute</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Setting .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">] to pandas dataframe&#39;</span><span class="p">)</span>
+                            <span class="n">_traverse_dict_and_set_pyranges_to_pandas</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                            <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                            <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pr.PyRanges&#39;</span>
+
+                        <span class="k">elif</span> <span class="n">type_dict</span> <span class="o">==</span> <span class="n">eRegulon</span><span class="p">:</span>
+                            <span class="n">grp_eRegulons</span> <span class="o">=</span> <span class="n">grp_uns</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="n">key</span><span class="p">)</span>
+                            <span class="k">for</span> <span class="n">eRegulon_key</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                                <span class="n">grp_eRegulon</span> <span class="o">=</span> <span class="n">grp_eRegulons</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="n">eRegulon_key</span><span class="p">)</span>
+                                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">][</span><span class="si">{</span><span class="n">eRegulon_key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                                <span class="n">_write_eRegulon_hdf5</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">eRegulon_key</span><span class="p">],</span> <span class="n">grp_eRegulon</span><span class="p">)</span>
+                                <span class="n">grp_eRegulon</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon&#39;</span>
+                            <span class="n">grp_eRegulons</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon-dict&#39;</span>
+                        
+                        <span class="k">elif</span> <span class="n">type_dict</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+                            <span class="n">attribute</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Setting .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">] to pandas dataframe&#39;</span><span class="p">)</span>
+                            <span class="n">_traverse_dict_and_set_series_to_dataframe</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                            <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                            <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pd.Series&#39;</span>
+
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                            <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                            <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]))</span>
+                       
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+                    <span class="n">list_iter</span> <span class="o">=</span> <span class="n">_flatten_list</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                    <span class="n">type_list</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">list_iter</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">type_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;list of multiple types </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">type_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">type_list</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        
+                        <span class="k">if</span> <span class="n">type_list</span> <span class="o">==</span> <span class="n">pr</span><span class="o">.</span><span class="n">PyRanges</span><span class="p">:</span>
+                            <span class="n">attribute</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Setting .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">] to pandas dataframe&#39;</span><span class="p">)</span>
+                            <span class="n">_traverse_list_and_set_pyranges_to_pandas</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                            <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                            <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pr.PyRanges&#39;</span>
+                        
+                        <span class="k">elif</span> <span class="n">type_list</span> <span class="o">==</span> <span class="n">eRegulon</span><span class="p">:</span>
+                            <span class="n">grp_eRegulons</span> <span class="o">=</span> <span class="n">grp_uns</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="n">key</span><span class="p">)</span>
+                            <span class="k">for</span> <span class="n">eregulon</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+                                <span class="n">name</span> <span class="o">=</span> <span class="n">annotate_eregulon_by_influence</span><span class="p">(</span><span class="n">eregulon</span><span class="p">)</span>
+                                <span class="n">grp_eRegulon</span> <span class="o">=</span> <span class="n">grp_eRegulons</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">)</span>
+                                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">], Regulon: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                                <span class="n">_write_eRegulon_hdf5</span><span class="p">(</span><span class="n">eregulon</span><span class="p">,</span> <span class="n">grp_eRegulon</span><span class="p">)</span>
+                                <span class="n">grp_eRegulon</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon&#39;</span>
+                            <span class="n">grp_eRegulons</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon-list&#39;</span>
+                        
+                        <span class="k">elif</span> <span class="n">type_list</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+                            <span class="n">attribute</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Setting .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">] to pandas dataframe&#39;</span><span class="p">)</span>
+                            <span class="n">_traverse_list_and_set_series_to_dataframe</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                            <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                            <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pd.Series&#39;</span>
+
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writing .uns[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+                            <span class="n">write_attribute</span><span class="p">(</span><span class="n">grp_uns</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">dataset_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="s1">&#39;compression_opts&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">})</span>
+                            <span class="n">grp_uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]))</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">hdf5_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">hdf5_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+<span class="k">def</span> <span class="nf">_read_eRegulon</span><span class="p">(</span><span class="n">hdf5_grp</span><span class="p">:</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">eRegulon</span><span class="p">:</span>
+
+    <span class="n">attributes_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">hdf5_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+    <span class="n">regions2genes</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_grp</span><span class="p">[</span><span class="s1">&#39;regions2genes&#39;</span><span class="p">])</span>
+
+    <span class="n">eRegulon_obj</span> <span class="o">=</span> <span class="n">eRegulon</span><span class="p">(</span>
+        <span class="n">transcription_factor</span>    <span class="o">=</span> <span class="n">attributes_dict</span><span class="p">[</span><span class="s1">&#39;transcription_factor&#39;</span><span class="p">]</span>   <span class="k">if</span> <span class="s1">&#39;transcription_factor&#39;</span>   <span class="ow">in</span> <span class="n">attributes_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cistrome_name</span>           <span class="o">=</span> <span class="n">attributes_dict</span><span class="p">[</span><span class="s1">&#39;cistrome_name&#39;</span><span class="p">]</span>          <span class="k">if</span> <span class="s1">&#39;cistrome_name&#39;</span>          <span class="ow">in</span> <span class="n">attributes_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">is_extended</span>             <span class="o">=</span> <span class="n">attributes_dict</span><span class="p">[</span><span class="s1">&#39;is_extended&#39;</span><span class="p">]</span>            <span class="k">if</span> <span class="s1">&#39;is_extended&#39;</span>            <span class="ow">in</span> <span class="n">attributes_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">regions2genes</span>           <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">regions2genes</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">REGIONS2GENES_HEADER</span><span class="p">)]</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;r2g&#39;</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="s1">&#39;context&#39;</span> <span class="ow">in</span> <span class="n">attributes_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">attributes_dict</span><span class="p">[</span><span class="s1">&#39;context&#39;</span><span class="p">])</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">eRegulon_obj</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">attribute_name</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">EREGULON_ATTRIBUTES</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s1">&#39;transcription_factor&#39;</span><span class="p">,</span> <span class="s1">&#39;cistrome_name&#39;</span><span class="p">,</span> <span class="s1">&#39;is_extended&#39;</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">attribute_name</span> <span class="ow">in</span> <span class="n">attributes_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">eRegulon_obj</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">,</span>  <span class="n">attributes_dict</span><span class="p">[</span><span class="n">attribute_name</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">attribute_name</span> <span class="ow">in</span> <span class="n">hdf5_grp</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">eRegulon_obj</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">,</span>  <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_grp</span><span class="p">[</span><span class="n">attribute_name</span><span class="p">]))</span>
+    
+    <span class="k">return</span> <span class="n">eRegulon_obj</span>
+    
+
+<div class="viewcode-block" id="read_h5ad"><a class="viewcode-back" href="../../api.html#scenicplus.hdf5.read_h5ad">[docs]</a><span class="k">def</span> <span class="nf">read_h5ad</span><span class="p">(</span><span class="n">f_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SCENICPLUS</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read SCENIC+ object from hdf5 file.</span>
+
+<span class="sd">    fname:str</span>
+<span class="sd">        Path to hdf5 file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">hdf5_file</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f_name</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">X_ACC</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;X_ACC&#39;</span><span class="p">])</span>
+        <span class="n">X_EXP</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;X_EXP&#39;</span><span class="p">])</span>
+        <span class="n">metadata_regions</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;metadata_regions&#39;</span><span class="p">])</span>
+        <span class="n">metadata_genes</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;metadata_genes&#39;</span><span class="p">])</span>
+        <span class="n">metadata_cell</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;metadata_cell&#39;</span><span class="p">])</span>
+        
+        <span class="n">grp_menr</span> <span class="o">=</span> <span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;menr&#39;</span><span class="p">]</span>
+        <span class="n">menr</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">menr_name</span> <span class="ow">in</span> <span class="n">grp_menr</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">menr</span><span class="p">[</span><span class="n">menr_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pycistarget_read_hdf5</span><span class="p">(</span><span class="n">grp_menr</span><span class="p">[</span><span class="n">menr_name</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="s1">&#39;dr_cell&#39;</span> <span class="ow">in</span> <span class="n">hdf5_file</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">dr_cell</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;dr_cell&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dr_cell</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="s1">&#39;dr_region&#39;</span> <span class="ow">in</span> <span class="n">hdf5_file</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">dr_region</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;dr_region&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dr_region</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="s1">&#39;uns&#39;</span> <span class="ow">in</span> <span class="n">hdf5_file</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">uns</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;uns&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">attribute</span> <span class="o">=</span> <span class="n">hdf5_file</span><span class="p">[</span><span class="s1">&#39;uns&#39;</span><span class="p">][</span><span class="n">key</span><span class="p">]</span>
+                <span class="n">orig_type</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;orig-type&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">orig_type</span> <span class="o">==</span> <span class="s1">&#39;eRegulon-list&#39;</span><span class="p">:</span>
+                    <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_read_eRegulon</span><span class="p">(</span><span class="n">attribute</span><span class="p">[</span><span class="n">eRegulon_name</span><span class="p">])</span> <span class="k">for</span> <span class="n">eRegulon_name</span> <span class="ow">in</span> <span class="n">attribute</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+                <span class="k">elif</span> <span class="n">orig_type</span> <span class="o">==</span> <span class="s1">&#39;eRegulon-dict&#39;</span><span class="p">:</span>
+                    <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">eRegulon_name</span><span class="p">:</span> <span class="n">_read_eRegulon</span><span class="p">(</span><span class="n">attribute</span><span class="p">[</span><span class="n">eRegulon_name</span><span class="p">])</span> <span class="k">for</span> <span class="n">eRegulon_name</span> <span class="ow">in</span> <span class="n">attribute</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sub_uns</span> <span class="o">=</span> <span class="n">read_attribute</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">orig_type</span> <span class="o">==</span> <span class="s1">&#39;pr.PyRanges&#39;</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span> <span class="o">==</span> <span class="nb">dict</span><span class="p">:</span>
+                            <span class="n">_travserse_dict_and_set_pandas_to_pyranges</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span>
+                            <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_uns</span>
+                        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+                            <span class="n">_traverse_list_and_set_pandas_to_pyranges</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span>
+                            <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_uns</span>
+                    <span class="k">elif</span> <span class="n">orig_type</span> <span class="o">==</span> <span class="s1">&#39;pd.Series&#39;</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span> <span class="o">==</span> <span class="nb">dict</span><span class="p">:</span>
+                            <span class="n">_traverse_dict_and_set_dataframe_to_series</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span>
+                            <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_uns</span>
+                        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+                            <span class="n">_traverse_list_and_set_dataframe_to_series</span><span class="p">(</span><span class="n">sub_uns</span><span class="p">)</span>
+                            <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_uns</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_uns</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">uns</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">hdf5_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">hdf5_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    
+    <span class="n">SCENICPLUS_obj</span> <span class="o">=</span> <span class="n">SCENICPLUS</span><span class="p">(</span>
+        <span class="n">X_ACC</span> <span class="o">=</span> <span class="n">X_ACC</span><span class="p">,</span>
+        <span class="n">X_EXP</span> <span class="o">=</span> <span class="n">X_EXP</span><span class="p">,</span>
+        <span class="n">metadata_regions</span> <span class="o">=</span> <span class="n">metadata_regions</span><span class="p">,</span>
+        <span class="n">metadata_genes</span> <span class="o">=</span> <span class="n">metadata_genes</span><span class="p">,</span>
+        <span class="n">metadata_cell</span> <span class="o">=</span> <span class="n">metadata_cell</span><span class="p">,</span>
+        <span class="n">menr</span> <span class="o">=</span> <span class="n">menr</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dr_cell</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">,</span> <span class="s1">&#39;dr_cell&#39;</span><span class="p">,</span> <span class="n">dr_cell</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">dr_region</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">,</span> <span class="s1">&#39;dr_region&#39;</span><span class="p">,</span> <span class="n">dr_region</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">uns</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">,</span> <span class="s1">&#39;uns&#39;</span><span class="p">,</span> <span class="n">uns</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">SCENICPLUS_obj</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

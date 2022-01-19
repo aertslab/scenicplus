@@ -1,3 +1,22 @@
+"""Wrapper functions to run SCENIC+ analysis
+
+After the SCENIC+ object has been generated the complete SCENIC+ workflow can be run with a single function. 
+
+Following operation will be done:
+
+1. Defining a search space surounding each gene
+2. Region to gene linking & TF to gene linking
+3. eGRN building
+4. eGRN scoring (target gene and region based AUC and RSS)
+5. Calculating TF-cistrome correlations
+6. Dimensionality reductions
+7. export to UCSC tracks and to loom file
+
+In case the process is killed prematurely, the function can be restared and the workflow will resume from the last step that was succesfully completed.
+
+"""
+
+
 from scenicplus.scenicplus_class import SCENICPLUS, create_SCENICPLUS_object
 from scenicplus.preprocessing.filtering import *
 from scenicplus.cistromes import *

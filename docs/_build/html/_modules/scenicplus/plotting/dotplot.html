@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.plotting.dotplot &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.plotting.dotplot</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.plotting.dotplot</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Plot TF expression, motif enrichment and AUC values of target genes and regions in a dotplot.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib.colors</span> <span class="kn">import</span> <span class="n">Normalize</span>
+<span class="kn">from</span> <span class="nn">sklearn.cluster</span> <span class="kn">import</span> <span class="n">AgglomerativeClustering</span>
+<span class="kn">from</span> <span class="nn">matplotlib.cm</span> <span class="kn">import</span> <span class="n">ScalarMappable</span>
+<span class="kn">import</span> <span class="nn">matplotlib.backends.backend_pdf</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">pycistarget.motif_enrichment_dem</span> <span class="kn">import</span> <span class="n">DEM</span>
+
+<span class="kn">from</span> <span class="nn">..scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+<span class="c1"># Utils</span>
+
+
+<span class="k">def</span> <span class="nf">_flatten</span><span class="p">(</span><span class="n">A</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Utils function to flatten lists</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rt</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">A</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">rt</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_flatten</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rt</span>
+
+<span class="c1"># For motif enrichment</span>
+
+
+<div class="viewcode-block" id="generate_dotplot_df_motif_enrichment"><a class="viewcode-back" href="../../../api.html#scenicplus.plotting.dotplot.generate_dotplot_df_motif_enrichment">[docs]</a><span class="k">def</span> <span class="nf">generate_dotplot_df_motif_enrichment</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                                         <span class="n">enrichment_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                                         <span class="n">group_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                         <span class="n">barcode_groups</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                         <span class="n">subset</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                         <span class="n">subset_TFs</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                         <span class="n">use_pseudobulk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                         <span class="n">use_only_direct</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                         <span class="n">normalize_expression</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                         <span class="n">standardize_expression</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to generate dotplot dataframe from motif enrichment results</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).</span>
+<span class="sd">    enrichment_key: str</span>
+<span class="sd">        Key of the motif enrichment result to use.</span>
+<span class="sd">    group_variable: str, optional</span>
+<span class="sd">        Group variable to use to calculate TF expression per group. Levels of this variable should match with the entries in the</span>
+<span class="sd">        selected motif enrichment dictionary. Only required if barcode groups is not provided.</span>
+<span class="sd">    barcode_groups: Dict, optional</span>
+<span class="sd">        A dictionary containing cell barcodes per class to calculate TF expression per group. Keys of the dictionary should match</span>
+<span class="sd">        the keys in the selected motif enrichment dictionary. Only required if group_variable is not provided.</span>
+<span class="sd">    subset: list, optional</span>
+<span class="sd">        Subset of classes to use. Default: None (use all)</span>
+<span class="sd">    subset_TFs: list, optional</span>
+<span class="sd">        List of TFs to use. Default: None (use all)</span>
+<span class="sd">    use_pseudobulk: bool, optional</span>
+<span class="sd">        Whether to use pseudobulk to calculate gene expression. Only available if there is pseudobulk profiles for group_variable.</span>
+<span class="sd">        Default: False</span>
+<span class="sd">    use_only_direct: bool, optional</span>
+<span class="sd">        Whether to only use NES values of directly annotated motifs. Default: False</span>
+<span class="sd">    normalize_expression: bool, optional</span>
+<span class="sd">        Whether to log(CPM) normalize gene expression. Default: True</span>
+<span class="sd">    standardize_expression: bool, optional</span>
+<span class="sd">        Wheter to standarize gene expression between o and 1. Default: False</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ---------</span>
+<span class="sd">        A data frame with enrichment values per TF and cell group to use as input for `dotplot()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get data</span>
+    <span class="c1"># Gene expression</span>
+    <span class="c1"># If using pseudobulk</span>
+    <span class="k">if</span> <span class="n">use_pseudobulk</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">group_variable</span><span class="p">][</span><span class="s1">&#39;Expression&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">group_variable</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cell_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dgem</span><span class="o">.</span><span class="n">columns</span><span class="p">],</span>
+                                     <span class="n">index</span><span class="o">=</span><span class="n">dgem</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># If using all</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span>
+                            <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">if</span> <span class="n">group_variable</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cell_data</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">group_variable</span><span class="p">]</span>
+    <span class="c1"># Should gene expression be normalized?</span>
+    <span class="k">if</span> <span class="n">normalize_expression</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="mi">6</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">dgem</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="c1"># Checking motif enrichment data</span>
+    <span class="n">menr</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">menr</span><span class="p">[</span><span class="n">enrichment_key</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">menr</span><span class="p">,</span> <span class="n">DEM</span><span class="p">):</span>
+        <span class="n">menr</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">menr</span><span class="p">[</span><span class="n">enrichment_key</span><span class="p">]</span><span class="o">.</span><span class="n">motif_enrichment</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="o">.</span><span class="n">keys</span><span class="p">()])</span>
+        <span class="n">score_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Log2FC&#39;</span><span class="p">,</span> <span class="s1">&#39;Adjusted_pval&#39;</span><span class="p">]</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">_flatten</span><span class="p">([</span><span class="s1">&#39;Contrast&#39;</span><span class="p">,</span> <span class="n">score_keys</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">menr</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">menr</span><span class="p">[</span><span class="n">enrichment_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">menr</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">motif_enrichment</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">menr</span><span class="o">.</span><span class="n">keys</span><span class="p">()])</span>
+        <span class="n">score_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;NES&#39;</span><span class="p">]</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">_flatten</span><span class="p">([</span><span class="s1">&#39;Region_set&#39;</span><span class="p">,</span> <span class="n">score_keys</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">use_only_direct</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">columns</span> <span class="o">+</span> <span class="s1">&#39;Direct_annot&#39;</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">menr_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">_flatten</span><span class="p">([</span><span class="s1">&#39;Region_set&#39;</span><span class="p">,</span> <span class="n">score_keys</span><span class="p">,</span> <span class="s1">&#39;Direct_annot&#39;</span><span class="p">])</span>
+        <span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;Direct_annot&#39;</span><span class="p">]</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s1">&#39;Direct_annot&#39;</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">annot_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="s1">&#39;annot&#39;</span> <span class="ow">in</span> <span class="n">x</span><span class="p">,</span> <span class="n">menr_df</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">columns</span> <span class="o">+</span> <span class="n">annot_columns</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">menr_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">_flatten</span><span class="p">([</span><span class="s1">&#39;Region_set&#39;</span><span class="p">,</span> <span class="n">score_keys</span><span class="p">,</span> <span class="n">annot_columns</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">annot_columns</span><span class="p">:</span>
+            <span class="n">menr_df</span><span class="p">[</span><span class="n">column</span><span class="p">]</span> <span class="o">=</span> <span class="n">menr_df</span><span class="p">[</span><span class="n">column</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="p">)</span>
+
+        <span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">menr_df</span><span class="p">[</span><span class="n">annot_columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="n">menr_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+                         <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">annot_columns</span><span class="p">[</span><span class="mi">1</span><span class="p">:]][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="p">[</span><span class="n">_flatten</span><span class="p">([</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_set&#39;</span><span class="p">,</span> <span class="n">score_keys</span><span class="p">])]</span>
+        <span class="n">menr_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">_flatten</span><span class="p">([</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="n">score_keys</span><span class="p">])</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="o">.</span><span class="n">explode</span><span class="p">(</span><span class="s1">&#39;TF&#39;</span><span class="p">)</span>
+        <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+
+    <span class="c1"># Check for cistrome subsets</span>
+    <span class="k">if</span> <span class="n">subset_TFs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">subset_TFs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]))</span>
+    <span class="c1"># Check that cistromes are in the AUC matrix</span>
+    <span class="n">subset_TFs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">subset_TFs</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">subset_TFs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">subset_TFs</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">dgem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="c1"># Subset matrices</span>
+    <span class="c1"># By cistrome</span>
+    <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subset_TFs</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">subset_TFs</span><span class="p">),</span> <span class="p">:]</span>
+    <span class="c1"># By cells</span>
+    <span class="k">if</span> <span class="n">subset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">group_variable</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subset_cells</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">subset</span><span class="p">)]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">cell_data</span> <span class="o">=</span> <span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subset_cells</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">barcode_groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">barcode_groups</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="n">barcode_groups</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">subset</span><span class="p">}</span>
+            <span class="n">subset_cells</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="nb">set</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="n">barcode_groups</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">subset</span><span class="p">],</span> <span class="p">[])))</span>
+        <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">tf_expr</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">tf_expr</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">subset_cells</span><span class="p">)]</span>
+    <span class="c1"># Take barcode groups per variable level</span>
+    <span class="k">if</span> <span class="n">barcode_groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">barcode_groups</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="n">barcode_groups</span> <span class="o">=</span> <span class="p">[</span><span class="n">barcode_groups</span><span class="p">[</span><span class="n">group</span><span class="p">]</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">group_variable</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">tolist</span><span class="p">())))</span>
+        <span class="n">barcode_groups</span> <span class="o">=</span> <span class="p">[</span><span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">group</span><span class="p">])]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+    <span class="c1"># Calculate mean expression</span>
+    <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">tf_expr</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">tf_expr</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+        <span class="n">barcodes</span><span class="p">)]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">barcodes</span> <span class="ow">in</span> <span class="n">barcode_groups</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">levels</span>
+    <span class="c1"># Scale</span>
+    <span class="k">if</span> <span class="n">standardize_expression</span><span class="p">:</span>
+        <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="p">(</span><span class="n">tf_expr_mean</span><span class="o">-</span><span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">+</span><span class="mf">0.00000001</span><span class="p">)</span> <span class="o">/</span> \
+            <span class="p">(</span><span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">-</span><span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">+</span><span class="mf">0.00000001</span><span class="p">)</span>
+        <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">stack</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="s1">&#39;TF_expression&#39;</span><span class="p">]</span>
+    <span class="n">menr_df</span> <span class="o">=</span> <span class="n">menr_df</span><span class="p">[</span><span class="n">menr_df</span><span class="p">[</span><span class="s1">&#39;Group&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">tf_expr_mean</span><span class="p">[</span><span class="s1">&#39;Group&#39;</span><span class="p">]))]</span>
+    <span class="c1"># Merge by column</span>
+    <span class="n">dotplot_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">tf_expr_mean</span><span class="p">,</span> <span class="n">menr_df</span><span class="p">,</span>
+                          <span class="n">how</span><span class="o">=</span><span class="s1">&#39;outer&#39;</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">])</span>
+    <span class="n">dotplot_df</span> <span class="o">=</span> <span class="n">dotplot_df</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dotplot_df</span></div>
+
+
+<div class="viewcode-block" id="generate_dotplot_df_AUC"><a class="viewcode-back" href="../../../api.html#scenicplus.plotting.dotplot.generate_dotplot_df_AUC">[docs]</a><span class="k">def</span> <span class="nf">generate_dotplot_df_AUC</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                            <span class="n">auc_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">enrichment_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">group_variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">subset</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">subset_cistromes</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">use_pseudobulk</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                            <span class="n">normalize_expression</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="n">standardize_expression</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                            <span class="n">standardize_auc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to generate dotplot dataframe from cistrome AUC enrichment</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).</span>
+<span class="sd">    enrichment_key: str</span>
+<span class="sd">        Key of the motif enrichment result to use.</span>
+<span class="sd">    group_variable: str</span>
+<span class="sd">        Group variable to use to calculate TF expression per group. Levels of this variable should match with the entries in the</span>
+<span class="sd">        selected motif enrichment dictionary. </span>
+<span class="sd">    subset: list, optional</span>
+<span class="sd">        Subset of classes to use. Default: None (use all)</span>
+<span class="sd">    subset_cistromes: list, optional</span>
+<span class="sd">        List of cistromes to use. Default: None (use all)</span>
+<span class="sd">    use_pseudobulk: bool, optional</span>
+<span class="sd">        Whether to use pseudobulk to calculate gene expression. Only available if there is pseudobulk profiles for group_variable.</span>
+<span class="sd">        Default: False</span>
+<span class="sd">    normalize_expression: bool, optional</span>
+<span class="sd">        Whether to log(CPM) normalize gene expression. Default: True</span>
+<span class="sd">    standardize_expression: bool, optional</span>
+<span class="sd">        Wheter to standarize gene expression between o and 1. Default: False</span>
+<span class="sd">    standardize_auc: bool, optional</span>
+<span class="sd">        Wheter to standarize AUC values between o and 1. Default: False</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ---------</span>
+<span class="sd">        A data frame with enrichment values per TF and cell group to use as input for `dotplot()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get data</span>
+    <span class="c1"># If using pseudobulk</span>
+    <span class="k">if</span> <span class="n">use_pseudobulk</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">group_variable</span><span class="p">][</span><span class="s1">&#39;Expression&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+        <span class="p">)</span>
+        <span class="n">cistromes_auc</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Pseudobulk&#39;</span><span class="p">][</span><span class="n">group_variable</span><span class="p">][</span><span class="n">auc_key</span><span class="p">][</span><span class="n">enrichment_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+        <span class="p">)</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">columns</span><span class="p">],</span>
+                                 <span class="n">index</span><span class="o">=</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># If using all</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span>
+                            <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">cistromes_auc</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">enrichment_key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">metadata_cell</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cistromes_auc</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">group_variable</span><span class="p">]</span>
+    <span class="c1"># Should gene expression be normalized?</span>
+    <span class="k">if</span> <span class="n">normalize_expression</span><span class="p">:</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">dgem</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="mi">6</span>
+        <span class="n">dgem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">dgem</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="c1"># Check for cistrome subsets</span>
+    <span class="k">if</span> <span class="n">subset_cistromes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">subset_cistromes</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="c1"># Check that cistromes are in the AUC matrix</span>
+    <span class="n">subset_cistromes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">subset_cistromes</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span>
+        <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="c1"># Take TF names</span>
+    <span class="n">subset_tfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;_(.*)&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;_extended&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">cistrome_name</span><span class="p">)))</span>
+                  <span class="k">for</span> <span class="n">cistrome_name</span> <span class="ow">in</span> <span class="n">subset_cistromes</span><span class="p">]</span>
+    <span class="n">check_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">subset_cistromes</span><span class="p">,</span> <span class="n">subset_tfs</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">check_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Subset_cistromes&#39;</span><span class="p">,</span> <span class="s1">&#39;Subset_TFs&#39;</span><span class="p">]</span>
+    <span class="n">check_df</span> <span class="o">=</span> <span class="n">check_df</span><span class="p">[</span><span class="n">check_df</span><span class="p">[</span><span class="s1">&#39;Subset_TFs&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">dgem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">())]</span>
+    <span class="n">subset_tfs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">check_df</span><span class="p">[</span><span class="s1">&#39;Subset_TFs&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()))</span>
+    <span class="n">subset_cistromes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">check_df</span><span class="p">[</span><span class="s1">&#39;Subset_cistromes&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()))</span>
+    <span class="c1"># Subset matrices</span>
+    <span class="c1"># By cistrome</span>
+    <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">dgem</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subset_tfs</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">cistromes_auc_tf</span> <span class="o">=</span> <span class="n">cistromes_auc</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subset_cistromes</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="c1"># By cells</span>
+    <span class="k">if</span> <span class="n">subset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">subset_cells</span> <span class="o">=</span> <span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">subset</span><span class="p">)]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">cell_data</span> <span class="o">=</span> <span class="n">cell_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">subset_cells</span><span class="p">]</span>
+        <span class="n">tf_expr</span> <span class="o">=</span> <span class="n">tf_expr</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">subset_cells</span><span class="p">]</span>
+        <span class="n">cistromes_auc_tf</span> <span class="o">=</span> <span class="n">cistromes_auc_tf</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">subset_cells</span><span class="p">]</span>
+    <span class="c1"># Take barcode groups per variable level</span>
+    <span class="n">levels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">tolist</span><span class="p">())))</span>
+    <span class="n">barcode_groups</span> <span class="o">=</span> <span class="p">[</span><span class="n">cell_data</span><span class="p">[</span><span class="n">cell_data</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">group</span><span class="p">])]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+    <span class="c1"># Calculate mean expression</span>
+    <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">tf_expr</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">barcodes</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">barcodes</span> <span class="ow">in</span> <span class="n">barcode_groups</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">levels</span>
+    <span class="c1"># Scale</span>
+    <span class="k">if</span> <span class="n">standardize_expression</span><span class="p">:</span>
+        <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="p">(</span><span class="n">tf_expr_mean</span><span class="o">-</span><span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">+</span><span class="mf">0.00000001</span><span class="p">)</span> <span class="o">/</span> \
+            <span class="p">(</span><span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">-</span><span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+        <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">tf_expr_mean</span> <span class="o">=</span> <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">stack</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="n">tf_expr_mean</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="s1">&#39;TF_expression&#39;</span><span class="p">]</span>
+    <span class="c1"># Calculate mean AUC</span>
+    <span class="n">cistromes_auc_tf_mean</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">cistromes_auc_tf</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">barcodes</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">barcodes</span> <span class="ow">in</span> <span class="n">barcode_groups</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">levels</span>
+    <span class="k">if</span> <span class="n">standardize_auc</span><span class="p">:</span>
+        <span class="n">cistromes_auc_tf_mean</span> <span class="o">=</span> <span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">cistromes_auc_tf_mean</span> <span class="o">=</span> <span class="p">(</span><span class="n">cistromes_auc_tf_mean</span><span class="o">-</span><span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">min</span><span class="p">(</span>
+        <span class="p">)</span><span class="o">+</span><span class="mf">0.00000001</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">-</span><span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+        <span class="n">cistromes_auc_tf_mean</span> <span class="o">=</span> <span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">cistromes_auc_tf_mean</span> <span class="o">=</span> <span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">stack</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="n">cistromes_auc_tf_mean</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="n">auc_key</span><span class="p">]</span>
+    <span class="n">cistromes_auc_tf_mean</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cistromes_auc_tf_mean</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+        <span class="s1">&#39;_.*&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Merge by column</span>
+    <span class="n">dotplot_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">tf_expr_mean</span><span class="p">,</span> <span class="n">cistromes_auc_tf_mean</span><span class="p">,</span>
+                          <span class="n">how</span><span class="o">=</span><span class="s1">&#39;outer&#39;</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">,</span> <span class="s1">&#39;Group&#39;</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">dotplot_df</span></div>
+
+
+<span class="k">def</span> <span class="nf">_cluster_labels_to_idx</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to convert cluster labels to idx</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">labels</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">labels</span> <span class="o">==</span> <span class="n">i</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">order</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">counter</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">order</span> <span class="o">==</span> <span class="n">i</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">order</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">idx</span>
+
+
+<div class="viewcode-block" id="dotplot"><a class="viewcode-back" href="../../../api.html#scenicplus.plotting.dotplot.dotplot">[docs]</a><span class="k">def</span> <span class="nf">dotplot</span><span class="p">(</span><span class="n">df_dotplot</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+            <span class="n">ax</span><span class="p">:</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">region_set_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Name&#39;</span><span class="p">,</span>
+            <span class="n">size_var</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;TF_expression&#39;</span><span class="p">,</span>
+            <span class="n">color_var</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Cistrome_AUC&#39;</span><span class="p">,</span>
+            <span class="n">order_group</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">order_cistromes</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">order_cistromes_by_max</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;TF_expression&#39;</span><span class="p">,</span>
+            <span class="n">cluster</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># can be group, TF or both</span>
+            <span class="n">n_clust</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="n">min_point_size</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+            <span class="n">max_point_size</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;viridis&#39;</span><span class="p">,</span>
+            <span class="n">vmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="n">vmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">x_tick_rotation</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">45</span><span class="p">,</span>
+            <span class="n">x_tick_ha</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;right&#39;</span><span class="p">,</span>
+            <span class="n">fontsize</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
+            <span class="n">z_score_expr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">z_score_enr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">grid_color</span><span class="o">=</span><span class="s1">&#39;grey&#39;</span><span class="p">,</span>
+            <span class="n">grid_lw</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">highlight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">highlight_lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">highlight_lc</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span>
+            <span class="n">figsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+            <span class="n">use_plotly</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">plotly_height</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+            <span class="n">save</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to generate dotplot</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    df_dotplot: pd.DataFrame</span>
+<span class="sd">        A pd.DataFrame with a column Group and varaibles to use for the dotplot</span>
+<span class="sd">    ax: plt.axes</span>
+<span class="sd">        An ax object, only require if use_plotly == False.</span>
+<span class="sd">    enrichment_variable: str, optional</span>
+<span class="sd">        Variable to use for motif/TF enrichment. Default: &#39;Cistrome_AUC;</span>
+<span class="sd">    region_set_key: str, optional</span>
+<span class="sd">        Name of the column where TF/cistromes are. Default: &#39;Cistrome&#39;</span>
+<span class="sd">    size_var: str, optional</span>
+<span class="sd">        Variable in df_dotplot to code the dot size with. Default: &#39;Cistrome_AUC&#39;</span>
+<span class="sd">    color_var: str, optional</span>
+<span class="sd">        Variable in df_dotplot to code the dot color with. Default: &#39;Cistrome_AUC&#39;</span>
+<span class="sd">    order_group: list, optional</span>
+<span class="sd">        Order to plot the groups by. Default: None (given)</span>
+<span class="sd">    order_cistromes: list, optional</span>
+<span class="sd">        Order to plot the cistromes by. Default: None (given)</span>
+<span class="sd">    order_cistromes_by_max: str, optional</span>
+<span class="sd">        Variable to order the cistromes with by values in group, to form a diagonal. Default: None</span>
+<span class="sd">    cluster: str, optional</span>
+<span class="sd">        Whether to cluster cistromes (or TFs)/groups. It will be overwritten if order_cistromes/order_group/order_cistromes_by_max</span>
+<span class="sd">        are specified. </span>
+<span class="sd">    n_clust: int, optional</span>
+<span class="sd">        Number of clusters to form if cluster is specified. Default: 2</span>
+<span class="sd">    min_point_size: int, optional</span>
+<span class="sd">        Minimal point size. Only available with Cistrome AUC values.</span>
+<span class="sd">    max_point_size: int, optional</span>
+<span class="sd">        Maximum point size. Only available with Cistrome AUC values.</span>
+<span class="sd">    cmap: str, optional</span>
+<span class="sd">        Color map to use.</span>
+<span class="sd">    vmin: int, optional</span>
+<span class="sd">        Minimal color value.</span>
+<span class="sd">    vmax: int, optional</span>
+<span class="sd">        Maximum color value</span>
+<span class="sd">    x_tick_rotation: int, optional</span>
+<span class="sd">        Rotation of the x-axis label. Only if `use_plotly = False`</span>
+<span class="sd">    fontsize: int, optional</span>
+<span class="sd">        Labels fontsize</span>
+<span class="sd">    z_score_expr: bool, optional</span>
+<span class="sd">        Whether to z-normalize expression values</span>
+<span class="sd">    z_score_enr: bool, optional</span>
+<span class="sd">        Whether to z-normalize enrichment values</span>
+<span class="sd">    grid_color: str, optional</span>
+<span class="sd">        Color for grid. Only if `use_plotly = False`</span>
+<span class="sd">    grid_lw: float, optional</span>
+<span class="sd">        Line width of grid. Only if `use_plotly = False`</span>
+<span class="sd">    highlight: list, optional</span>
+<span class="sd">        Whether to highlight specific TFs/cistromes. Only if `use_plotly = False`</span>
+<span class="sd">    highlight_lw: float, optional</span>
+<span class="sd">        Line width of highlight. Only if `use_plotly = False`</span>
+<span class="sd">    highlight_lc: str, optional</span>
+<span class="sd">        Color of highlight. Only if `use_plotly = False`</span>
+<span class="sd">    figsize: tuple, optional</span>
+<span class="sd">        Figure size. Only if `use_plotly = False`</span>
+<span class="sd">    use_plotly: bool, optional</span>
+<span class="sd">        Whether to use plotly for plotting. Default: True</span>
+<span class="sd">    plotly_height: int, optional</span>
+<span class="sd">        Height of the plotly plot. Width will be adjusted accordingly</span>
+<span class="sd">    save: str, optional</span>
+<span class="sd">        Path to save dotplot as file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Seperate dotsize data (motif_enrichment) and dot color data (mean expr)</span>
+    <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">df_dotplot</span><span class="p">[[</span><span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="n">region_set_key</span><span class="p">,</span> <span class="n">size_var</span><span class="p">]]</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span>
+        <span class="n">index</span><span class="o">=</span><span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">region_set_key</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)[</span><span class="n">size_var</span><span class="p">]</span>
+    <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">df_dotplot</span><span class="p">[[</span><span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="n">region_set_key</span><span class="p">,</span> <span class="n">color_var</span><span class="p">]]</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span>
+        <span class="n">index</span><span class="o">=</span><span class="s1">&#39;Group&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">region_set_key</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)[</span><span class="n">color_var</span><span class="p">]</span>
+
+    <span class="n">category_orders</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Cluster</span>
+    <span class="k">if</span> <span class="n">cluster</span> <span class="o">==</span> <span class="s1">&#39;both&#39;</span> <span class="ow">or</span> <span class="n">cluster</span> <span class="o">==</span> <span class="s1">&#39;group&#39;</span><span class="p">:</span>
+        <span class="n">clustering_groups</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span>
+            <span class="n">n_clusters</span><span class="o">=</span><span class="n">n_clust</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dotsizes</span><span class="p">)</span>
+        <span class="n">ordered_idx_grps</span> <span class="o">=</span> <span class="n">_cluster_labels_to_idx</span><span class="p">(</span><span class="n">clustering_groups</span><span class="o">.</span><span class="n">labels_</span><span class="p">)</span>
+        <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">ordered_idx_grps</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">ordered_idx_grps</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">category_orders</span><span class="p">[</span><span class="s1">&#39;Group&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cluster</span> <span class="o">==</span> <span class="s1">&#39;both&#39;</span> <span class="ow">or</span> <span class="n">cluster</span> <span class="o">==</span> <span class="s1">&#39;TF&#39;</span><span class="p">:</span>
+        <span class="n">clustering_TFs</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span>
+            <span class="n">n_clusters</span><span class="o">=</span><span class="n">n_clust</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dotsizes</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">ordered_idx_TFs</span> <span class="o">=</span> <span class="n">_cluster_labels_to_idx</span><span class="p">(</span><span class="n">clustering_TFs</span><span class="o">.</span><span class="n">labels_</span><span class="p">)</span>
+        <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="n">ordered_idx_TFs</span><span class="p">]</span>
+        <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="n">ordered_idx_TFs</span><span class="p">]</span>
+        <span class="n">category_orders</span><span class="p">[</span><span class="n">region_set_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">columns</span>
+
+    <span class="c1"># If order TFs/cistromes by max</span>
+    <span class="k">if</span> <span class="n">order_cistromes_by_max</span> <span class="o">==</span> <span class="n">color_var</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">idxmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">order_cistromes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df</span><span class="p">[</span><span class="n">df</span> <span class="o">==</span> <span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span>
+        <span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">df</span> <span class="o">==</span> <span class="n">x</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">order_cistromes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">order_cistromes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">category_orders</span><span class="p">[</span><span class="n">region_set_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">order_cistromes</span>
+
+    <span class="k">if</span> <span class="n">order_cistromes_by_max</span> <span class="o">==</span> <span class="n">size_var</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">idxmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">order_cistromes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">df</span> <span class="o">==</span> <span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">df</span> <span class="o">==</span> <span class="n">x</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">order_cistromes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">order_cistromes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">category_orders</span><span class="p">[</span><span class="n">region_set_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">order_cistromes</span>
+
+    <span class="c1"># Order by given order</span>
+    <span class="k">if</span> <span class="n">order_group</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">order_group</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">:]</span>
+        <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">order_group</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">:]</span>
+        <span class="n">category_orders</span><span class="p">[</span><span class="s1">&#39;Group&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">order_group</span>
+    <span class="k">if</span> <span class="n">order_cistromes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dotsizes</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">order_cistromes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">dotcolors</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">order_cistromes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">category_orders</span><span class="p">[</span><span class="n">region_set_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">order_cistromes</span>
+
+    <span class="c1"># Scale dotsizes</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="s1">&#39;F&#39;</span><span class="p">)</span>
+    <span class="n">s_min</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">s</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">s_max</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">use_plotly</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pdf</span> <span class="o">=</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">backend_pdf</span><span class="o">.</span><span class="n">PdfPages</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+        <span class="c1"># Calculate Z-score for expression values</span>
+        <span class="k">if</span> <span class="n">z_score_expr</span><span class="p">:</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            <span class="n">sd</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+            <span class="n">dotcolors</span> <span class="o">=</span> <span class="p">(</span><span class="n">dotcolors</span> <span class="o">-</span> <span class="n">u</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span>
+
+        <span class="k">if</span> <span class="n">vmin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">vmin</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">z_score_enr</span><span class="p">:</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            <span class="n">sd</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+            <span class="n">dotsizes</span> <span class="o">=</span> <span class="p">(</span><span class="n">dotsizes</span> <span class="o">-</span> <span class="n">u</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span>
+
+        <span class="c1"># Generate plotting data</span>
+        <span class="n">n_group</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">df_dotplot</span><span class="p">[</span><span class="s1">&#39;Group&#39;</span><span class="p">]))</span>
+        <span class="n">n_TF</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">df_dotplot</span><span class="p">[</span><span class="n">region_set_key</span><span class="p">]))</span>
+
+        <span class="c1"># Generate a grid</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_group</span><span class="p">),</span> <span class="n">n_TF</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="n">n_group</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">x</span><span class="p">)]</span>
+
+        <span class="c1"># Scale values between min_point_size and max_point_size keep zero values at 0</span>
+        <span class="n">s</span><span class="p">[</span><span class="n">s</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_point_size</span> <span class="o">+</span> \
+            <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">s</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">)</span> <span class="o">*</span> \
+            <span class="p">((</span><span class="n">max_point_size</span> <span class="o">-</span> <span class="n">min_point_size</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">s_max</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">))</span>
+
+        <span class="c1"># Get dot colors</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">dotcolors</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="s1">&#39;F&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Get edges for eRegulons</span>
+        <span class="k">if</span> <span class="n">highlight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">TFs</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">columns</span>
+            <span class="n">groups</span> <span class="o">=</span> <span class="n">dotsizes</span><span class="o">.</span><span class="n">index</span>
+            <span class="n">linewidths</span> <span class="o">=</span> <span class="p">[</span><span class="n">highlight_lw</span> <span class="k">if</span> <span class="n">TF</span> <span class="ow">in</span> <span class="n">highlight</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span>
+                          <span class="n">TF</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">TFs</span><span class="p">,</span> <span class="n">n_group</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">linewidths</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">vmax</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_axisbelow</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">grid_color</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">grid_lw</span><span class="p">)</span>
+        <span class="n">scat</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
+                          <span class="n">edgecolors</span><span class="o">=</span><span class="n">highlight_lc</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="n">linewidths</span><span class="p">)</span>
+        <span class="c1"># set x ticks</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_group</span><span class="p">))</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">dotsizes</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="n">x_tick_rotation</span><span class="p">,</span>
+                           <span class="n">ha</span><span class="o">=</span><span class="n">x_tick_ha</span><span class="p">,</span> <span class="n">fontdict</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;fontsize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">})</span>
+        <span class="c1"># set y ticks</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_TF</span><span class="p">))</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">dotsizes</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">fontdict</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;fontsize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">})</span>
+
+        <span class="c1"># Draw colorbar</span>
+        <span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">mappable</span><span class="o">=</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">),</span>
+                            <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="s1">&#39;bottom&#39;</span><span class="p">,</span> <span class="n">orientation</span><span class="o">=</span><span class="s1">&#39;horizontal&#39;</span><span class="p">,</span>
+                            <span class="n">aspect</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.10</span><span class="p">,</span> <span class="n">anchor</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">cbar_label</span> <span class="o">=</span> <span class="n">color_var</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="n">cbar_label</span><span class="p">)</span>
+
+        <span class="n">L</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="o">*</span><span class="n">scat</span><span class="o">.</span><span class="n">legend_elements</span><span class="p">(</span><span class="s2">&quot;sizes&quot;</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+                       <span class="n">loc</span><span class="o">=</span><span class="s1">&#39;lower right&#39;</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2</span><span class="p">),</span> <span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">size_var</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="c1"># Recalculate original scale</span>
+        <span class="k">def</span> <span class="nf">to_int</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">x</span> <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()))</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">to_int</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">get_text</span><span class="p">())</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">L</span><span class="o">.</span><span class="n">get_texts</span><span class="p">()])</span>
+
+        <span class="k">def</span> <span class="nf">re_scale</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">min_point_size</span><span class="p">)</span> <span class="o">*</span> \
+            <span class="p">((</span><span class="n">s_max</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">max_point_size</span> <span class="o">-</span> <span class="n">min_point_size</span><span class="p">))</span> <span class="o">+</span> <span class="n">s_min</span>
+        <span class="n">rescaled</span> <span class="o">=</span> <span class="n">re_scale</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">new</span><span class="p">,</span> <span class="n">text</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">rescaled</span><span class="p">,</span> <span class="n">L</span><span class="o">.</span><span class="n">get_texts</span><span class="p">()):</span>
+            <span class="n">text</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="n">new</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df_dotplot</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">min_point_size</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">size_var</span> <span class="o">!=</span> <span class="s1">&#39;NES&#39;</span> <span class="ow">and</span> <span class="n">size_var</span> <span class="o">!=</span> <span class="s1">&#39;LogFC&#39;</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">size_var</span><span class="p">][</span><span class="n">df</span><span class="p">[</span><span class="n">size_var</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_point_size</span> <span class="o">+</span> \
+                <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">size_var</span><span class="p">][</span><span class="n">df</span><span class="p">[</span><span class="n">size_var</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">)</span> <span class="o">*</span> \
+                <span class="p">((</span><span class="n">max_point_size</span> <span class="o">-</span> <span class="n">min_point_size</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">s_max</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">))</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">region_set_key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="s2">&quot;Group&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color_var</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size_var</span><span class="p">,</span>
+                         <span class="n">size_max</span><span class="o">=</span><span class="n">max_point_size</span><span class="p">,</span> <span class="n">category_orders</span><span class="o">=</span><span class="n">category_orders</span><span class="p">,</span> <span class="n">color_continuous_scale</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+
+        <span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
+            <span class="n">height</span><span class="o">=</span><span class="n">plotly_height</span><span class="p">,</span>  <span class="c1"># Added parameter</span>
+            <span class="n">legend</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;itemsizing&#39;</span><span class="p">:</span> <span class="s1">&#39;trace&#39;</span><span class="p">},</span>
+            <span class="n">plot_bgcolor</span><span class="o">=</span><span class="s1">&#39;rgba(0,0,0,0)&#39;</span><span class="p">,</span>
+            <span class="n">yaxis</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">tickfont</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">fontsize</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">write_image</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.grn_builder.gsea_approach &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.grn_builder.gsea_approach</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.grn_builder.gsea_approach</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Generate enhancer drive GRNs (eGRS) using the GSEA approach.</span>
+
+<span class="sd">Using this approach we will test if the gene set obtained from region-to-gene links, where the regions have a high score for a motif of a certain TF </span>
+<span class="sd">(region indicated in black in the diagram: r8, r11, r18, r20, r22, r24), </span>
+<span class="sd">are enriched in the top of the ranking based on the TF-to-gene links of the same TF (bottom right panel). </span>
+
+<span class="sd">Only genes, from the set, and the regions linked to these genes in the top of the ranking (i.e. leading edge) will be kept.</span>
+
+<span class="sd">This aproach is done seperatly for positive and negative TF and region to gene links.</span>
+
+<span class="sd">Generating following four combinations:</span>
+
+<span class="sd">.. list-table:: Possible eRegulons</span>
+<span class="sd">   :widths: 25 25 50</span>
+<span class="sd">   :header-rows: 1</span>
+
+<span class="sd">   * - TF-to-gene relationship</span>
+<span class="sd">     - region-to-gene relationship</span>
+<span class="sd">     - biological role</span>
+<span class="sd">   * - positive (+)</span>
+<span class="sd">     - positive (+)</span>
+<span class="sd">     - TF opens chromatin and activates gene expression</span>
+<span class="sd">   * - positive (+)</span>
+<span class="sd">     - negative (-)</span>
+<span class="sd">     - When the TF is expressed the target gene is also expressed but the regions linked to the gene are closed.</span>
+<span class="sd">   * - negative (-)</span>
+<span class="sd">     - positive (+)</span>
+<span class="sd">     - When the TF is expressed the target gene is not expressed. When the target gene is expressed, regions linked to this gene are open. TF could be a chromatin closing repressor.</span>
+<span class="sd">   * - negative (-)</span>
+<span class="sd">     - negative (-)</span>
+<span class="sd">     - When the TF is expressed the target gene is not expressed. When the target gene is expressed, regions linked to this gene are closed.</span>
+
+
+<span class="sd">Left panel indicates the TF-to-gene links (blue) and region-to-gene links (yellow).</span>
+<span class="sd">Witdh of arrows correspond the strength of the connections based on non-linear regression.</span>
+
+<span class="sd">Top right panel indicates regions with a high score for a motif of a TF</span>
+
+<span class="sd">Bottom right panel shows GSEA analysis, with on the left genes ranked by TF-to-gene connection strength and on the right the gene-set obtained from region-to-gene links.</span>
+<span class="sd">In the diagram: g2, g6, and g10 are located in the top of the TF-to-gene ranking (i.e. leading edge), only these genes and the regions linked to these genes: r20, r18, r11, r8, r24 and r22 </span>
+<span class="sd">will be kept. </span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">ray</span>
+
+<span class="kn">from</span> <span class="nn">..scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">p_adjust_bh</span>
+<span class="kn">from</span> <span class="nn">.modules</span> <span class="kn">import</span> <span class="n">create_emodules</span><span class="p">,</span> <span class="n">eRegulon</span><span class="p">,</span> <span class="n">merge_emodules</span><span class="p">,</span> <span class="n">RHO_THRESHOLD</span><span class="p">,</span> <span class="n">TARGET_GENE_NAME</span>
+<span class="kn">from</span> <span class="nn">.gsea</span> <span class="kn">import</span> <span class="n">run_gsea</span>
+
+<span class="c1"># create logger</span>
+<span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+<span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+<span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;GSEA&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_run_gsea_for_e_module</span><span class="p">(</span><span class="n">e_module</span><span class="p">,</span> <span class="n">rnk</span><span class="p">,</span> <span class="n">gsea_n_perm</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function to run gsea for single e_module</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    e_module</span>
+<span class="sd">        Instance of :class:`~scenicplus.grn_builder.modules.eRegulon`</span>
+<span class="sd">    rnk</span>
+<span class="sd">        Instance of :class:`pd.Series` containing ranked genes.</span>
+<span class="sd">    gsea_n_perm</span>
+<span class="sd">        Int specifying number of permutations for gsea p value calculation</span>
+<span class="sd">    context</span>
+<span class="sd">        Context of eRegulon</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Instance of :class:`~scenicplus.grn_builder.modules.eRegulon`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gene_set</span> <span class="o">=</span> <span class="n">e_module</span><span class="o">.</span><span class="n">target_genes</span>  <span class="c1"># is already made unique by the class</span>
+    <span class="n">TF</span> <span class="o">=</span> <span class="n">e_module</span><span class="o">.</span><span class="n">transcription_factor</span>
+    <span class="n">NES</span><span class="p">,</span> <span class="n">pval</span><span class="p">,</span> <span class="n">LE_genes</span> <span class="o">=</span> <span class="n">run_gsea</span><span class="p">(</span>
+        <span class="n">ranked_gene_list</span><span class="o">=</span><span class="n">rnk</span><span class="p">,</span>
+        <span class="n">gene_set</span><span class="o">=</span><span class="n">gene_set</span><span class="p">,</span>
+        <span class="n">n_perm</span><span class="o">=</span><span class="n">gsea_n_perm</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">eRegulon</span><span class="p">(</span>
+        <span class="n">transcription_factor</span><span class="o">=</span><span class="n">TF</span><span class="p">,</span>
+        <span class="n">cistrome_name</span><span class="o">=</span><span class="n">e_module</span><span class="o">.</span><span class="n">cistrome_name</span><span class="p">,</span>
+        <span class="n">is_extended</span><span class="o">=</span><span class="n">e_module</span><span class="o">.</span><span class="n">is_extended</span><span class="p">,</span>
+        <span class="n">regions2genes</span><span class="o">=</span><span class="n">e_module</span><span class="o">.</span><span class="n">regions2genes</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="n">e_module</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">context</span><span class="p">),</span>
+        <span class="n">gsea_enrichment_score</span><span class="o">=</span><span class="n">NES</span><span class="p">,</span>
+        <span class="n">gsea_pval</span><span class="o">=</span><span class="n">pval</span><span class="p">,</span>
+        <span class="n">in_leading_edge</span><span class="o">=</span><span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r2g</span><span class="p">,</span> <span class="n">TARGET_GENE_NAME</span><span class="p">)</span> <span class="ow">in</span> <span class="n">LE_genes</span> <span class="k">for</span> <span class="n">r2g</span> <span class="ow">in</span> <span class="n">e_module</span><span class="o">.</span><span class="n">regions2genes</span><span class="p">])</span>
+
+
+<span class="nd">@ray</span><span class="o">.</span><span class="n">remote</span>
+<span class="k">def</span> <span class="nf">_ray_run_gsea_for_e_module</span><span class="p">(</span><span class="n">e_module</span><span class="p">,</span> <span class="n">rnk</span><span class="p">,</span> <span class="n">gsea_n_perm</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_run_gsea_for_e_module</span><span class="p">(</span><span class="n">e_module</span><span class="p">,</span> <span class="n">rnk</span><span class="p">,</span> <span class="n">gsea_n_perm</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="build_grn"><a class="viewcode-back" href="../../../api.html#scenicplus.grn_builder.gsea_approach.build_grn">[docs]</a><span class="k">def</span> <span class="nf">build_grn</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+              <span class="n">adj_key</span><span class="o">=</span><span class="s1">&#39;TF2G_adj&#39;</span><span class="p">,</span>
+              <span class="n">cistromes_key</span><span class="o">=</span><span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+              <span class="n">region_to_gene_key</span><span class="o">=</span><span class="s1">&#39;region_to_gene&#39;</span><span class="p">,</span>
+              <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+              <span class="n">order_TFs_to_genes_by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+              <span class="n">gsea_n_perm</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+              <span class="n">quantiles</span><span class="o">=</span><span class="p">(</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.90</span><span class="p">),</span>
+              <span class="n">top_n_regionTogenes_per_gene</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+              <span class="n">top_n_regionTogenes_per_region</span><span class="o">=</span><span class="p">(),</span>
+              <span class="n">binarize_using_basc</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="n">min_regions_per_gene</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+              <span class="n">rho_dichotomize_tf2g</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">rho_dichotomize_r2g</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">rho_dichotomize_eregulon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">keep_only_activating</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="n">rho_threshold</span><span class="o">=</span><span class="n">RHO_THRESHOLD</span><span class="p">,</span>
+              <span class="n">NES_thr</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+              <span class="n">adj_pval_thr</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+              <span class="n">min_target_genes</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+              <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">key_added</span><span class="o">=</span><span class="s1">&#39;eRegulons&#39;</span><span class="p">,</span>
+              <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">merge_eRegulons</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">keep_extended_motif_annot</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="n">disable_tqdm</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build GRN using GSEA approach</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    SCENICPLUS_obj</span>
+<span class="sd">        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`</span>
+<span class="sd">    adj_key</span>
+<span class="sd">        Key under which to find TF2G adjacencies</span>
+<span class="sd">        default: &quot;TF2G_adj&quot;</span>
+<span class="sd">    region_to_gene_key</span>
+<span class="sd">        Key under which to find R2G adjacnecies</span>
+<span class="sd">        default: &quot;region_to_gene&quot;</span>
+<span class="sd">    gsea_n_perm</span>
+<span class="sd">        Int specifying number of gsea permutations to run for p value calculation</span>
+<span class="sd">        default: 1000</span>
+<span class="sd">    quantiles</span>
+<span class="sd">        A tuple specifying the quantiles used to binarize region-to-gene links</span>
+<span class="sd">        Default: (0.85, 0.90)</span>
+<span class="sd">    top_n_regionTogenes_per_gene</span>
+<span class="sd">        A tuple specifying the top n region-to-gene links to take PER GENE in order to binarize region-to-gene links.</span>
+<span class="sd">        Default: (5, 10, 15)</span>
+<span class="sd">    top_n_regionTogenes_per_region</span>
+<span class="sd">        A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.</span>
+<span class="sd">        Default: ()</span>
+<span class="sd">    binarize_using_basc:</span>
+<span class="sd">        A boolean specifying wether or not to binarize region-to-gene links using BASC. Hopfensitz M, et al.</span>
+<span class="sd">    min_regions_per_gene:</span>
+<span class="sd">        An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.</span>
+<span class="sd">        Default: 0</span>
+<span class="sd">    rho_dichotomize:</span>
+<span class="sd">        A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.</span>
+<span class="sd">        default: True</span>
+<span class="sd">    keep_only_activating:</span>
+<span class="sd">        A boolean specifying wether or not to only retain region-to-gene links with a positive correlation coefficient.</span>
+<span class="sd">        default: False</span>
+<span class="sd">    rho_threshold:</span>
+<span class="sd">        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.</span>
+<span class="sd">        default: 0.03</span>
+<span class="sd">    NES_thr</span>
+<span class="sd">        Float specifying threshold on gsea NES value</span>
+<span class="sd">        defaut: 0</span>
+<span class="sd">    adj_pval_thr</span>
+<span class="sd">        Float specifying threshold on gsea adjusted p value</span>
+<span class="sd">        default: 1</span>
+<span class="sd">    min_target_genes</span>
+<span class="sd">        Int specifying minumum number of target genes in leading edge</span>
+<span class="sd">        default: 5</span>
+<span class="sd">    inplace</span>
+<span class="sd">        Boolean specifying wether to store results in `SCENICPLUS_obj`</span>
+<span class="sd">        default: True</span>
+<span class="sd">    key_added</span>
+<span class="sd">        Key specifying in under which key to store result in `SCENICPLUS_obj`.uns</span>
+<span class="sd">        default: &quot;eRegulons&quot;</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        Int specifying number of cores to use</span>
+<span class="sd">        default: None</span>
+<span class="sd">    merge_eRegulons</span>
+<span class="sd">        Boolean specifying wether to merge eRegulons form the same TF but different thresholding approaches</span>
+<span class="sd">        default: True</span>
+<span class="sd">    keep_extended_motif_annot</span>
+<span class="sd">        A boolean specifying wether or not keep extended motif annotations for further analysis.</span>
+<span class="sd">        default: False</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Additional keyword arguments passed to `ray.init`</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">adj_key</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;key </span><span class="si">{</span><span class="n">adj_key</span><span class="si">}</span><span class="s1"> not found in uns slot. Please first load TF2G adjacencies!&#39;</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Thresholding region to gene relationships&#39;</span><span class="p">)</span>
+    <span class="n">relevant_tfs</span><span class="p">,</span> <span class="n">e_modules</span> <span class="o">=</span> <span class="n">create_emodules</span><span class="p">(</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">=</span><span class="n">SCENICPLUS_obj</span><span class="p">,</span>
+        <span class="n">region_to_gene_key</span><span class="o">=</span><span class="n">region_to_gene_key</span><span class="p">,</span>
+        <span class="n">quantiles</span><span class="o">=</span><span class="n">quantiles</span><span class="p">,</span>
+        <span class="n">top_n_regionTogenes_per_gene</span><span class="o">=</span><span class="n">top_n_regionTogenes_per_gene</span><span class="p">,</span>
+        <span class="n">top_n_regionTogenes_per_region</span><span class="o">=</span><span class="n">top_n_regionTogenes_per_region</span><span class="p">,</span>
+        <span class="n">binarize_using_basc</span><span class="o">=</span><span class="n">binarize_using_basc</span><span class="p">,</span>
+        <span class="n">min_regions_per_gene</span><span class="o">=</span><span class="n">min_regions_per_gene</span><span class="p">,</span>
+        <span class="n">rho_dichotomize</span><span class="o">=</span><span class="n">rho_dichotomize_r2g</span><span class="p">,</span>
+        <span class="n">keep_only_activating</span><span class="o">=</span><span class="n">keep_only_activating</span><span class="p">,</span>
+        <span class="n">rho_threshold</span><span class="o">=</span><span class="n">rho_threshold</span><span class="p">,</span>
+        <span class="n">keep_extended_motif_annot</span><span class="o">=</span><span class="n">keep_extended_motif_annot</span><span class="p">,</span>
+        <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="n">order_regions_to_genes_by</span><span class="p">,</span>
+        <span class="n">disable_tqdm</span><span class="o">=</span><span class="n">disable_tqdm</span><span class="p">,</span>
+        <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span>
+        <span class="n">cistromes_key</span><span class="o">=</span><span class="n">cistromes_key</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Subsetting TF2G adjacencies for TF with motif.&#39;</span><span class="p">)</span>
+    <span class="n">TF2G_adj_relevant</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">adj_key</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span>
+        <span class="n">tf</span> <span class="ow">in</span> <span class="n">relevant_tfs</span> <span class="k">for</span> <span class="n">tf</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">adj_key</span><span class="p">][</span><span class="s1">&#39;TF&#39;</span><span class="p">]]]</span>
+
+    <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">num_cpus</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Running GSEA...&#39;</span><span class="p">)</span>
+        <span class="n">new_e_modules</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># dict so adjacencies matrix is only subsetted once per TF (improves performance)</span>
+        <span class="n">TF_to_TF_adj_d</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">tqdm_desc</span> <span class="o">=</span> <span class="s1">&#39;initializing&#39;</span> <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;Running using single core&#39;</span>
+        <span class="k">for</span> <span class="n">e_module</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">e_modules</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">e_modules</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="n">tqdm_desc</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="n">disable_tqdm</span><span class="p">):</span>
+            <span class="n">TF</span> <span class="o">=</span> <span class="n">e_module</span><span class="o">.</span><span class="n">transcription_factor</span>
+            <span class="k">if</span> <span class="n">TF</span> <span class="ow">in</span> <span class="n">TF_to_TF_adj_d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">TF2G_adj</span> <span class="o">=</span> <span class="n">TF_to_TF_adj_d</span><span class="p">[</span><span class="n">TF</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">TF2G_adj</span> <span class="o">=</span> <span class="n">TF2G_adj_relevant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">TF2G_adj_relevant</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">TF</span><span class="p">]</span>
+                <span class="n">TF_to_TF_adj_d</span><span class="p">[</span><span class="n">TF</span><span class="p">]</span> <span class="o">=</span> <span class="n">TF2G_adj</span>
+            <span class="k">if</span> <span class="n">rho_dichotomize_tf2g</span><span class="p">:</span>
+                <span class="n">TF2G_adj_activating</span> <span class="o">=</span> <span class="n">TF2G_adj</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">TF2G_adj</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span>
+                                                   <span class="o">&gt;</span> <span class="n">rho_threshold</span><span class="p">]</span>
+                <span class="n">TF2G_adj_repressing</span> <span class="o">=</span> <span class="n">TF2G_adj</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">TF2G_adj</span><span class="p">[</span><span class="s1">&#39;rho&#39;</span><span class="p">]</span>
+                                                   <span class="o">&lt;</span> <span class="o">-</span><span class="n">rho_threshold</span><span class="p">]</span>
+
+                <span class="n">TF2G_adj_activating</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">TF2G_adj_activating</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span>
+                <span class="n">TF2G_adj_repressing</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">TF2G_adj_repressing</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">TF2G_adj_activating</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">new_e_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_run_gsea_for_e_module</span><span class="p">(</span>
+                                <span class="n">e_module</span><span class="p">,</span>
+                                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">TF2G_adj_activating</span><span class="p">[</span><span class="n">order_TFs_to_genes_by</span><span class="p">])</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                                    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                                <span class="n">gsea_n_perm</span><span class="p">,</span>
+                                <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;positive tf2g&#39;</span><span class="p">])))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_ray_run_gsea_for_e_module</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
+                                <span class="n">e_module</span><span class="p">,</span>
+                                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">TF2G_adj_activating</span><span class="p">[</span><span class="n">order_TFs_to_genes_by</span><span class="p">])</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                                    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                                <span class="n">gsea_n_perm</span><span class="p">,</span>
+                                <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;positive tf2g&#39;</span><span class="p">])))</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">TF2G_adj_repressing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">new_e_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_run_gsea_for_e_module</span><span class="p">(</span>
+                                <span class="n">e_module</span><span class="p">,</span>
+                                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">TF2G_adj_repressing</span><span class="p">[</span><span class="n">order_TFs_to_genes_by</span><span class="p">])</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                                    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                                <span class="n">gsea_n_perm</span><span class="p">,</span>
+                                <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;negative tf2g&#39;</span><span class="p">])))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_ray_run_gsea_for_e_module</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
+                                <span class="n">e_module</span><span class="p">,</span>
+                                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">TF2G_adj_repressing</span><span class="p">[</span><span class="n">order_TFs_to_genes_by</span><span class="p">])</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                                    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                                <span class="n">gsea_n_perm</span><span class="p">,</span>
+                                <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;negative tf2g&#39;</span><span class="p">])))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">new_e_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">_run_gsea_for_e_module</span><span class="p">(</span>
+                            <span class="n">e_module</span><span class="p">,</span>
+                            <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">TF2G_adj</span><span class="p">[</span><span class="n">order_TFs_to_genes_by</span><span class="p">])</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                                <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                            <span class="n">gsea_n_perm</span><span class="p">,</span>
+                            <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;&#39;</span><span class="p">])))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">_ray_run_gsea_for_e_module</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
+                            <span class="n">e_module</span><span class="p">,</span>
+                            <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">TF2G_adj</span><span class="p">[</span><span class="n">order_TFs_to_genes_by</span><span class="p">])</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                                <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                            <span class="n">gsea_n_perm</span><span class="p">,</span>
+                            <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;&#39;</span><span class="p">])))</span>
+        <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">to_iterator</span><span class="p">(</span><span class="n">obj_ids</span><span class="p">):</span>
+                <span class="k">while</span> <span class="n">obj_ids</span><span class="p">:</span>
+                    <span class="n">finished_ids</span><span class="p">,</span> <span class="n">obj_ids</span> <span class="o">=</span> <span class="n">ray</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">obj_ids</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">finished_id</span> <span class="ow">in</span> <span class="n">finished_ids</span><span class="p">:</span>
+                        <span class="k">yield</span> <span class="n">ray</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">finished_id</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">e_module</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">to_iterator</span><span class="p">(</span><span class="n">jobs</span><span class="p">),</span>
+                                 <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">jobs</span><span class="p">),</span>
+                                 <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Running using </span><span class="si">{</span><span class="n">ray_n_cpu</span><span class="si">}</span><span class="s1"> cores&#39;</span><span class="p">,</span>
+                                 <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+                                 <span class="n">disable</span><span class="o">=</span><span class="n">disable_tqdm</span><span class="p">):</span>
+                <span class="n">new_e_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e_module</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ray</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+
+    <span class="c1"># filter out nans</span>
+    <span class="n">new_e_modules</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">new_e_modules</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">gsea_enrichment_score</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">gsea_pval</span><span class="p">)]</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s1">&#39;Subsetting on adjusted pvalue: </span><span class="si">{</span><span class="n">adj_pval_thr</span><span class="si">}</span><span class="s1">, minimal NES: </span><span class="si">{</span><span class="n">NES_thr</span><span class="si">}</span><span class="s1"> and minimal leading edge genes </span><span class="si">{</span><span class="n">min_target_genes</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="c1"># subset on adj_p_val</span>
+    <span class="n">adj_pval</span> <span class="o">=</span> <span class="n">p_adjust_bh</span><span class="p">([</span><span class="n">m</span><span class="o">.</span><span class="n">gsea_pval</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">new_e_modules</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">adj_pval</span><span class="p">]):</span>
+        <span class="ne">Warning</span><span class="p">(</span>
+            <span class="s1">&#39;Something went wrong with calculating adjusted p values, early returning!&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_e_modules</span>
+
+    <span class="k">for</span> <span class="n">module</span><span class="p">,</span> <span class="n">adj_pval</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">new_e_modules</span><span class="p">,</span> <span class="n">adj_pval</span><span class="p">):</span>
+        <span class="n">module</span><span class="o">.</span><span class="n">gsea_adj_pval</span> <span class="o">=</span> <span class="n">adj_pval</span>
+
+    <span class="n">e_modules_to_return</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">new_e_modules</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">module</span><span class="o">.</span><span class="n">gsea_adj_pval</span> <span class="o">&lt;</span> <span class="n">adj_pval_thr</span> <span class="ow">and</span> <span class="n">module</span><span class="o">.</span><span class="n">gsea_enrichment_score</span> <span class="o">&gt;</span> <span class="n">NES_thr</span><span class="p">:</span>
+            <span class="n">module_in_LE</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">subset_leading_edge</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">module_in_LE</span><span class="o">.</span><span class="n">n_target_genes</span> <span class="o">&gt;=</span> <span class="n">min_target_genes</span><span class="p">:</span>
+                <span class="n">e_modules_to_return</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">module_in_LE</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">merge_eRegulons</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Merging eRegulons&#39;</span><span class="p">)</span>
+        <span class="n">e_modules_to_return</span> <span class="o">=</span> <span class="n">merge_emodules</span><span class="p">(</span>
+            <span class="n">e_modules</span><span class="o">=</span><span class="n">e_modules_to_return</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rho_dichotomize</span><span class="o">=</span><span class="n">rho_dichotomize_eregulon</span><span class="p">)</span>
+    <span class="n">e_modules_to_return</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">e_modules_to_return</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">list</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Storing eRegulons in .uns[</span><span class="si">{</span><span class="n">key_added</span><span class="si">}</span><span class="s1">].&#39;</span><span class="p">)</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">]</span> <span class="o">=</span> <span class="n">e_modules_to_return</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">e_modules_to_return</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.TF_to_gene &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.TF_to_gene</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.TF_to_gene</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Link transcription factors (TFs) to genes based on co-expression of TF and target genes.</span>
+
+<span class="sd">Both linear methods (spearman or pearson correlation) and non-linear methods (random forrest or gradient boosting) are used to link TF to genes.</span>
+
+<span class="sd">The correlation methods are used to seperate TFs which are infered to have a positive influence on gene expression (i.e. positive correlation) </span>
+<span class="sd">and TFs which are infered to have a negative influence on gene expression (i.e. negative correlation).</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">ray</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">_create_idx_pairs</span><span class="p">,</span> <span class="n">masked_rho4pairs</span>
+
+<span class="n">COLUMN_NAME_TARGET</span> <span class="o">=</span> <span class="s2">&quot;target&quot;</span>
+<span class="n">COLUMN_NAME_WEIGHT</span> <span class="o">=</span> <span class="s2">&quot;importance&quot;</span>
+<span class="n">COLUMN_NAME_REGULATION</span> <span class="o">=</span> <span class="s2">&quot;regulation&quot;</span>
+<span class="n">COLUMN_NAME_CORRELATION</span> <span class="o">=</span> <span class="s2">&quot;rho&quot;</span>
+<span class="n">COLUMN_NAME_TF</span> <span class="o">=</span> <span class="s2">&quot;TF&quot;</span>
+<span class="n">COLUMN_NAME_SCORE_1</span> <span class="o">=</span> <span class="s2">&quot;importance_x_rho&quot;</span>
+<span class="n">COLUMN_NAME_SCORE_2</span> <span class="o">=</span> <span class="s2">&quot;importance_x_abs_rho&quot;</span>
+<span class="n">RHO_THRESHOLD</span> <span class="o">=</span> <span class="mf">0.03</span>
+
+<span class="c1"># Create logger</span>
+<span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+<span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+<span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;TF2G&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_TF2G_adj_from_file"><a class="viewcode-back" href="../../api.html#scenicplus.TF_to_gene.load_TF2G_adj_from_file">[docs]</a><span class="k">def</span> <span class="nf">load_TF2G_adj_from_file</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                            <span class="n">f_adj</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">key</span><span class="o">=</span><span class="s1">&#39;TF2G_adj&#39;</span><span class="p">,</span>
+                            <span class="n">rho_threshold</span><span class="o">=</span><span class="n">RHO_THRESHOLD</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to load TF2G adjacencies from file</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj</span>
+<span class="sd">        An instance of :class:`~scenicplus.scenicplus_class.SCENICPLUS`</span>
+<span class="sd">    f_adj</span>
+<span class="sd">        File path to TF2G adjacencies matrix</span>
+<span class="sd">    inplace</span>
+<span class="sd">        Boolean specifying wether or not to store adjacencies matrix in `SCENICPLUS_obj` under slot .uns[key].</span>
+<span class="sd">        Default: True</span>
+<span class="sd">    key_added</span>
+<span class="sd">        String specifying where in the .uns slot to store the adjacencies matrix in `SCENICPLUS_obj`</span>
+<span class="sd">        Default: &quot;TF2G_adj&quot;</span>
+<span class="sd">    rho_threshold</span>
+<span class="sd">        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.</span>
+<span class="sd">        Default: 0.03</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reading file: </span><span class="si">{</span><span class="n">f_adj</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">df_TF_gene_adj</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">f_adj</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="c1"># only keep relevant entries</span>
+    <span class="n">idx_to_keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">tf</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">gene_names</span> <span class="k">for</span> <span class="n">tf</span> <span class="ow">in</span> <span class="n">df_TF_gene_adj</span><span class="p">[</span><span class="s1">&#39;TF&#39;</span><span class="p">]]),</span>
+                                 <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">gene</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">gene_names</span> <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">df_TF_gene_adj</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]]))</span>
+    <span class="n">df_TF_gene_adj_subset</span> <span class="o">=</span> <span class="n">df_TF_gene_adj</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idx_to_keep</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">COLUMN_NAME_CORRELATION</span> <span class="ow">in</span> <span class="n">df_TF_gene_adj_subset</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Adding correlation coefficients to adjacencies.&#39;</span><span class="p">)</span>
+        <span class="n">df_TF_gene_adj_subset</span> <span class="o">=</span> <span class="n">_add_correlation</span><span class="p">(</span>
+            <span class="n">adjacencies</span><span class="o">=</span><span class="n">df_TF_gene_adj_subset</span><span class="p">,</span>
+            <span class="n">ex_mtx</span><span class="o">=</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="s1">&#39;EXP&#39;</span><span class="p">),</span>
+            <span class="n">rho_threshold</span><span class="o">=</span><span class="n">rho_threshold</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">COLUMN_NAME_SCORE_1</span> <span class="ow">in</span> <span class="n">df_TF_gene_adj_subset</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Adding importance x rho scores to adjacencies.&#39;</span><span class="p">)</span>
+        <span class="n">df_TF_gene_adj_subset</span><span class="p">[</span><span class="n">COLUMN_NAME_SCORE_1</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_TF_gene_adj_subset</span><span class="p">[</span><span class="n">COLUMN_NAME_CORRELATION</span><span class="p">]</span> <span class="o">*</span> \
+            <span class="n">df_TF_gene_adj_subset</span><span class="p">[</span><span class="n">COLUMN_NAME_WEIGHT</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">COLUMN_NAME_SCORE_2</span> <span class="ow">in</span> <span class="n">df_TF_gene_adj_subset</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Adding importance x |rho| scores to adjacencies.&#39;</span><span class="p">)</span>
+        <span class="n">df_TF_gene_adj_subset</span><span class="p">[</span><span class="n">COLUMN_NAME_SCORE_2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span>
+            <span class="n">df_TF_gene_adj_subset</span><span class="p">[</span><span class="n">COLUMN_NAME_CORRELATION</span><span class="p">])</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">df_TF_gene_adj_subset</span><span class="p">[</span><span class="n">COLUMN_NAME_WEIGHT</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Storing adjacencies in .uns[&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">&quot;].&#39;</span><span class="p">)</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_TF_gene_adj_subset</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">df_TF_gene_adj_subset</span></div>
+
+
+<span class="k">def</span> <span class="nf">_add_correlation</span><span class="p">(</span>
+        <span class="n">adjacencies</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">ex_mtx</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">rho_threshold</span><span class="o">=</span><span class="n">RHO_THRESHOLD</span><span class="p">,</span>
+        <span class="n">mask_dropouts</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add correlation in expression levels between target and factor.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adjacencies: pd.DataFrame</span>
+<span class="sd">        The dataframe with the TF-target links.</span>
+<span class="sd">    ex_mtx: pd.DataFrame</span>
+<span class="sd">        The expression matrix (n_cells x n_genes).</span>
+<span class="sd">    rho_threshold: float</span>
+<span class="sd">        The threshold on the correlation to decide if a target gene is activated</span>
+<span class="sd">        (rho &gt; `rho_threshold`) or repressed (rho &lt; -`rho_threshold`).</span>
+<span class="sd">    mask_dropouts: boolean</span>
+<span class="sd">        Do not use cells in which either the expression of the TF or the target gene is 0 when</span>
+<span class="sd">        calculating the correlation between a TF-target pair.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        The adjacencies dataframe with an extra column.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">rho_threshold</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;rho_threshold should be greater than 0.&quot;</span>
+
+    <span class="c1"># Calculate Pearson correlation to infer repression or activation.</span>
+    <span class="k">if</span> <span class="n">mask_dropouts</span><span class="p">:</span>
+        <span class="n">ex_mtx</span> <span class="o">=</span> <span class="n">ex_mtx</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">col_idx_pairs</span> <span class="o">=</span> <span class="n">_create_idx_pairs</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">,</span> <span class="n">ex_mtx</span><span class="p">)</span>
+        <span class="n">rhos</span> <span class="o">=</span> <span class="n">masked_rho4pairs</span><span class="p">(</span><span class="n">ex_mtx</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">col_idx_pairs</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">genes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">[</span><span class="n">COLUMN_NAME_TF</span><span class="p">])</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">[</span><span class="n">COLUMN_NAME_TARGET</span><span class="p">])))</span>
+        <span class="n">ex_mtx</span> <span class="o">=</span> <span class="n">ex_mtx</span><span class="p">[</span><span class="n">ex_mtx</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">ex_mtx</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">genes</span><span class="p">)]]</span>
+        <span class="n">corr_mtx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">ex_mtx</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">ex_mtx</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">ex_mtx</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+        <span class="n">rhos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">corr_mtx</span><span class="p">[</span><span class="n">s2</span><span class="p">][</span><span class="n">s1</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">s1</span><span class="p">,</span> <span class="n">s2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">adjacencies</span><span class="o">.</span><span class="n">TF</span><span class="p">,</span> <span class="n">adjacencies</span><span class="o">.</span><span class="n">target</span><span class="p">)])</span>
+
+    <span class="n">regulations</span> <span class="o">=</span> <span class="p">(</span><span class="n">rhos</span> <span class="o">&gt;</span> <span class="n">rho_threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+        <span class="nb">int</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">rhos</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">rho_threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="p">{</span>
+            <span class="n">COLUMN_NAME_TF</span><span class="p">:</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">COLUMN_NAME_TF</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">COLUMN_NAME_TARGET</span><span class="p">:</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">COLUMN_NAME_TARGET</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">COLUMN_NAME_WEIGHT</span><span class="p">:</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">COLUMN_NAME_WEIGHT</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">COLUMN_NAME_REGULATION</span><span class="p">:</span> <span class="n">regulations</span><span class="p">,</span>
+            <span class="n">COLUMN_NAME_CORRELATION</span><span class="p">:</span> <span class="n">rhos</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_run_infer_partial_network</span><span class="p">(</span><span class="n">target_gene_name</span><span class="p">,</span>
+                              <span class="n">gene_names</span><span class="p">,</span>
+                              <span class="n">ex_matrix</span><span class="p">,</span>
+                              <span class="n">method_params</span><span class="p">,</span>
+                              <span class="n">tf_matrix</span><span class="p">,</span>
+                              <span class="n">tf_matrix_gene_names</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A function to call arboreto </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">arboreto</span> <span class="kn">import</span> <span class="n">core</span> <span class="k">as</span> <span class="n">arboreto_core</span>
+
+    <span class="n">target_gene_name_index</span> <span class="o">=</span> <span class="n">_get_position_index</span><span class="p">([</span><span class="n">target_gene_name</span><span class="p">],</span> <span class="n">gene_names</span><span class="p">)</span>
+    <span class="n">target_gene_expression</span> <span class="o">=</span> <span class="n">ex_matrix</span><span class="p">[:,</span> <span class="n">target_gene_name_index</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">arboreto_core</span><span class="o">.</span><span class="n">infer_partial_network</span><span class="p">(</span>
+        <span class="n">regressor_type</span><span class="o">=</span><span class="n">method_params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">regressor_kwargs</span><span class="o">=</span><span class="n">method_params</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">tf_matrix</span><span class="o">=</span><span class="n">tf_matrix</span><span class="p">,</span>
+        <span class="n">tf_matrix_gene_names</span><span class="o">=</span><span class="n">tf_matrix_gene_names</span><span class="p">,</span>
+        <span class="n">target_gene_name</span><span class="o">=</span><span class="n">target_gene_name</span><span class="p">,</span>
+        <span class="n">target_gene_expression</span><span class="o">=</span><span class="n">target_gene_expression</span><span class="p">,</span>
+        <span class="n">include_meta</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">early_stop_window_length</span><span class="o">=</span><span class="n">arboreto_core</span><span class="o">.</span><span class="n">EARLY_STOP_WINDOW_LENGTH</span><span class="p">,</span>
+        <span class="n">seed</span><span class="o">=</span><span class="mi">666</span><span class="p">)</span>
+    <span class="k">return</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+
+<span class="nd">@ray</span><span class="o">.</span><span class="n">remote</span>
+<span class="k">def</span> <span class="nf">_run_infer_partial_network_ray</span><span class="p">(</span><span class="n">target_gene_name</span><span class="p">,</span>
+                                  <span class="n">gene_names</span><span class="p">,</span>
+                                  <span class="n">ex_matrix</span><span class="p">,</span>
+                                  <span class="n">method_params</span><span class="p">,</span>
+                                  <span class="n">tf_matrix</span><span class="p">,</span>
+                                  <span class="n">tf_matrix_gene_names</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A function to call arboreto with ray</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">_run_infer_partial_network</span><span class="p">(</span><span class="n">target_gene_name</span><span class="p">,</span>
+                                     <span class="n">gene_names</span><span class="p">,</span>
+                                     <span class="n">ex_matrix</span><span class="p">,</span>
+                                     <span class="n">method_params</span><span class="p">,</span>
+                                     <span class="n">tf_matrix</span><span class="p">,</span>
+                                     <span class="n">tf_matrix_gene_names</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="calculate_TFs_to_genes_relationships"><a class="viewcode-back" href="../../api.html#scenicplus.TF_to_gene.calculate_TFs_to_genes_relationships">[docs]</a><span class="k">def</span> <span class="nf">calculate_TFs_to_genes_relationships</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                                         <span class="n">tf_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                                         <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;GBM&#39;</span><span class="p">,</span>
+                                         <span class="n">ray_n_cpu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                                         <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;TF2G_adj&#39;</span><span class="p">,</span>
+                                         <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A function to calculate TF to gene relationships using arboreto and correlation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj</span>
+<span class="sd">        An instance of :class:`~scenicplus.scenicplus_class.SCENICPLUS`</span>
+<span class="sd">    tf_file</span>
+<span class="sd">        Path to a file specifying with genes are TFs</span>
+<span class="sd">    method</span>
+<span class="sd">        Whether to use Gradient Boosting Machines (GBM) or random forest (RF)</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        Number of cpus to use</span>
+<span class="sd">    key</span>
+<span class="sd">        String specifying where in the .uns slot to store the adjacencies matrix in :param:`SCENICPLUS_obj`</span>
+<span class="sd">        default: &quot;TF2G_adj&quot;</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Parameters to pass to ray.init</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">arboreto.utils</span> <span class="kn">import</span> <span class="n">load_tf_names</span>
+    <span class="kn">from</span> <span class="nn">arboreto.algo</span> <span class="kn">import</span> <span class="n">_prepare_input</span>
+    <span class="kn">from</span> <span class="nn">arboreto.core</span> <span class="kn">import</span> <span class="n">SGBM_KWARGS</span><span class="p">,</span> <span class="n">RF_KWARGS</span>
+    <span class="kn">from</span> <span class="nn">arboreto.core</span> <span class="kn">import</span> <span class="n">to_tf_matrix</span>
+
+    <span class="k">if</span><span class="p">(</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GBM&#39;</span><span class="p">):</span>
+        <span class="n">method_params</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;GBM&#39;</span><span class="p">,</span>      <span class="c1"># regressor_type</span>
+            <span class="n">SGBM_KWARGS</span>  <span class="c1"># regressor_kwargs</span>
+        <span class="p">]</span>
+    <span class="k">elif</span><span class="p">(</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;RF&#39;</span><span class="p">):</span>
+        <span class="n">method_params</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;RF&#39;</span><span class="p">,</span>       <span class="c1"># regressor_type</span>
+            <span class="n">RF_KWARGS</span>   <span class="c1"># regressor_kwargs</span>
+        <span class="p">]</span>
+
+    <span class="n">gene_names</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span>
+    <span class="n">cell_names</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span>
+    <span class="n">ex_matrix</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span>
+
+    <span class="n">tf_names</span> <span class="o">=</span> <span class="n">load_tf_names</span><span class="p">(</span><span class="n">tf_file</span><span class="p">)</span>
+    <span class="n">ex_matrix</span><span class="p">,</span> <span class="n">gene_names</span><span class="p">,</span> <span class="n">tf_names</span> <span class="o">=</span> <span class="n">_prepare_input</span><span class="p">(</span>
+        <span class="n">ex_matrix</span><span class="p">,</span> <span class="n">gene_names</span><span class="p">,</span> <span class="n">tf_names</span><span class="p">)</span>
+    <span class="n">tf_matrix</span><span class="p">,</span> <span class="n">tf_matrix_gene_names</span> <span class="o">=</span> <span class="n">to_tf_matrix</span><span class="p">(</span>
+        <span class="n">ex_matrix</span><span class="p">,</span> <span class="n">gene_names</span><span class="p">,</span> <span class="n">tf_names</span><span class="p">)</span>
+
+    <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">num_cpus</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calculating TF to gene correlation, using </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1"> method&#39;</span><span class="p">)</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">gene_names</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">gene_names</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;initializing&#39;</span><span class="p">):</span>
+            <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_run_infer_partial_network_ray</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span><span class="n">gene</span><span class="p">,</span>
+                                                             <span class="n">gene_names</span><span class="p">,</span>
+                                                             <span class="n">ex_matrix</span><span class="p">,</span>
+                                                             <span class="n">method_params</span><span class="p">,</span>
+                                                             <span class="n">tf_matrix</span><span class="p">,</span>
+                                                             <span class="n">tf_matrix_gene_names</span><span class="p">))</span>
+        <span class="c1"># add progress bar, adapted from: https://github.com/ray-project/ray/issues/8164</span>
+
+        <span class="k">def</span> <span class="nf">to_iterator</span><span class="p">(</span><span class="n">obj_ids</span><span class="p">):</span>
+            <span class="k">while</span> <span class="n">obj_ids</span><span class="p">:</span>
+                <span class="n">finished_ids</span><span class="p">,</span> <span class="n">obj_ids</span> <span class="o">=</span> <span class="n">ray</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">obj_ids</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">finished_id</span> <span class="ow">in</span> <span class="n">finished_ids</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">ray</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">finished_id</span><span class="p">)</span>
+        <span class="n">tfs_to_genes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">adj</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">to_iterator</span><span class="p">(</span><span class="n">jobs</span><span class="p">),</span>
+                        <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">jobs</span><span class="p">),</span>
+                        <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Running using </span><span class="si">{</span><span class="n">ray_n_cpu</span><span class="si">}</span><span class="s1"> cores&#39;</span><span class="p">,</span>
+                        <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+            <span class="n">tfs_to_genes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">adj</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">ray</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Took </span><span class="si">{}</span><span class="s1"> seconds&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Adding correlation coefficients to adjacencies.&#39;</span><span class="p">)</span>
+    <span class="n">adj</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">tfs_to_genes</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">ex_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">)</span>
+    <span class="n">adj</span> <span class="o">=</span> <span class="n">_add_correlation</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">ex_matrix</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Adding importance x rho scores to adjacencies.&#39;</span><span class="p">)</span>
+    <span class="n">adj</span><span class="p">[</span><span class="n">COLUMN_NAME_SCORE_1</span><span class="p">]</span> <span class="o">=</span> <span class="n">adj</span><span class="p">[</span><span class="n">COLUMN_NAME_CORRELATION</span><span class="p">]</span> <span class="o">*</span> \
+        <span class="n">adj</span><span class="p">[</span><span class="n">COLUMN_NAME_WEIGHT</span><span class="p">]</span>
+    <span class="n">adj</span><span class="p">[</span><span class="n">COLUMN_NAME_SCORE_2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span>
+        <span class="n">adj</span><span class="p">[</span><span class="n">COLUMN_NAME_CORRELATION</span><span class="p">])</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">adj</span><span class="p">[</span><span class="n">COLUMN_NAME_WEIGHT</span><span class="p">])</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Took </span><span class="si">{}</span><span class="s1"> seconds&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">adj</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_position_index</span><span class="p">(</span><span class="n">query_list</span><span class="p">,</span> <span class="n">target_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function to grep an instance in a list</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">target_list</span><span class="p">)}</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">query_list</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

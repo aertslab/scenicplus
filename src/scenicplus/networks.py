@@ -1,3 +1,7 @@
+"""export eRegulons to eGRN network and plot.
+
+"""
+
 import pandas as pd
 from typing import Union, Dict, Sequence, Optional, List
 import anndata
@@ -10,7 +14,7 @@ from matplotlib.colors import to_rgba, to_hex
 import numpy as np
 
 
-def format_df_nx(df, key, var):
+def _format_df_nx(df, key, var):
     """
     A helper function to format differential test results
     """
@@ -21,7 +25,7 @@ def format_df_nx(df, key, var):
     return df
 
 
-def get_log2fc_nx(scplus_obj: 'SCENICPLUS',
+def _get_log2fc_nx(scplus_obj: 'SCENICPLUS',
                   variable,
                   features,
                   contrast: Optional[str] = 'gene'
@@ -42,7 +46,7 @@ def get_log2fc_nx(scplus_obj: 'SCENICPLUS',
     sc.tl.rank_genes_groups(
         adata, variable, method='wilcoxon', corr_method='bonferroni')
     groups = adata.uns['rank_genes_groups']['names'].dtype.names
-    diff_list = [format_df_nx(sc.get.rank_genes_groups_df(
+    diff_list = [_format_df_nx(sc.get.rank_genes_groups_df(
         adata, group=group), group, variable) for group in groups]
     return pd.concat(diff_list, axis=1)
 
@@ -127,18 +131,18 @@ def create_nx_tables(scplus_obj: 'SCENICPLUS',
     # Add gene logFC
     if add_differential_gene_expression is True:
         for var in differential_variable:
-            nx_tables['Node']['TF'] = pd.concat([nx_tables['Node']['TF'], get_log2fc_nx(
+            nx_tables['Node']['TF'] = pd.concat([nx_tables['Node']['TF'], _get_log2fc_nx(
                 scplus_obj, var, nx_tables['Node']['TF'].index.tolist(), contrast='gene')], axis=1)
-            nx_tables['Node']['Gene'] = pd.concat([nx_tables['Node']['Gene'], get_log2fc_nx(
+            nx_tables['Node']['Gene'] = pd.concat([nx_tables['Node']['Gene'], _get_log2fc_nx(
                 scplus_obj, var, nx_tables['Node']['Gene'].index.tolist(), contrast='gene')], axis=1)
     if add_differential_region_accessibility is True:
         for var in differential_variable:
-            nx_tables['Node']['Region'] = pd.concat([nx_tables['Node']['Region'], get_log2fc_nx(
+            nx_tables['Node']['Region'] = pd.concat([nx_tables['Node']['Region'], _get_log2fc_nx(
                 scplus_obj, var, nx_tables['Node']['Region'].index.tolist(), contrast='region')], axis=1)
     return nx_tables
 
 
-def format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, transparency_by={}, size_by={}, shape_by={}, label_size_by={}, label_color_by={}):
+def _format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, transparency_by={}, size_by={}, shape_by={}, label_size_by={}, label_color_by={}):
     """
     A helper function to format edge and node tables into graphs
     """
@@ -174,7 +178,7 @@ def format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, trans
                     v_max = color_by[table_id]['v_max']
                 else:
                     v_max = None
-                color = get_colors(color_var, color_map, v_min, v_max)
+                color = _get_colors(color_var, color_map, v_min, v_max)
         else:
             color = np.array([color_by[table_id]['fixed_color']]
                              * nx_tables[table_type][table_id].shape[0])
@@ -301,7 +305,7 @@ def format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, trans
     return dt
 
 
-def get_colors(inp, cmap_name, vmin=None, vmax=None):
+def _get_colors(inp, cmap_name, vmin=None, vmax=None):
     """
     A function to get color values from a continuous vector and a color map
     """
@@ -406,11 +410,11 @@ def create_nx_graph(nx_tables: Dict,
     use_node_tables = sorted(list(set(use_node_tables)), reverse=True)
 
     # Create graph
-    edge_tables = pd.concat([format_nx_table_internal(
+    edge_tables = pd.concat([_format_nx_table_internal(
         nx_tables, 'Edge', x, color_edge_by, transparency_edge_by, width_edge_by, {}) for x in use_edge_tables])
     G = nx.from_pandas_edgelist(edge_tables, edge_attr=True)
     # Add node tables
-    node_tables = pd.concat([format_nx_table_internal(nx_tables, 'Node', x, color_node_by, transparency_node_by,
+    node_tables = pd.concat([_format_nx_table_internal(nx_tables, 'Node', x, color_node_by, transparency_node_by,
                             size_node_by, shape_node_by, label_size_by, label_color_by) for x in use_node_tables])
     node_tables.index = node_tables['label']
     node_tables_d = node_tables.to_dict()

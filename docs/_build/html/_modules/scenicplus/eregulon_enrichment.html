@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.eregulon_enrichment &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.eregulon_enrichment</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.eregulon_enrichment</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Score eRegulon target genes and regions in cells using AUC algorithm.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">pycisTopic.diff_features</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pycisTopic.signature_enrichment</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">pyscenic.binarization</span> <span class="kn">import</span> <span class="n">binarize</span>
+
+<span class="kn">from</span> <span class="nn">.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+
+
+<div class="viewcode-block" id="get_eRegulons_as_signatures"><a class="viewcode-back" href="../../api.html#scenicplus.eregulon_enrichment.get_eRegulons_as_signatures">[docs]</a><span class="k">def</span> <span class="nf">get_eRegulons_as_signatures</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                                <span class="n">eRegulon_metadata_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_metadata&#39;</span><span class="p">,</span>
+                                <span class="n">key_added</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_signatures&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Format eRegulons for scoring</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">        A SCENICPLUS object with eRegulons metadata computed.</span>
+<span class="sd">    eRegulons_metadata_key: str, optional</span>
+<span class="sd">        Key where the eRegulon metadata is stored (in `scplus_obj.uns`)</span>
+<span class="sd">    key_added: str, optional</span>
+<span class="sd">        Key where formated signatures will be stored (in `scplus_obj.uns`)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">region_signatures</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">][</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Region_signature_name</span> <span class="o">==</span> <span class="n">x</span><span class="p">][</span><span class="s1">&#39;Region&#39;</span><span class="p">]))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Region_signature_name</span><span class="p">))}</span>
+    <span class="n">gene_signatures</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">][</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Gene_signature_name</span> <span class="o">==</span> <span class="n">x</span><span class="p">][</span><span class="s1">&#39;Gene&#39;</span><span class="p">]))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_metadata_key</span><span class="p">]</span><span class="o">.</span><span class="n">Gene_signature_name</span><span class="p">))}</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">key_added</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">][</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gene_signatures</span>
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">][</span><span class="s1">&#39;Region_based&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">region_signatures</span></div>
+
+
+<div class="viewcode-block" id="make_rankings"><a class="viewcode-back" href="../../api.html#scenicplus.eregulon_enrichment.make_rankings">[docs]</a><span class="k">def</span> <span class="nf">make_rankings</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                  <span class="n">target</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;region&#39;</span><span class="p">,</span>
+                  <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">123</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A function to generate rankings per cell based on the imputed accessibility scores per region</span>
+<span class="sd">    or the gene expression per cell.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: :class:`SCENICPLUS`</span>
+<span class="sd">        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).</span>
+<span class="sd">    target: str, optional</span>
+<span class="sd">        Whether rankings should be done based on gene expression or region accessibilty. Default: &#39;region&#39;</span>
+<span class="sd">    seed: int, optional</span>
+<span class="sd">        Random seed to ensure reproducibility of the rankings when there are ties</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">       CistopicImputedFeatures</span>
+<span class="sd">        A :class:`CistopicImputedFeatures` containing with ranking values rather than scores.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Initialize random number generator, for handling ties</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="c1"># Function to make rankings per array</span>
+    <span class="k">def</span> <span class="nf">rank_scores_and_assign_random_ranking_in_range_for_ties</span><span class="p">(</span>
+            <span class="n">scores_with_ties_for_motif_or_track_numpy</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1">#</span>
+        <span class="c1"># Create random permutation so tied scores will have a different ranking each time.</span>
+        <span class="n">random_permutations_to_break_ties_numpy</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span>
+            <span class="n">scores_with_ties_for_motif_or_track_numpy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">ranking_with_broken_ties_for_motif_or_track_numpy</span> <span class="o">=</span> <span class="n">random_permutations_to_break_ties_numpy</span><span class="p">[</span>
+            <span class="p">(</span><span class="o">-</span><span class="n">scores_with_ties_for_motif_or_track_numpy</span><span class="p">)[</span>
+                <span class="n">random_permutations_to_break_ties_numpy</span><span class="p">]</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">imputed_acc_obj_ranking_db_dtype</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ranking_with_broken_ties_for_motif_or_track_numpy</span>
+
+    <span class="c1"># Create zeroed imputed object rankings database.</span>
+    <span class="k">if</span> <span class="n">target</span> <span class="o">==</span> <span class="s1">&#39;region&#39;</span><span class="p">:</span>
+        <span class="n">imputed_acc_ranking</span> <span class="o">=</span> <span class="n">CistopicImputedFeatures</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">region_names</span><span class="p">),</span>
+                     <span class="nb">len</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">))),</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">region_names</span><span class="p">,</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span>
+            <span class="s1">&#39;Ranking&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">target</span> <span class="o">==</span> <span class="s1">&#39;gene&#39;</span><span class="p">:</span>
+        <span class="n">imputed_acc_ranking</span> <span class="o">=</span> <span class="n">CistopicImputedFeatures</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">))),</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">gene_names</span><span class="p">,</span>
+            <span class="n">scplus_obj</span><span class="o">.</span><span class="n">cell_names</span><span class="p">,</span>
+            <span class="s1">&#39;Ranking&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Get dtype of the scores</span>
+    <span class="n">imputed_acc_obj_ranking_db_dtype</span> <span class="o">=</span> <span class="s1">&#39;uint32&#39;</span>
+
+    <span class="c1"># Convert to csc</span>
+    <span class="k">if</span> <span class="n">target</span> <span class="o">==</span> <span class="s1">&#39;region&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span><span class="p">):</span>
+            <span class="n">mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_ACC</span>
+    <span class="k">elif</span> <span class="n">target</span> <span class="o">==</span> <span class="s1">&#39;gene&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="p">):</span>
+            <span class="n">mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">X_EXP</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c1"># Rank all scores per motif/track and assign a random ranking in range for regions/genes with the same score.</span>
+    <span class="k">for</span> <span class="n">col_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">imputed_acc_ranking</span><span class="o">.</span><span class="n">cell_names</span><span class="p">)):</span>
+        <span class="n">imputed_acc_ranking</span><span class="o">.</span><span class="n">mtx</span><span class="p">[:,</span> <span class="n">col_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">rank_scores_and_assign_random_ranking_in_range_for_ties</span><span class="p">(</span>
+            <span class="n">mtx</span><span class="p">[:,</span> <span class="n">col_idx</span><span class="p">]</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span>
+                <span class="n">mtx</span><span class="p">)</span> <span class="k">else</span> <span class="n">mtx</span><span class="p">[:,</span> <span class="n">col_idx</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">imputed_acc_ranking</span></div>
+
+
+<div class="viewcode-block" id="score_eRegulons"><a class="viewcode-back" href="../../api.html#scenicplus.eregulon_enrichment.score_eRegulons">[docs]</a><span class="k">def</span> <span class="nf">score_eRegulons</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                    <span class="n">ranking</span><span class="p">:</span> <span class="n">CistopicImputedFeatures</span><span class="p">,</span>
+                    <span class="n">eRegulon_signatures_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_signatures&#39;</span><span class="p">,</span>
+                    <span class="n">key_added</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                    <span class="n">enrichment_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;region&#39;</span><span class="p">,</span>
+                    <span class="n">auc_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+                    <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="n">n_cpu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Score eRegulons using AUCell</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">        A SCENICPLUS object with formatted eRegulons.</span>
+<span class="sd">    eRegulons_metadata_key: `class::CistopicImputedFeatures`</span>
+<span class="sd">        Precomputed region/gene ranking.</span>
+<span class="sd">    eRegulon_signatures_key: str, optional</span>
+<span class="sd">        Key where formated signatures are stored (in `scplus_obj.uns`)</span>
+<span class="sd">    key_added: str, optional</span>
+<span class="sd">        Key where formated AUC values will be stored (in `scplus_obj.uns`)</span>
+<span class="sd">    enrichment_type: str, optional</span>
+<span class="sd">        Whether region or gene signatures are being used</span>
+<span class="sd">    auc_threshold: float</span>
+<span class="sd">        The fraction of the ranked genome to take into account for the calculation of the Area Under the recovery Curve. Default: 0.05</span>
+<span class="sd">    normalize: bool</span>
+<span class="sd">        Normalize the AUC values to a maximum of 1.0 per regulon. Default: False</span>
+<span class="sd">    n_cpu: int</span>
+<span class="sd">        The number of cores to use. Default: 1</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">key_added</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">enrichment_type</span> <span class="o">==</span> <span class="s1">&#39;region&#39;</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;Region_based&#39;</span>
+    <span class="k">if</span> <span class="n">enrichment_type</span> <span class="o">==</span> <span class="s1">&#39;gene&#39;</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;Gene_based&#39;</span>
+
+    <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_added</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">signature_enrichment</span><span class="p">(</span><span class="n">ranking</span><span class="p">,</span>
+                                                          <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">eRegulon_signatures_key</span><span class="p">][</span><span class="n">key</span><span class="p">],</span>
+                                                          <span class="n">enrichment_type</span><span class="o">=</span><span class="s1">&#39;gene&#39;</span><span class="p">,</span>
+                                                          <span class="n">auc_threshold</span><span class="o">=</span><span class="n">auc_threshold</span><span class="p">,</span>
+                                                          <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span>
+                                                          <span class="n">n_cpu</span><span class="o">=</span><span class="n">n_cpu</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="binarize_AUC"><a class="viewcode-back" href="../../api.html#scenicplus.eregulon_enrichment.binarize_AUC">[docs]</a><span class="k">def</span> <span class="nf">binarize_AUC</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                 <span class="n">auc_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                 <span class="n">out_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC_thresholds&#39;</span><span class="p">,</span>
+                 <span class="n">signature_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                 <span class="n">n_cpu</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Binarize eRegulons using AUCell</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">        A SCENICPLUS object with eRegulons AUC.</span>
+<span class="sd">        auc_key: str, optional</span>
+<span class="sd">        Key where the AUC values are stored</span>
+<span class="sd">    out_key: str, optional</span>
+<span class="sd">        Key where the AUCell thresholds will be stored (in `scplus_obj.uns`)</span>
+<span class="sd">    signature_keys: List, optional</span>
+<span class="sd">        Keys to extract AUC values from. Default: [&#39;Gene_based&#39;, &#39;Region_based&#39;]</span>
+<span class="sd">    n_cpu: int</span>
+<span class="sd">        The number of cores to use. Default: 1</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">out_key</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">out_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">signature</span> <span class="ow">in</span> <span class="n">signature_keys</span><span class="p">:</span>
+        <span class="n">auc_mtx</span> <span class="o">=</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">auc_key</span><span class="p">][</span><span class="n">signature</span><span class="p">]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">auc_thresholds</span> <span class="o">=</span> <span class="n">binarize</span><span class="p">(</span><span class="n">auc_mtx</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="n">n_cpu</span><span class="p">)</span>
+        <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">out_key</span><span class="p">][</span><span class="n">signature</span><span class="p">]</span> <span class="o">=</span> <span class="n">auc_thresholds</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,3 +1,7 @@
+"""Plot TF expression, motif enrichment and AUC values of target genes and regions in a dotplot.
+
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,14 +19,14 @@ from ..scenicplus_class import SCENICPLUS
 # Utils
 
 
-def flatten(A):
+def _flatten(A):
     """
     Utils function to flatten lists
     """
     rt = []
     for i in A:
         if isinstance(i, list):
-            rt.extend(flatten(i))
+            rt.extend(_flatten(i))
         else:
             rt.append(i)
     return rt
@@ -98,31 +102,31 @@ def generate_dotplot_df_motif_enrichment(scplus_obj: SCENICPLUS,
         menr = scplus_obj.menr[enrichment_key].motif_enrichment.copy()
         menr_df = pd.concat([menr[x] for x in menr.keys()])
         score_keys = ['Log2FC', 'Adjusted_pval']
-        columns = flatten(['Contrast', score_keys])
+        columns = _flatten(['Contrast', score_keys])
     else:
         menr = scplus_obj.menr[enrichment_key].copy()
         menr_df = pd.concat([menr[x].motif_enrichment for x in menr.keys()])
         score_keys = ['NES']
-        columns = flatten(['Region_set', score_keys])
+        columns = _flatten(['Region_set', score_keys])
 
     if use_only_direct == True:
         columns = columns + 'Direct_annot'
         menr_df = menr_df[columns]
-        menr_df.columns = flatten(['Region_set', score_keys, 'Direct_annot'])
+        menr_df.columns = _flatten(['Region_set', score_keys, 'Direct_annot'])
         menr_df['TF'] = menr_df['Direct_annot']
         menr_df = menr_df.drop(['Direct_annot'])
     else:
         annot_columns = list(filter(lambda x: 'annot' in x, menr_df.columns))
         columns = columns + annot_columns
         menr_df = menr_df[columns]
-        menr_df.columns = flatten(['Region_set', score_keys, annot_columns])
+        menr_df.columns = _flatten(['Region_set', score_keys, annot_columns])
         for column in annot_columns:
             menr_df[column] = menr_df[column].str.split(', ')
 
         menr_df['TF'] = [menr_df[annot_columns[0]] + menr_df[col]
                          for col in annot_columns[1:]][0]
-        menr_df = menr_df[flatten(['TF', 'Region_set', score_keys])]
-        menr_df.columns = flatten(['TF', 'Group', score_keys])
+        menr_df = menr_df[_flatten(['TF', 'Region_set', score_keys])]
+        menr_df.columns = _flatten(['TF', 'Group', score_keys])
         menr_df = menr_df.explode('TF')
         menr_df = menr_df.groupby(['TF', 'Group']).max().reset_index()
 

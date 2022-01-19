@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.grn_builder.modules &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.grn_builder.modules</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.grn_builder.modules</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;eRegulon class stores the transcription factor together with its target regions and genes.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">attr</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">ray</span>
+
+<span class="kn">from</span> <span class="nn">..scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">Groupby</span><span class="p">,</span> <span class="n">coord_to_region_names</span><span class="p">,</span> <span class="n">flatten_list</span>
+
+<span class="c1"># HARDCODED VARIABLES</span>
+<span class="n">RHO_THRESHOLD</span> <span class="o">=</span> <span class="mf">0.03</span>
+<span class="n">TARGET_REGION_NAME</span> <span class="o">=</span> <span class="s1">&#39;region&#39;</span>
+<span class="n">TARGET_GENE_NAME</span> <span class="o">=</span> <span class="s1">&#39;target&#39;</span>
+<span class="n">IMPORTANCE_SCORE_NAME</span> <span class="o">=</span> <span class="s1">&#39;importance&#39;</span>
+<span class="n">CORRELATION_COEFFICIENT_NAME</span> <span class="o">=</span> <span class="s1">&#39;rho&#39;</span>
+<span class="n">SCORE_NAME_1</span> <span class="o">=</span> <span class="s2">&quot;importance_x_rho&quot;</span>
+<span class="n">SCORE_NAME_2</span> <span class="o">=</span> <span class="s2">&quot;importance_x_abs_rho&quot;</span>
+
+<span class="n">REGIONS2GENES_HEADER</span> <span class="o">=</span> <span class="p">(</span><span class="n">TARGET_REGION_NAME</span><span class="p">,</span> <span class="n">TARGET_GENE_NAME</span><span class="p">,</span> <span class="n">IMPORTANCE_SCORE_NAME</span><span class="p">,</span>
+                        <span class="n">CORRELATION_COEFFICIENT_NAME</span><span class="p">,</span> <span class="n">SCORE_NAME_1</span><span class="p">,</span> <span class="n">SCORE_NAME_2</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="eRegulon"><a class="viewcode-back" href="../../../api.html#scenicplus.grn_builder.modules.eRegulon">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">eRegulon</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An eRegulon is a gene signature that defines the target regions and genes of a Transcription Factor (TF).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    transcription_factor</span>
+<span class="sd">        A string specifying the transcription factor of the eRegulon</span>
+<span class="sd">    cistrome_name</span>
+<span class="sd">        A string specifying the cistrome name</span>
+<span class="sd">    is_extended</span>
+<span class="sd">        A boolean specifying wether the cistromes comes from an extended annotation or not</span>
+<span class="sd">    regions2genes</span>
+<span class="sd">        A list of named tuples containing information on region-to-gene links </span>
+<span class="sd">        (region, gene, importance score, correlation coefficient)</span>
+<span class="sd">    context</span>
+<span class="sd">        The context in which this eRegulon was created</span>
+<span class="sd">        (this can be different threshold, activating / repressing, ...).</span>
+<span class="sd">        default: frozenset()</span>
+<span class="sd">    in_leading_edge</span>
+<span class="sd">        A list specifying which genes are in the leading edge of a gsea analysis.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    gsea_enrichment_score</span>
+<span class="sd">        A float containing the enrichment score of a gsea analysis.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    gsea_pval</span>
+<span class="sd">        A float containing the p value of a gsea analysis.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    gsea_adj_pval</span>
+<span class="sd">        A float containing an adjusted p value of a gsea analysis.</span>
+<span class="sd">        default: None</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    target_genes</span>
+<span class="sd">        returns a unique list of target genes.</span>
+<span class="sd">    target_regions</span>
+<span class="sd">        returns a unique list of target regions.</span>
+<span class="sd">    n_target_genes</span>
+<span class="sd">        returns an int containing the number of unique target genes.</span>
+<span class="sd">    n_target_regions</span>
+<span class="sd">        returns an int containing the number of unique target regions.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    scenicplus.grn_builder.modules.create_emodules</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcription_factor</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">cistrome_name</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">is_extended</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">regions2genes</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="n">namedtuple</span><span class="p">])</span>
+    <span class="c1"># optional</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">())</span>
+    <span class="n">in_leading_edge</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">gsea_enrichment_score</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">gsea_pval</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">gsea_adj_pval</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@regions2genes</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_validate_regions2genes_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="s1">&#39;_fields&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]):</span>
+                <span class="ne">Warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> genes2weights should be a list of named tuples&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">transcription_factor</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">_fields</span> <span class="o">==</span> <span class="n">REGIONS2GENES_HEADER</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]):</span>
+                <span class="ne">Warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> names of regions2genes should be: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">transcription_factor</span><span class="p">,</span> <span class="n">REGIONS2GENES_HEADER</span><span class="p">))</span>
+
+    <span class="nd">@regions2genes</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_validate_correlation_coef_same_sign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">correlation_coefficients</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">CORRELATION_COEFFICIENT_NAME</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">all</span><span class="p">([</span><span class="n">cc</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">cc</span> <span class="ow">in</span> <span class="n">correlation_coefficients</span><span class="p">])</span> <span class="ow">or</span> <span class="nb">all</span><span class="p">([</span><span class="n">cc</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">cc</span> <span class="ow">in</span> <span class="n">correlation_coefficients</span><span class="p">])):</span>
+                <span class="ne">Warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> correlation coefficients of regions to genes should all have the same sign&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">transcription_factor</span><span class="p">))</span>
+
+    <span class="nd">@in_leading_edge</span><span class="o">.</span><span class="n">validator</span>
+    <span class="k">def</span> <span class="nf">_validate_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_target_genes</span><span class="p">:</span>
+                <span class="ne">Warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;in_leading_edge (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">) should have the same length as the number of target genes (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_target_genes</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_genes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return target genes of this eRegulon.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r2g</span><span class="p">,</span> <span class="n">TARGET_GENE_NAME</span><span class="p">)</span> <span class="k">for</span> <span class="n">r2g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">regions2genes</span><span class="p">]))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return target regions of this eRegulon.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r2g</span><span class="p">,</span> <span class="n">TARGET_REGION_NAME</span><span class="p">)</span> <span class="k">for</span> <span class="n">r2g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">regions2genes</span><span class="p">]))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">n_target_genes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return number of target genes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_genes</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">n_target_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return number of target regions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_regions</span><span class="p">)</span>
+
+<div class="viewcode-block" id="eRegulon.subset_leading_edge"><a class="viewcode-back" href="../../../api.html#scenicplus.grn_builder.modules.eRegulon.subset_leading_edge">[docs]</a>    <span class="k">def</span> <span class="nf">subset_leading_edge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Subset eReglon on leading edge.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ---------</span>
+<span class="sd">        inplace</span>
+<span class="sd">            if set to True update eRegulon else return new eRegulon after subset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_leading_edge</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">gsea_enrichment_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">regions2genes_subset</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">r2g</span> <span class="k">for</span> <span class="n">r2g</span><span class="p">,</span> <span class="n">in_le</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">regions2genes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_leading_edge</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">in_le</span><span class="p">]</span>
+
+            <span class="n">in_leading_edge_subset</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">in_le</span> <span class="k">for</span> <span class="n">in_le</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_leading_edge</span>
+                <span class="k">if</span> <span class="n">in_le</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">regions2genes</span> <span class="o">=</span> <span class="n">regions2genes_subset</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">in_leading_edge</span> <span class="o">=</span> <span class="n">in_leading_edge_subset</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">eRegulon</span><span class="p">(</span>
+                    <span class="n">transcription_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">transcription_factor</span><span class="p">,</span>
+                    <span class="n">cistrome_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cistrome_name</span><span class="p">,</span>
+                    <span class="n">is_extended</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">is_extended</span><span class="p">,</span>
+                    <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                    <span class="n">regions2genes</span><span class="o">=</span><span class="n">regions2genes_subset</span><span class="p">,</span>
+                    <span class="n">in_leading_edge</span><span class="o">=</span><span class="n">in_leading_edge_subset</span><span class="p">,</span>
+                    <span class="n">gsea_enrichment_score</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gsea_enrichment_score</span><span class="p">,</span>
+                    <span class="n">gsea_pval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gsea_pval</span><span class="p">,</span>
+                    <span class="n">gsea_adj_pval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gsea_adj_pval</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="ne">Warning</span><span class="p">(</span><span class="s1">&#39;Leading edge not defined!&#39;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">descr</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;eRegulon for TF </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">transcription_factor</span><span class="si">}</span><span class="s2"> in context </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="n">descr</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\t</span><span class="s2">This eRegulon has </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_target_regions</span><span class="si">}</span><span class="s2"> target regions and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_target_genes</span><span class="si">}</span><span class="s2"> target genes.&quot;</span>
+        <span class="k">return</span> <span class="n">descr</span></div>
+
+
+<span class="k">def</span> <span class="nf">_quantile_thr</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">,</span>
+                 <span class="n">grouped</span><span class="p">,</span>
+                 <span class="n">threshold</span><span class="p">,</span>
+                 <span class="n">min_regions_per_gene</span><span class="p">,</span>
+                 <span class="n">context</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
+                 <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                 <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to binarize region-to-gene links using based on quantiles of importance.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adjacencies</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing region-to-gene importance scores.</span>
+<span class="sd">    grouped</span>
+<span class="sd">        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target region.</span>
+<span class="sd">    threshold</span>
+<span class="sd">        float specifying the quantile on the importance score of region-to-gene links to retain.</span>
+<span class="sd">    min_regions_per_gene</span>
+<span class="sd">        An int specifying a lower limit on regions per gene (after binarization) to consider for further analysis.</span>
+<span class="sd">    context</span>
+<span class="sd">        A frozenset containing contexts to add to the binarized results.</span>
+<span class="sd">        default: frozenset()</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        An int specifying the number of parallel cores to use</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    -------</span>
+<span class="sd">    context, :class:`pandas.DataFrame` with binarized region-to-gene links.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_qt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to return threshold_quantile from a vector</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_gt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to check minimum regions requirement</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_regions_per_gene</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="n">c</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">([</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> quantile&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">threshold</span><span class="p">)])</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="c1"># grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function</span>
+    <span class="n">importances</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">order_regions_to_genes_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="c1"># get quantiles and threshold</span>
+    <span class="n">thresholds</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_qt</span><span class="p">,</span> <span class="n">importances</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span>
+    <span class="n">passing</span> <span class="o">=</span> <span class="n">importances</span> <span class="o">&gt;</span> <span class="n">thresholds</span>
+
+    <span class="k">if</span> <span class="n">min_regions_per_gene</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># check min regions per gene</span>
+        <span class="n">passing</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="n">_gt</span><span class="p">,</span> <span class="n">passing</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">passing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">passing</span><span class="p">]</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">TARGET_REGION_NAME</span><span class="p">]</span>
+        <span class="k">yield</span> <span class="n">c</span><span class="p">,</span> <span class="n">df</span>
+
+
+<span class="k">def</span> <span class="nf">_top_targets</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">,</span>
+                <span class="n">grouped</span><span class="p">,</span>
+                <span class="n">n</span><span class="p">,</span>
+                <span class="n">min_regions_per_gene</span><span class="p">,</span>
+                <span class="n">context</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
+                <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to binarize region-to-gene links using based on the top region-to-gene links per gene.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adjacencies</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing region-to-gene importance scores.</span>
+<span class="sd">    grouped</span>
+<span class="sd">        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target gene.</span>
+<span class="sd">    n</span>
+<span class="sd">        integer specifying the top n number of region-to-gene links to retain.</span>
+<span class="sd">    min_regions_per_gene</span>
+<span class="sd">        An int specifying a lower limit on regions per gene (after binarization) to consider for further analysis.</span>
+<span class="sd">    context</span>
+<span class="sd">        A frozenset containing contexts to add to the binarized results.</span>
+<span class="sd">        default: frozenset()</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        An int specifying the number of parallel cores to use</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    -------</span>
+<span class="sd">    context, :class:`pandas.DataFrame` with binarized region-to-gene links.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_top</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to get top n entries.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="o">-</span><span class="n">n</span><span class="p">:])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_gt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to check minimum regions requirement</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_regions_per_gene</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="n">c</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;Top </span><span class="si">{}</span><span class="s2"> region-to-gene links per gene&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">n</span><span class="p">)])</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="c1"># grouped = Groupby(adjacencies[TARGET_GENE_NAME].to_numpy()) #this could be moved out of the function</span>
+    <span class="n">importances</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">order_regions_to_genes_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="c1"># get top n threshold</span>
+    <span class="n">thresholds</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_top</span><span class="p">,</span> <span class="n">importances</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span>
+    <span class="n">passing</span> <span class="o">=</span> <span class="n">importances</span> <span class="o">&gt;=</span> <span class="n">thresholds</span>
+
+    <span class="k">if</span> <span class="n">min_regions_per_gene</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># check min regions per gene</span>
+        <span class="n">passing</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="n">_gt</span><span class="p">,</span> <span class="n">passing</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">passing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">passing</span><span class="p">]</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">TARGET_REGION_NAME</span><span class="p">]</span>
+        <span class="k">yield</span> <span class="n">c</span><span class="p">,</span> <span class="n">df</span>
+
+
+<span class="k">def</span> <span class="nf">_top_regions</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">,</span>
+                <span class="n">grouped</span><span class="p">,</span>
+                <span class="n">n</span><span class="p">,</span>
+                <span class="n">min_regions_per_gene</span><span class="p">,</span>
+                <span class="n">context</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
+                <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to binarize region-to-gene links using based on the top region-to-gene links per region.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adjacencies</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing region-to-gene importance scores.</span>
+<span class="sd">    grouped</span>
+<span class="sd">        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target region.</span>
+<span class="sd">    n</span>
+<span class="sd">        integer specifying the top n number of region-to-gene links to retain.</span>
+<span class="sd">    min_regions_per_gene</span>
+<span class="sd">        An int specifying a lower limit on regions per gene (after binarization) to consider for further analysis.</span>
+<span class="sd">    context</span>
+<span class="sd">        A frozenset containing contexts to add to the binarized results.</span>
+<span class="sd">        default: frozenset()</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        An int specifying the number of parallel cores to use</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    -------</span>
+<span class="sd">    context, :class:`pandas.DataFrame` with binarized region-to-gene links.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_top</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to get top n entries.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="o">-</span><span class="n">n</span><span class="p">:])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_gt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to check minimum regions requirement</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_regions_per_gene</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="n">c</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;Per region top </span><span class="si">{}</span><span class="s2"> region-to-gene links per gene&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">n</span><span class="p">)])</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="c1"># grouped = Groupby(adjacencies[TARGET_REGION_NAME].to_numpy()) #this could be moved out of the function</span>
+    <span class="n">importances</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">order_regions_to_genes_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="c1"># get top n threshold</span>
+    <span class="n">thresholds</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_top</span><span class="p">,</span> <span class="n">importances</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span>
+    <span class="n">passing</span> <span class="o">=</span> <span class="n">importances</span> <span class="o">&gt;=</span> <span class="n">thresholds</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">passing</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">min_regions_per_gene</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># check minimum target gene requirement</span>
+        <span class="n">grouped</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">TARGET_GENE_NAME</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">passing</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="n">_gt</span><span class="p">,</span> <span class="n">passing</span><span class="p">[</span><span class="n">passing</span><span class="p">],</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">passing</span><span class="p">]</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">TARGET_REGION_NAME</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">c</span><span class="p">,</span> <span class="n">df</span>
+
+
+<span class="k">def</span> <span class="nf">_binarize_BASC</span><span class="p">(</span><span class="n">adjacencies</span><span class="p">,</span>
+                  <span class="n">grouped</span><span class="p">,</span>
+                  <span class="n">min_regions_per_gene</span><span class="p">,</span>
+                  <span class="n">context</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(),</span>
+                  <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                  <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A helper function to binarize region-to-gene links using BASC</span>
+<span class="sd">    For more information see: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. </span>
+<span class="sd">                              IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adjacencies</span>
+<span class="sd">        A :class:`pandas.DataFrame` containing region-to-gene importance scores.</span>
+<span class="sd">    grouped</span>
+<span class="sd">        A :class:`~scenicplus.utils.Groupby` containing group information on the `adjacencies` grouped on target gene.</span>
+<span class="sd">    min_regions_per_gene</span>
+<span class="sd">        An int specifying a lower limit on regions per gene (after binarization) to consider for further analysis.</span>
+<span class="sd">    context</span>
+<span class="sd">        A frozenset containing contexts to add to the binarized results.</span>
+<span class="sd">        default: frozenset()</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        An int specifying the number of parallel cores to use</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    -------</span>
+<span class="sd">    context, :class:`pandas.DataFrame` with binarized region-to-gene links.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">..BASCA</span> <span class="kn">import</span> <span class="n">binarize</span>
+
+    <span class="k">def</span> <span class="nf">_binarize_basc</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">threshold</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">binarize</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">calc_p</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">threshold</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># can only binarize when array is &gt; 2</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">_gt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># function to check minimum regions requirement</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_regions_per_gene</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="n">c</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">([</span><span class="s2">&quot;BASC binarized&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="n">importances</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="p">[</span><span class="n">order_regions_to_genes_by</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="c1"># get BASC thresholds</span>
+    <span class="n">thresholds</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="n">_binarize_basc</span><span class="p">,</span> <span class="n">importances</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span>
+    <span class="n">passing</span> <span class="o">=</span> <span class="n">importances</span> <span class="o">&gt;</span> <span class="n">thresholds</span>
+
+    <span class="k">if</span> <span class="n">min_regions_per_gene</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># check min regions per gene</span>
+        <span class="n">passing</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="n">_gt</span><span class="p">,</span> <span class="n">passing</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ray_n_cpu</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">passing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">adjacencies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">passing</span><span class="p">]</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">TARGET_REGION_NAME</span><span class="p">]</span>
+        <span class="k">yield</span> <span class="n">c</span><span class="p">,</span> <span class="n">df</span>
+
+
+<div class="viewcode-block" id="create_emodules"><a class="viewcode-back" href="../../../api.html#scenicplus.grn_builder.modules.create_emodules">[docs]</a><span class="k">def</span> <span class="nf">create_emodules</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span><span class="p">,</span>
+                    <span class="n">region_to_gene_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;region_to_gene&#39;</span><span class="p">,</span>
+                    <span class="n">cistromes_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                    <span class="n">order_regions_to_genes_by</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                    <span class="n">quantiles</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.90</span><span class="p">),</span>
+                    <span class="n">top_n_regionTogenes_per_gene</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+                    <span class="n">top_n_regionTogenes_per_region</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(),</span>
+                    <span class="n">binarize_using_basc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="n">min_regions_per_gene</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="n">rho_dichotomize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="n">keep_only_activating</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="n">rho_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">RHO_THRESHOLD</span><span class="p">,</span>
+                    <span class="n">keep_extended_motif_annot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="n">disable_tqdm</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">ray_n_cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">eRegulon</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A function to create e_modules of :class: ~scenicplus.grn_builder.modules.eRegulon. </span>
+<span class="sd">    This function will binarize region-to-gene links using various parameters and couples these links to a TF</span>
+<span class="sd">    based on infromation in the motif enrichment (menr) field of the :attr:`SCENICPLUS_obj`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj</span>
+<span class="sd">        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`, containing motif enrichment data under the slot .menr.</span>
+<span class="sd">    region_to_gene_key</span>
+<span class="sd">        A key specifying under which to find region-to-gene links in the .uns slot of `SCENICPLUS_obj`. </span>
+<span class="sd">        Default: &quot;region_to_gene&quot;</span>
+<span class="sd">    cistromes_key</span>
+<span class="sd">        A key specifying which cistromes to use in .uns[&#39;Cistromes&#39;] slot of `SCENICPLUS_obj`</span>
+<span class="sd">    quantiles</span>
+<span class="sd">        A tuple specifying the quantiles used to binarize region-to-gene links</span>
+<span class="sd">        Default: (0.85, 0.90)</span>
+<span class="sd">    top_n_regionTogenes_per_gene</span>
+<span class="sd">        A tuple specifying the top n region-to-gene links to take PER GENE in order to binarize region-to-gene links.</span>
+<span class="sd">        Default: (5, 10, 15)</span>
+<span class="sd">    top_n_regionTogenes_per_region</span>
+<span class="sd">        A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.</span>
+<span class="sd">        Default: ()</span>
+<span class="sd">    binarize_using_basc:</span>
+<span class="sd">        A boolean specifying wether or not to binarize region-to-gene links using BASC. Hopfensitz M, et al.</span>
+<span class="sd">    min_regions_per_gene:</span>
+<span class="sd">        An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.</span>
+<span class="sd">        Default: 0</span>
+<span class="sd">    rho_dichotomize:</span>
+<span class="sd">        A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.</span>
+<span class="sd">        default: True</span>
+<span class="sd">    keep_only_activating:</span>
+<span class="sd">        A boolean specifying wether or not to only retain region-to-gene links with a positive correlation coefficient.</span>
+<span class="sd">        default: False</span>
+<span class="sd">    rho_threshold:</span>
+<span class="sd">        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.</span>
+<span class="sd">        default: 0.03</span>
+<span class="sd">    keep_extended_motif_annot</span>
+<span class="sd">        A boolean specifying wether or not keep extended motif annotations for further analysis.</span>
+<span class="sd">        default: False</span>
+<span class="sd">    ray_n_cpu</span>
+<span class="sd">        An integer specifying the number of parallel cores to use to binarize region to gene links</span>
+<span class="sd">        default: None (i.e. run using single core)</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Extra keyword arguments passed to ray.init function</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A set of relevant TFs, A list of :class: `~scenicplus.grn_builder.modules.eRegulon.`</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># check input</span>
+    <span class="k">if</span> <span class="n">region_to_gene_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Calculate region to gene relationships first.&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s1">&#39;Cistromes&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s1">&#39;Cistromes are undefined, first define cistromes in the slot .uns[&quot;Cistromes&quot;]&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">iter_thresholding</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="n">grouped_adj_by_gene</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span><span class="n">adj</span><span class="p">[</span><span class="n">TARGET_GENE_NAME</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="n">grouped_adj_by_region</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span><span class="n">adj</span><span class="p">[</span><span class="n">TARGET_REGION_NAME</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="k">yield from</span> <span class="n">chain</span><span class="p">(</span>
+            <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">_quantile_thr</span><span class="p">(</span><span class="n">adjacencies</span><span class="o">=</span><span class="n">adj</span><span class="p">,</span>
+                                             <span class="n">grouped</span><span class="o">=</span><span class="n">grouped_adj_by_gene</span><span class="p">,</span>
+                                             <span class="n">threshold</span><span class="o">=</span><span class="n">thr</span><span class="p">,</span>
+                                             <span class="n">min_regions_per_gene</span><span class="o">=</span><span class="n">min_regions_per_gene</span><span class="p">,</span>
+                                             <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+                                             <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="n">order_regions_to_genes_by</span><span class="p">)</span> <span class="k">for</span> <span class="n">thr</span> <span class="ow">in</span> <span class="n">quantiles</span><span class="p">),</span>
+
+            <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">_top_targets</span><span class="p">(</span><span class="n">adjacencies</span><span class="o">=</span><span class="n">adj</span><span class="p">,</span>
+                                            <span class="n">grouped</span><span class="o">=</span><span class="n">grouped_adj_by_gene</span><span class="p">,</span>
+                                            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                                            <span class="n">min_regions_per_gene</span><span class="o">=</span><span class="n">min_regions_per_gene</span><span class="p">,</span>
+                                            <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+                                            <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="n">order_regions_to_genes_by</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">top_n_regionTogenes_per_gene</span><span class="p">),</span>
+
+            <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">_top_regions</span><span class="p">(</span><span class="n">adjacencies</span><span class="o">=</span><span class="n">adj</span><span class="p">,</span>
+                                            <span class="n">grouped</span><span class="o">=</span><span class="n">grouped_adj_by_region</span><span class="p">,</span>
+                                            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                                            <span class="n">min_regions_per_gene</span><span class="o">=</span><span class="n">min_regions_per_gene</span><span class="p">,</span>
+                                            <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+                                            <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="n">order_regions_to_genes_by</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">top_n_regionTogenes_per_region</span><span class="p">),</span>
+            <span class="n">_binarize_BASC</span><span class="p">(</span><span class="n">adjacencies</span><span class="o">=</span><span class="n">adj</span><span class="p">,</span>
+                          <span class="n">grouped</span><span class="o">=</span><span class="n">grouped_adj_by_gene</span><span class="p">,</span>
+                          <span class="n">min_regions_per_gene</span><span class="o">=</span><span class="n">min_regions_per_gene</span><span class="p">,</span>
+                          <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+                          <span class="n">order_regions_to_genes_by</span><span class="o">=</span><span class="n">order_regions_to_genes_by</span><span class="p">)</span> <span class="k">if</span> <span class="n">binarize_using_basc</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">rho_dichotomize</span><span class="p">:</span>
+        <span class="c1"># split positive and negative correlation coefficients</span>
+        <span class="n">repressing_adj</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+            <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">][</span><span class="n">CORRELATION_COEFFICIENT_NAME</span><span class="p">]</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">rho_threshold</span><span class="p">]</span>
+        <span class="n">activating_adj</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+            <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">][</span><span class="n">CORRELATION_COEFFICIENT_NAME</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">rho_threshold</span><span class="p">]</span>
+        <span class="n">r2g_iter</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span>
+            <span class="n">iter_thresholding</span><span class="p">(</span><span class="n">repressing_adj</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;negative r2g&#39;</span><span class="p">])),</span>
+            <span class="n">iter_thresholding</span><span class="p">(</span><span class="n">activating_adj</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;positive r2g&#39;</span><span class="p">])),</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># don&#39;t split</span>
+        <span class="k">if</span> <span class="n">keep_only_activating</span><span class="p">:</span>
+            <span class="n">r2g_iter</span> <span class="o">=</span> <span class="n">iter_thresholding</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">][</span><span class="n">CORRELATION_COEFFICIENT_NAME</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">rho_threshold</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">r2g_iter</span> <span class="o">=</span> <span class="n">iter_thresholding</span><span class="p">(</span>
+                <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">region_to_gene_key</span><span class="p">])</span>
+
+    <span class="c1"># get cistromes</span>
+    <span class="n">cistrome_to_regions_d</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;Cistromes&#39;</span><span class="p">][</span><span class="n">cistromes_key</span><span class="p">]</span>
+
+    <span class="c1"># iterate over all thresholdings and generate eRegulons</span>
+    <span class="n">n_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">quantiles</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">quantiles</span><span class="p">)</span> <span class="o">==</span> <span class="nb">float</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">top_n_regionTogenes_per_gene</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span>
+                        <span class="n">top_n_regionTogenes_per_gene</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">top_n_regionTogenes_per_region</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">top_n_regionTogenes_per_region</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span> <span class="k">else</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">total_iter</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">n_params</span> <span class="o">+</span> <span class="p">(</span><span class="n">binarize_using_basc</span> <span class="o">*</span> <span class="mi">1</span><span class="p">))</span>
+                  <span class="p">)</span> <span class="k">if</span> <span class="n">rho_dichotomize</span> <span class="k">else</span> <span class="p">(</span><span class="n">n_params</span> <span class="o">+</span> <span class="p">(</span><span class="n">binarize_using_basc</span> <span class="o">*</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">relevant_tfs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">eRegulons</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Init ray here so it only has to be inited once, instead of with every call of grouped.apply.</span>
+        <span class="c1"># This to prevent the extra overhead of calling ray.init, which is not insignifican.</span>
+        <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">num_cpus</span><span class="o">=</span><span class="n">ray_n_cpu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">context</span><span class="p">,</span> <span class="n">r2g_df</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">r2g_iter</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="n">total_iter</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="n">disable_tqdm</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">cistrome_name</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">cistrome_to_regions_d</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
+                                      <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">cistrome_to_regions_d</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+                                      <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\u001b</span><span class="s2">[32;1mProcessing:</span><span class="se">\u001b</span><span class="s2">[0m </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">context</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                                      <span class="n">leave</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                      <span class="n">disable</span><span class="o">=</span><span class="n">disable_tqdm</span><span class="p">):</span>
+                <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">keep_extended_motif_annot</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;extended&#39;</span> <span class="ow">in</span> <span class="n">cistrome_name</span><span class="p">:</span>
+                    <span class="c1"># skip</span>
+                    <span class="k">continue</span>
+                <span class="n">regions_enriched_for_TF_motif</span> <span class="o">=</span> <span class="n">coord_to_region_names</span><span class="p">(</span>
+                    <span class="n">cistrome_to_regions_d</span><span class="p">[</span><span class="n">cistrome_name</span><span class="p">])</span>
+                <span class="n">r2g_df_enriched_for_TF_motif</span> <span class="o">=</span> <span class="n">r2g_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span>
+                    <span class="n">regions_enriched_for_TF_motif</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">r2g_df</span><span class="o">.</span><span class="n">index</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">r2g_df_enriched_for_TF_motif</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">transcription_factor</span> <span class="o">=</span> <span class="n">cistrome_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">relevant_tfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">transcription_factor</span><span class="p">)</span>
+                    <span class="n">eRegulons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">eRegulon</span><span class="p">(</span>
+                            <span class="n">transcription_factor</span><span class="o">=</span><span class="n">transcription_factor</span><span class="p">,</span>
+                            <span class="n">cistrome_name</span><span class="o">=</span><span class="n">cistrome_name</span><span class="p">,</span>
+                            <span class="n">is_extended</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;extended&#39;</span> <span class="ow">in</span> <span class="n">cistrome_name</span><span class="p">),</span>
+                            <span class="n">regions2genes</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">r2g_df_enriched_for_TF_motif</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span>
+                                <span class="n">REGIONS2GENES_HEADER</span><span class="p">)]</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;r2g&#39;</span><span class="p">)),</span>
+                            <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">frozenset</span><span class="p">([</span><span class="s1">&#39;Cistromes_&#39;</span><span class="o">+</span><span class="n">cistromes_key</span><span class="p">]))))</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ray_n_cpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ray</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">relevant_tfs</span><span class="p">),</span> <span class="n">eRegulons</span></div>
+
+
+<span class="k">def</span> <span class="nf">_merge_single_TF</span><span class="p">(</span><span class="n">l_e_modules</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function to merge list of :class:`eRegulon` coming from a single transcription factor</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    l_e_modules</span>
+<span class="sd">        list of :class:`eRegulon` to merge</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    A :class: `eRegulon`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">transcription_factor</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">em</span><span class="o">.</span><span class="n">transcription_factor</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcription_factor</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;l_e_modules should only contain a single TF&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">transcription_factor</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">transcription_factor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">cistrome_name</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">em</span><span class="o">.</span><span class="n">cistrome_name</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cistrome_name</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">cistrome_name</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cistrome_name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cistrome_name</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cistrome_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">is_extended</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">em</span><span class="o">.</span><span class="n">is_extended</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">is_extended</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s1">&#39;l_e_modules should either contain eRegulons which are direct or extended not both.&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">is_extended</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">is_extended</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">regions2genes_merged</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">flatten_list</span><span class="p">([</span><span class="n">em</span><span class="o">.</span><span class="n">regions2genes</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">l_e_modules</span><span class="p">)])))</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">flatten_list</span><span class="p">([</span><span class="n">em</span><span class="o">.</span><span class="n">context</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">eRegulon</span><span class="p">(</span>
+        <span class="n">transcription_factor</span><span class="o">=</span><span class="n">transcription_factor</span><span class="p">,</span>
+        <span class="n">cistrome_name</span><span class="o">=</span><span class="n">cistrome_name</span><span class="p">,</span>
+        <span class="n">is_extended</span><span class="o">=</span><span class="n">is_extended</span><span class="p">,</span>
+        <span class="n">regions2genes</span><span class="o">=</span><span class="n">regions2genes_merged</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_merge_across_TF</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function to merge list of :class:`eRegulon` coming from multiple single transcription factor</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    l_e_modules</span>
+<span class="sd">        list of :class:`eRegulon` to merge</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    -------</span>
+<span class="sd">    A :class: `eRegulon`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">l_e_modules</span> <span class="ow">in</span> <span class="n">i</span><span class="p">:</span>
+        <span class="n">l_e_modules</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">l_e_modules</span><span class="p">)</span>
+        <span class="n">TFs</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span><span class="o">.</span><span class="n">transcription_factor</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">TFs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">grouped</span> <span class="o">=</span> <span class="n">Groupby</span><span class="p">(</span><span class="n">TFs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">grouped</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">_merge_single_TF</span><span class="p">(</span><span class="n">l_e_modules</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">[]</span>
+
+
+<span class="k">def</span> <span class="nf">_rho_dichotomize</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">l_e_modules</span> <span class="ow">in</span> <span class="n">i</span><span class="p">:</span>
+        <span class="n">TF2G_pos_R2G_pos_ems</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span> <span class="k">if</span> <span class="p">(</span>
+            <span class="s1">&#39;positive tf2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span> <span class="ow">and</span> <span class="s1">&#39;positive r2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span><span class="p">)]</span>
+        <span class="n">TF2G_pos_R2G_neg_ems</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span> <span class="k">if</span> <span class="p">(</span>
+            <span class="s1">&#39;positive tf2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span> <span class="ow">and</span> <span class="s1">&#39;negative r2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span><span class="p">)]</span>
+        <span class="n">TF2G_neg_R2G_pos_ems</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span> <span class="k">if</span> <span class="p">(</span>
+            <span class="s1">&#39;negative tf2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span> <span class="ow">and</span> <span class="s1">&#39;positive r2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span><span class="p">)]</span>
+        <span class="n">TF2G_neg_R2G_neg_ems</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span> <span class="k">if</span> <span class="p">(</span>
+            <span class="s1">&#39;negative tf2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span> <span class="ow">and</span> <span class="s1">&#39;negative r2g&#39;</span> <span class="ow">in</span> <span class="n">em</span><span class="o">.</span><span class="n">context</span><span class="p">)]</span>
+
+        <span class="n">iter_emodules</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">TF2G_pos_R2G_pos_ems</span><span class="p">,</span>
+            <span class="n">TF2G_pos_R2G_neg_ems</span><span class="p">,</span>
+            <span class="n">TF2G_neg_R2G_pos_ems</span><span class="p">,</span>
+            <span class="n">TF2G_neg_R2G_neg_ems</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">e_modules</span> <span class="ow">in</span> <span class="n">iter_emodules</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">e_modules</span>
+
+
+<span class="k">def</span> <span class="nf">_split_direct_indirect</span><span class="p">(</span><span class="n">l_e_modules</span><span class="p">):</span>
+    <span class="n">direct_ems</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">em</span><span class="o">.</span><span class="n">is_extended</span><span class="p">]</span>
+    <span class="n">extended_ems</span> <span class="o">=</span> <span class="p">[</span><span class="n">em</span> <span class="k">for</span> <span class="n">em</span> <span class="ow">in</span> <span class="n">l_e_modules</span> <span class="k">if</span> <span class="n">em</span><span class="o">.</span><span class="n">is_extended</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">e_modules</span> <span class="ow">in</span> <span class="p">[</span><span class="n">direct_ems</span><span class="p">,</span> <span class="n">extended_ems</span><span class="p">]:</span>
+        <span class="k">yield</span> <span class="n">e_modules</span>
+
+
+<div class="viewcode-block" id="merge_emodules"><a class="viewcode-back" href="../../../api.html#scenicplus.grn_builder.modules.merge_emodules">[docs]</a><span class="k">def</span> <span class="nf">merge_emodules</span><span class="p">(</span><span class="n">SCENICPLUS_obj</span><span class="p">:</span> <span class="n">SCENICPLUS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">e_modules</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">e_modules_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulons&#39;</span><span class="p">,</span>
+                   <span class="n">rho_dichotomize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                   <span class="n">key_to_add</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eRegulons&#39;</span><span class="p">,</span>
+                   <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to merge list of :class:`eRegulon`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    SCENICPLUS_obj</span>
+<span class="sd">        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`, containing eRegulons in slot .uns.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    e_modules</span>
+<span class="sd">        A list of :class:`eRegulon`.</span>
+<span class="sd">        default: None</span>
+<span class="sd">    e_modules_key</span>
+<span class="sd">        A string key specifying where to find a list of :class:`eRegulon` under .uns slot of`SCENICPLUS_obj`.</span>
+<span class="sd">        default: &quot;eRegulons&quot;</span>
+<span class="sd">    rho_dichotomize</span>
+<span class="sd">        A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.</span>
+<span class="sd">        default: True</span>
+<span class="sd">    key_to_add</span>
+<span class="sd">        A string key specifying where to store the list of merged :class:`eRegulon` in the .uns slot of `SCENICPLUS_obj`.</span>
+<span class="sd">    inplace</span>
+<span class="sd">        A boolean if set to True update the `SCENICPLUS_obj` otherwise return list of merged :class:`eRegulon`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># check input</span>
+    <span class="k">if</span> <span class="n">SCENICPLUS_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">e_modules_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;No e-modules found under key: </span><span class="si">{</span><span class="n">e_modules_key</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+
+    <span class="n">e_modules</span> <span class="o">=</span> <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">e_modules_key</span><span class="p">]</span> <span class="k">if</span> <span class="n">SCENICPLUS_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">e_modules</span>
+
+    <span class="k">if</span> <span class="n">rho_dichotomize</span><span class="p">:</span>
+        <span class="n">iter_merger</span> <span class="o">=</span> <span class="n">_merge_across_TF</span><span class="p">(</span>
+            <span class="n">_rho_dichotomize</span><span class="p">(</span><span class="n">_split_direct_indirect</span><span class="p">(</span><span class="n">e_modules</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">iter_merger</span> <span class="o">=</span> <span class="n">_merge_across_TF</span><span class="p">(</span><span class="n">_split_direct_indirect</span><span class="p">(</span><span class="n">e_modules</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">SCENICPLUS_obj</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="n">key_to_add</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">eReg</span> <span class="k">for</span> <span class="n">eReg</span> <span class="ow">in</span> <span class="n">iter_merger</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">eReg</span> <span class="k">for</span> <span class="n">eReg</span> <span class="ow">in</span> <span class="n">iter_merger</span><span class="p">]</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

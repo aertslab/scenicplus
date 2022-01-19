@@ -1,3 +1,7 @@
+"""Plot chromatin accessibility profiles and region to gene arcs.
+
+"""
+
 from typing import Mapping
 import pyBigWig
 import numpy as np
@@ -12,7 +16,7 @@ from typing import Union, List
 from ..scenicplus_class import SCENICPLUS
 
 
-def region_to_chrom_start_end(x): return [x.replace(':', '-').split('-')[0],
+def _region_to_chrom_start_end(x): return [x.replace(':', '-').split('-')[0],
                                           int(x.replace(
                                               ':', '-').split('-')[1]),
                                           int(x.replace(':', '-').split('-')[2])]
@@ -181,7 +185,7 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
 
     subplot_idx = 0
     # get coordinates from region string
-    chrom, start, end = region_to_chrom_start_end(region)
+    chrom, start, end = _region_to_chrom_start_end(region)
     pr_region = pr.PyRanges(chromosomes=[chrom], starts=[start], ends=[end])
     # calculate bw_ymax for scaling
     bw_ymax_dict = {}

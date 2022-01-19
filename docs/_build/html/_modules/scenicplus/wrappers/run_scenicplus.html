@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scenicplus.wrappers.run_scenicplus &mdash; SCENIC+ 0.1.dev132+g26f1691 documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> SCENIC+
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Install</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials.html">Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SCENIC+</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>scenicplus.wrappers.run_scenicplus</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scenicplus.wrappers.run_scenicplus</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Wrapper functions to run SCENIC+ analysis</span>
+
+<span class="sd">After the SCENIC+ object has been generated the complete SCENIC+ workflow can be run with a single function. </span>
+
+<span class="sd">Following operation will be done:</span>
+
+<span class="sd">1. Defining a search space surounding each gene</span>
+<span class="sd">2. Region to gene linking &amp; TF to gene linking</span>
+<span class="sd">3. eGRN building</span>
+<span class="sd">4. eGRN scoring (target gene and region based AUC and RSS)</span>
+<span class="sd">5. Calculating TF-cistrome correlations</span>
+<span class="sd">6. Dimensionality reductions</span>
+<span class="sd">7. export to UCSC tracks and to loom file</span>
+
+<span class="sd">In case the process is killed prematurely, the function can be restared and the workflow will resume from the last step that was succesfully completed.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">from</span> <span class="nn">scenicplus.scenicplus_class</span> <span class="kn">import</span> <span class="n">SCENICPLUS</span><span class="p">,</span> <span class="n">create_SCENICPLUS_object</span>
+<span class="kn">from</span> <span class="nn">scenicplus.preprocessing.filtering</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.cistromes</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.enhancer_to_gene</span> <span class="kn">import</span> <span class="n">get_search_space</span><span class="p">,</span> <span class="n">calculate_regions_to_genes_relationships</span><span class="p">,</span> <span class="n">GBM_KWARGS</span>
+<span class="kn">from</span> <span class="nn">scenicplus.enhancer_to_gene</span> <span class="kn">import</span> <span class="n">export_to_UCSC_interact</span> 
+<span class="kn">from</span> <span class="nn">scenicplus.utils</span> <span class="kn">import</span> <span class="n">format_egrns</span><span class="p">,</span> <span class="n">export_eRegulons</span>
+<span class="kn">from</span> <span class="nn">scenicplus.eregulon_enrichment</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.TF_to_gene</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.grn_builder.gsea_approach</span> <span class="kn">import</span> <span class="n">build_grn</span>
+<span class="kn">from</span> <span class="nn">scenicplus.dimensionality_reduction</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.RSS</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.diff_features</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scenicplus.loom</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">dill</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<div class="viewcode-block" id="run_scenicplus"><a class="viewcode-back" href="../../../api.html#scenicplus.wrappers.run_scenicplus.run_scenicplus">[docs]</a><span class="k">def</span> <span class="nf">run_scenicplus</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">:</span> <span class="s1">&#39;SCENICPLUS&#39;</span><span class="p">,</span>
+    <span class="n">variable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">species</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">assembly</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">tf_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">biomart_host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;http://www.ensembl.org&#39;</span><span class="p">,</span>
+    <span class="n">upstream</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">150000</span><span class="p">],</span>
+    <span class="n">downstream</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">150000</span><span class="p">],</span>
+    <span class="n">region_ranking</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;CisTopicImputedFeatures&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">gene_ranking</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;CisTopicImputedFeatures&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">calculate_TF_eGRN_correlation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">calculate_DEGs_DARs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">export_to_loom_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">export_to_UCSC_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">tree_structure</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+    <span class="n">path_bedToBigBed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">n_cpu</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">_temp_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;/scratch/leuven/313/vsc31305/ray_spill&#39;</span>
+    <span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper to run SCENIC+</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    scplus_obj: `class::SCENICPLUS`</span>
+<span class="sd">        A SCENICPLUS object.</span>
+<span class="sd">    variables: List[str]</span>
+<span class="sd">        Variables to use for RSS, TF-eGRN correlation and markers.</span>
+<span class="sd">    species: str</span>
+<span class="sd">        Species from which data comes from. Possible values: &#39;hsapiens&#39;, &#39;mmusculus&#39;, &#39;dmelanogaster&#39;</span>
+<span class="sd">    assembly: str</span>
+<span class="sd">        Genome assembly to which the data was mapped. Possible values: &#39;hg38&#39;</span>
+<span class="sd">    tf_file: str</span>
+<span class="sd">        Path to file containing genes that are TFs</span>
+<span class="sd">    save_path: str</span>
+<span class="sd">        Folder in which results will be saved</span>
+<span class="sd">    biomart_host: str, optional</span>
+<span class="sd">        Path to biomart host. Make sure that the host matches your genome assembly</span>
+<span class="sd">    upstream: str, optional</span>
+<span class="sd">        Upstream space to use for region to gene relationships</span>
+<span class="sd">    downstream: str, optional</span>
+<span class="sd">        Upstream space to use for region to gene relationships</span>
+<span class="sd">    region_ranking: `class::CisTopicImputedFeatures`, optional</span>
+<span class="sd">        Precomputed region ranking</span>
+<span class="sd">    gene_ranking: `class::CisTopicImputedFeatures`, optional</span>
+<span class="sd">        Precomputed gene ranking</span>
+<span class="sd">    calculate_TF_eGRN_correlation: bool, optional</span>
+<span class="sd">        Whether to calculate the TF-eGRN correlation based on the variables</span>
+<span class="sd">    calculate_DEGs_DARs: bool, optional</span>
+<span class="sd">        Whether to calculate DARs/DEGs based on the variables</span>
+<span class="sd">    export_to_loom_file: bool, optional</span>
+<span class="sd">        Whether to export data to loom files (gene based/region based)</span>
+<span class="sd">    export_to_UCSC_file: bool, optional</span>
+<span class="sd">        Whether to export region-to-gene links and eregulons to bed files</span>
+<span class="sd">    tree_structure: sequence, optional</span>
+<span class="sd">        Tree structure for loom files</span>
+<span class="sd">    path_bedToBigBed: str, optional</span>
+<span class="sd">        Path to convert bed files to big bed when exporting to UCSC (required if files are meant to be</span>
+<span class="sd">        used in a hub)</span>
+<span class="sd">    n_cpu: int, optional</span>
+<span class="sd">        Number of cores to use</span>
+<span class="sd">    _temp_dir: str, optional</span>
+<span class="sd">        Temporary directory for ray</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Create logger</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+    <span class="n">log_format</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name)-12s</span><span class="s1"> </span><span class="si">%(levelname)-8s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span>
+    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">log_format</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="n">handlers</span><span class="p">)</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;SCENIC+_wrapper&#39;</span><span class="p">)</span>
+    
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    
+    <span class="n">check_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">check_folder</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created folder : &quot;</span><span class="o">+</span> <span class="n">save_path</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">save_path</span> <span class="o">+</span> <span class="s2">&quot; folder already exists.&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;Cistromes&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Merging cistromes&#39;</span><span class="p">)</span>
+        <span class="n">merge_cistromes</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">)</span>
+    
+    
+    <span class="k">if</span> <span class="s1">&#39;search_space&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Getting search space&#39;</span><span class="p">)</span>
+        <span class="n">get_search_space</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                     <span class="n">biomart_host</span> <span class="o">=</span> <span class="n">biomart_host</span><span class="p">,</span>
+                     <span class="n">species</span> <span class="o">=</span> <span class="n">species</span><span class="p">,</span>
+                     <span class="n">assembly</span> <span class="o">=</span> <span class="n">assembly</span><span class="p">,</span> 
+                     <span class="n">upstream</span> <span class="o">=</span> <span class="n">upstream</span><span class="p">,</span>
+                     <span class="n">downstream</span> <span class="o">=</span> <span class="n">downstream</span><span class="p">)</span>
+                 
+    <span class="k">if</span> <span class="s1">&#39;region_to_gene&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Inferring region to gene relationships&#39;</span><span class="p">)</span>
+        <span class="n">calculate_regions_to_genes_relationships</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+                        <span class="n">ray_n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span> 
+                        <span class="n">_temp_dir</span> <span class="o">=</span> <span class="n">_temp_dir</span><span class="p">,</span>
+                        <span class="n">importance_scoring_method</span> <span class="o">=</span> <span class="s1">&#39;GBM&#39;</span><span class="p">,</span>
+                        <span class="n">importance_scoring_kwargs</span> <span class="o">=</span> <span class="n">GBM_KWARGS</span><span class="p">)</span>
+                        
+    <span class="k">if</span> <span class="s1">&#39;TF2G_adj&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Inferring TF to gene relationships&#39;</span><span class="p">)</span>
+        <span class="n">calculate_TFs_to_genes_relationships</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+                        <span class="n">tf_file</span> <span class="o">=</span> <span class="n">tf_file</span><span class="p">,</span>
+                        <span class="n">ray_n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span> 
+                        <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;GBM&#39;</span><span class="p">,</span>
+                        <span class="n">_temp_dir</span> <span class="o">=</span> <span class="n">_temp_dir</span><span class="p">,</span>
+                        <span class="n">key</span><span class="o">=</span> <span class="s1">&#39;TF2G_adj&#39;</span><span class="p">)</span>
+                        
+    <span class="k">if</span> <span class="s1">&#39;eRegulons&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Build eGRN&#39;</span><span class="p">)</span>
+        <span class="n">build_grn</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                 <span class="n">min_target_genes</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                 <span class="n">adj_pval_thr</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                 <span class="n">min_regions_per_gene</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                 <span class="n">quantiles</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.90</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">),</span>
+                 <span class="n">top_n_regionTogenes_per_gene</span> <span class="o">=</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+                 <span class="n">top_n_regionTogenes_per_region</span> <span class="o">=</span> <span class="p">(),</span>
+                 <span class="n">binarize_using_basc</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">rho_dichotomize_tf2g</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">rho_dichotomize_r2g</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">rho_dichotomize_eregulon</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">rho_threshold</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+                 <span class="n">keep_extended_motif_annot</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">merge_eRegulons</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> 
+                 <span class="n">order_regions_to_genes_by</span> <span class="o">=</span> <span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                 <span class="n">order_TFs_to_genes_by</span> <span class="o">=</span> <span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                 <span class="n">key_added</span> <span class="o">=</span> <span class="s1">&#39;eRegulons&#39;</span><span class="p">,</span>
+                 <span class="n">cistromes_key</span> <span class="o">=</span> <span class="s1">&#39;Unfiltered&#39;</span><span class="p">,</span>
+                 <span class="n">disable_tqdm</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> 
+                 <span class="n">ray_n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">,</span>
+                 <span class="n">_temp_dir</span> <span class="o">=</span> <span class="n">_temp_dir</span><span class="p">)</span>
+                 
+    <span class="k">if</span> <span class="s1">&#39;eRegulon_metadata&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Formatting eGRNs&#39;</span><span class="p">)</span>
+        <span class="n">format_egrns</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                      <span class="n">eregulons_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulons&#39;</span><span class="p">,</span>
+                      <span class="n">TF2G_key</span> <span class="o">=</span> <span class="s1">&#39;TF2G_adj&#39;</span><span class="p">,</span>
+                      <span class="n">key_added</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_metadata&#39;</span><span class="p">)</span>
+
+                    
+    <span class="k">if</span> <span class="s1">&#39;eRegulon_signatures&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Converting eGRNs to signatures&#39;</span><span class="p">)</span>
+        <span class="n">get_eRegulons_as_signatures</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                                     <span class="n">eRegulon_metadata_key</span><span class="o">=</span><span class="s1">&#39;eRegulon_metadata&#39;</span><span class="p">,</span> 
+                                     <span class="n">key_added</span><span class="o">=</span><span class="s1">&#39;eRegulon_signatures&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;eRegulon_AUC&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating eGRNs AUC&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">region_ranking</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating region ranking&#39;</span><span class="p">)</span>
+            <span class="n">region_ranking</span> <span class="o">=</span> <span class="n">make_rankings</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s1">&#39;region&#39;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;region_ranking.pkl&#39;</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">region_ranking</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating eGRNs region based AUC&#39;</span><span class="p">)</span>
+        <span class="n">score_eRegulons</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                <span class="n">ranking</span> <span class="o">=</span> <span class="n">region_ranking</span><span class="p">,</span>
+                <span class="n">eRegulon_signatures_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_signatures&#39;</span><span class="p">,</span>
+                <span class="n">key_added</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span> 
+                <span class="n">enrichment_type</span><span class="o">=</span> <span class="s1">&#39;region&#39;</span><span class="p">,</span>
+                <span class="n">auc_threshold</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+                <span class="n">normalize</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gene_ranking</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating gene ranking&#39;</span><span class="p">)</span>
+            <span class="n">gene_ranking</span> <span class="o">=</span> <span class="n">make_rankings</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s1">&#39;gene&#39;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;gene_ranking.pkl&#39;</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">gene_ranking</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating eGRNs gene based AUC&#39;</span><span class="p">)</span>
+        <span class="n">score_eRegulons</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                <span class="n">gene_ranking</span><span class="p">,</span>
+                <span class="n">eRegulon_signatures_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_signatures&#39;</span><span class="p">,</span>
+                <span class="n">key_added</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span> 
+                <span class="n">enrichment_type</span> <span class="o">=</span> <span class="s1">&#39;gene&#39;</span><span class="p">,</span>
+                <span class="n">auc_threshold</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+                <span class="n">normalize</span><span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">n_cpu</span> <span class="o">=</span> <span class="n">n_cpu</span><span class="p">)</span>
+                
+    <span class="k">if</span> <span class="n">calculate_TF_eGRN_correlation</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating TF-eGRNs AUC correlation&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="n">generate_pseudobulks</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+                             <span class="n">variable</span> <span class="o">=</span> <span class="n">var</span><span class="p">,</span>
+                             <span class="n">auc_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                             <span class="n">signature_key</span> <span class="o">=</span> <span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span>
+                             <span class="n">nr_cells</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+                             <span class="n">nr_pseudobulks</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+                             <span class="n">seed</span><span class="o">=</span><span class="mi">555</span><span class="p">)</span>
+            <span class="n">generate_pseudobulks</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+                                     <span class="n">variable</span> <span class="o">=</span> <span class="n">var</span><span class="p">,</span>
+                                     <span class="n">auc_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                                     <span class="n">signature_key</span> <span class="o">=</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">,</span>
+                                     <span class="n">nr_cells</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+                                     <span class="n">nr_pseudobulks</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+                                     <span class="n">seed</span><span class="o">=</span><span class="mi">555</span><span class="p">)</span>
+            <span class="n">TF_cistrome_correlation</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                            <span class="n">variable</span> <span class="o">=</span> <span class="n">var</span><span class="p">,</span> 
+                            <span class="n">auc_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                            <span class="n">signature_key</span> <span class="o">=</span> <span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span>
+                            <span class="n">out_key</span> <span class="o">=</span> <span class="n">var</span><span class="o">+</span><span class="s1">&#39;_eGRN_gene_based&#39;</span><span class="p">)</span>
+            <span class="n">TF_cistrome_correlation</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                                    <span class="n">variable</span> <span class="o">=</span> <span class="n">var</span><span class="p">,</span> 
+                                    <span class="n">auc_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+                                    <span class="n">signature_key</span> <span class="o">=</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">,</span>
+                                    <span class="n">out_key</span> <span class="o">=</span> <span class="n">var</span><span class="o">+</span><span class="s1">&#39;_eGRN_region_based&#39;</span><span class="p">)</span>
+                                
+    <span class="k">if</span> <span class="s1">&#39;eRegulon_AUC_thresholds&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Binarizing eGRNs AUC&#39;</span><span class="p">)</span>
+        <span class="n">binarize_AUC</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+             <span class="n">auc_key</span><span class="o">=</span><span class="s1">&#39;eRegulon_AUC&#39;</span><span class="p">,</span>
+             <span class="n">out_key</span><span class="o">=</span><span class="s1">&#39;eRegulon_AUC_thresholds&#39;</span><span class="p">,</span>
+             <span class="n">signature_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+             <span class="n">n_cpu</span><span class="o">=</span><span class="n">n_cpu</span><span class="p">)</span>
+             
+    <span class="k">if</span> <span class="s1">&#39;eRegulons_UMAP&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Making eGRNs AUC UMAP&#39;</span><span class="p">)</span>
+        <span class="n">run_eRegulons_umap</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                   <span class="n">scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">signature_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="s1">&#39;eRegulons_tSNE&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">dr_cell</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Making eGRNs AUC tSNE&#39;</span><span class="p">)</span>
+        <span class="n">run_eRegulons_tsne</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                   <span class="n">scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">signature_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">])</span>
+                   
+    <span class="k">if</span> <span class="s1">&#39;RSS&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scplus_obj</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating eRSS&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="n">regulon_specificity_scores</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+                         <span class="n">var</span><span class="p">,</span>
+                         <span class="n">signature_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Gene_based&#39;</span><span class="p">],</span>
+                         <span class="n">out_key_suffix</span><span class="o">=</span><span class="s1">&#39;_gene_based&#39;</span><span class="p">,</span>
+                         <span class="n">scale</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">regulon_specificity_scores</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+                         <span class="n">var</span><span class="p">,</span>
+                         <span class="n">signature_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Region_based&#39;</span><span class="p">],</span>
+                         <span class="n">out_key_suffix</span><span class="o">=</span><span class="s1">&#39;_region_based&#39;</span><span class="p">,</span>
+                         <span class="n">scale</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                         
+    <span class="k">if</span> <span class="n">calculate_DEGs_DARs</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Calculating DEGs/DARs&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="n">get_differential_features</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">use_hvg</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">contrast_type</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;DEGs&#39;</span><span class="p">,</span> <span class="s1">&#39;DARs&#39;</span><span class="p">])</span>
+            
+    <span class="k">if</span> <span class="n">export_to_loom_file</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Exporting to loom file&#39;</span><span class="p">)</span>
+        <span class="n">export_to_loom</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+               <span class="n">signature_key</span> <span class="o">=</span> <span class="s1">&#39;Gene_based&#39;</span><span class="p">,</span>
+               <span class="n">tree_structure</span> <span class="o">=</span> <span class="n">tree_structure</span><span class="p">,</span>
+               <span class="n">title</span> <span class="o">=</span>  <span class="s1">&#39;Gene based eGRN&#39;</span><span class="p">,</span>
+               <span class="n">nomenclature</span> <span class="o">=</span> <span class="n">assembly</span><span class="p">,</span>
+               <span class="n">out_fname</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;SCENIC+_gene_based.loom&#39;</span><span class="p">))</span>
+        <span class="n">export_to_loom</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> 
+               <span class="n">signature_key</span> <span class="o">=</span> <span class="s1">&#39;Region_based&#39;</span><span class="p">,</span>
+               <span class="n">tree_structure</span> <span class="o">=</span> <span class="n">tree_structure</span><span class="p">,</span>
+               <span class="n">title</span> <span class="o">=</span>  <span class="s1">&#39;Region based eGRN&#39;</span><span class="p">,</span>
+               <span class="n">nomenclature</span> <span class="o">=</span> <span class="n">assembly</span><span class="p">,</span>
+               <span class="n">out_fname</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;SCENIC+_region_based.loom&#39;</span><span class="p">))</span>
+               
+    <span class="k">if</span> <span class="n">export_to_UCSC_file</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Exporting to UCSC&#39;</span><span class="p">)</span>
+        <span class="n">r2g_data</span> <span class="o">=</span> <span class="n">export_to_UCSC_interact</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                            <span class="n">species</span><span class="p">,</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;r2g.rho.bed&#39;</span><span class="p">),</span>
+                            <span class="n">path_bedToBigBed</span><span class="o">=</span><span class="n">path_bedToBigBed</span><span class="p">,</span>
+                            <span class="n">bigbed_outfile</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;r2g.rho.bb&#39;</span><span class="p">),</span>
+                            <span class="n">region_to_gene_key</span><span class="o">=</span><span class="s1">&#39;region_to_gene&#39;</span><span class="p">,</span>
+                            <span class="n">pbm_host</span><span class="o">=</span><span class="n">biomart_host</span><span class="p">,</span>
+                            <span class="n">assembly</span><span class="o">=</span><span class="n">assembly</span><span class="p">,</span>
+                            <span class="n">ucsc_track_name</span><span class="o">=</span><span class="s1">&#39;R2G&#39;</span><span class="p">,</span>
+                            <span class="n">ucsc_description</span><span class="o">=</span><span class="s1">&#39;SCENIC+ region to gene links&#39;</span><span class="p">,</span>
+                            <span class="n">cmap_neg</span><span class="o">=</span><span class="s1">&#39;Reds&#39;</span><span class="p">,</span>
+                            <span class="n">cmap_pos</span><span class="o">=</span><span class="s1">&#39;Greens&#39;</span><span class="p">,</span>
+                            <span class="n">key_for_color</span><span class="o">=</span><span class="s1">&#39;rho&#39;</span><span class="p">,</span>
+                            <span class="n">scale_by_gene</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                            <span class="n">subset_for_eRegulons_regions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">eRegulons_key</span><span class="o">=</span><span class="s1">&#39;eRegulons&#39;</span><span class="p">)</span>
+        <span class="n">r2g_data</span> <span class="o">=</span> <span class="n">export_to_UCSC_interact</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                            <span class="n">species</span><span class="p">,</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;r2g.importance.bed&#39;</span><span class="p">),</span>
+                            <span class="n">path_bedToBigBed</span><span class="o">=</span><span class="n">path_bedToBigBed</span><span class="p">,</span>
+                            <span class="n">bigbed_outfile</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;r2g.importance.bb&#39;</span><span class="p">),</span>
+                            <span class="n">region_to_gene_key</span><span class="o">=</span><span class="s1">&#39;region_to_gene&#39;</span><span class="p">,</span>
+                            <span class="n">pbm_host</span><span class="o">=</span><span class="n">biomart_host</span><span class="p">,</span>
+                            <span class="n">assembly</span><span class="o">=</span><span class="n">assembly</span><span class="p">,</span>
+                            <span class="n">ucsc_track_name</span><span class="o">=</span><span class="s1">&#39;R2G&#39;</span><span class="p">,</span>
+                            <span class="n">ucsc_description</span><span class="o">=</span><span class="s1">&#39;SCENIC+ region to gene links&#39;</span><span class="p">,</span>
+                            <span class="n">cmap_neg</span><span class="o">=</span><span class="s1">&#39;Reds&#39;</span><span class="p">,</span>
+                            <span class="n">cmap_pos</span><span class="o">=</span><span class="s1">&#39;Greens&#39;</span><span class="p">,</span>
+                            <span class="n">key_for_color</span><span class="o">=</span><span class="s1">&#39;importance&#39;</span><span class="p">,</span>
+                            <span class="n">scale_by_gene</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">subset_for_eRegulons_regions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">eRegulons_key</span><span class="o">=</span><span class="s1">&#39;eRegulons&#39;</span><span class="p">)</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="n">export_eRegulons</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;eRegulons.bed&#39;</span><span class="p">),</span>
+                <span class="n">assembly</span><span class="p">,</span>
+                <span class="n">bigbed_outfile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;eRegulons.bb&#39;</span><span class="p">),</span>
+                <span class="n">eRegulon_metadata_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_metadata&#39;</span><span class="p">,</span>
+                <span class="n">eRegulon_signature_key</span> <span class="o">=</span> <span class="s1">&#39;eRegulon_signatures&#39;</span><span class="p">,</span>
+                <span class="n">path_bedToBigBed</span><span class="o">=</span><span class="n">path_bedToBigBed</span><span class="p">)</span>
+        
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Saving object&#39;</span><span class="p">)</span>         
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span><span class="s1">&#39;eRegulons.pkl&#39;</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">scplus_obj</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished! Took </span><span class="si">{}</span><span class="s1"> minutes&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span><span class="o">/</span><span class="mi">60</span><span class="p">))</span>       </div>
+    
+    
+    
+    
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Seppe De Winter, Carmen Bravo Gonzalez Blas.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

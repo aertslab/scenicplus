@@ -1,3 +1,12 @@
+"""Link enhancers to genes based on co-occurence of chromatin accessbility of the enhancer and gene expression.
+
+Both linear methods (spearman or pearson correlation) and non-linear methods (random forrest or gradient boosting) are used to link enhancers to genes.
+
+The correlation methods are used to seperate regions which are infered to have a positive influence on gene expression (i.e. positive correlation) 
+and regions which are infered to have a negative influence on gene expression (i.e. negative correlation).
+
+"""
+
 import pandas as pd
 import numpy as np
 import ray
@@ -12,6 +21,7 @@ from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 from matplotlib import cm
 from matplotlib.colors import Normalize
+from typing import List
 
 from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b
 from .utils import calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
@@ -434,11 +444,11 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
 
 
 @ray.remote
-def score_regions_to_single_gene_ray(X, y, gene_name, region_names, regressor_type, regressor_kwargs) -> list:
-    return score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs)
+def _score_regions_to_single_gene_ray(X, y, gene_name, region_names, regressor_type, regressor_kwargs) -> list:
+    return _score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs)
 
 
-def score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs) -> list:
+def _score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs) -> list:
     """
     Calculates region to gene importances or region to gene correlations for a single gene
     :param X: numpy array containing matrix of accessibility of regions in search space
@@ -474,7 +484,7 @@ def score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, 
         return pd.Series(correlation_coef, index=region_names), gene_name
 
 
-def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
+def _score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
                            search_space: pd.DataFrame,
                            mask_expr_dropout=False,
                            genes=None,
@@ -528,7 +538,7 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
                 # Check-up for genes with 1 region only, related to issue 2
                 if acc.ndim == 1:
                     acc = acc.reshape(-1, 1)
-                jobs.append(score_regions_to_single_gene_ray.remote(X=acc,
+                jobs.append(_score_regions_to_single_gene_ray.remote(X=acc,
                                                                     y=expr,
                                                                     gene_name=gene,
                                                                     region_names=regions_in_search_space,
@@ -568,7 +578,7 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
             # Check-up for genes with 1 region only, related to issue 2
             if acc.ndim == 1:
                 acc = acc.reshape(-1, 1)
-            regions_to_genes[gene], _ = score_regions_to_single_gene(X=acc,
+            regions_to_genes[gene], _ = _score_regions_to_single_gene(X=acc,
                                                                      y=expr,
                                                                      gene_name=gene,
                                                                      region_names=regions_in_search_space,
@@ -580,29 +590,43 @@ def score_regions_to_genes(SCENICPLUS_obj: SCENICPLUS,
 
 def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
                                              search_space_key: str = 'search_space',
-                                             mask_expr_dropout=False,
-                                             genes=None,
-                                             importance_scoring_method='GBM',
-                                             importance_scoring_kwargs=GBM_KWARGS,
-                                             correlation_scoring_method='SR',
-                                             ray_n_cpu=None,
-                                             add_distance=True,
+                                             mask_expr_dropout: bool = False,
+                                             genes: List[str] = None,
+                                             importance_scoring_method: str = 'GBM',
+                                             importance_scoring_kwargs: dict = GBM_KWARGS,
+                                             correlation_scoring_method: str = 'SR',
+                                             ray_n_cpu: int = None,
+                                             add_distance: bool = True,
                                              key_added: str = 'region_to_gene',
                                              inplace: bool = True,
-                                             **kwargs) -> pd.DataFrame:
+                                             **kwargs):
     """
-    Wrapper function for score_regions_to_genes.
-    Calculates region to gene relationships using regression machine learning and correlation
-    :param SCENICPLUS_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data
-    :param search space: pandas data frame containing regions (stored in column 'Name') in the search space for each gene (stored in column 'Gene')
-    :param genes: list of genes for which to calculate region gene scores
-    :param importance_scoring_method: method used to score region to gene importances.
-                                      Available regression analysis are: 'RF' (Random Forrest regression), 'ET' (Extra Trees regression), 'GBM' (Gradient Boostin regression).
-    :param importance_scoring_kwargs: arguments to pass to the importance scoring function
-    :param correlation_scoring_method: method used to calculate region to gene correlations
-                                       Available correlation analysis are: 'PR' (pearson correlation), 'SR' (spearman correlation).
-    :param ray_n_cpu: num of cpus to use for ray multi-processing. Does not use ray when set to None
-    :returns a pandas dataframe with columns: target, region, importance, rho
+    Calculates region to gene relationships using non-linear regression methods and correlation
+
+    Parameters
+    ----------
+    SCENICPLUS_obj: SCENICPLUS
+        instance of SCENICPLUS class containing expression data and chromatin accessbility data
+    search_space_key: str = 'search_space'
+        a key in SCENICPLUS_obj.uns.keys pointing to a dataframe containing the search space surounding each gene.
+    mask_expr_dropout: bool = False
+        Wether or not to exclude cells which have zero counts for a gene from the calculations
+    genes: List[str] None
+        list of genes for which to calculate region gene scores. Default is None, i.e. all genes
+    importance_scoring_method: str = GBM
+        method used to score region to gene importances. Available regression analysis are: 'RF' (Random Forrest regression), 'ET' (Extra Trees regression), 'GBM' (Gradient Boostin regression).
+    importance_scoring_kwargs: dict = GBM_KWARGS
+        arguments to pass to the importance scoring function
+    correlation_scoring_method: str = SR
+        method used to calculate region to gene correlations. Available correlation analysis are: 'PR' (pearson correlation), 'SR' (spearman correlation).
+    ray_n_cpu: int = None
+        number of cores to use for ray multi-processing. Does not use ray when set to None
+    add_distance: bool = True
+        Wether or not to return region to gene distances
+    key_added: str = region_to_gene
+        Key in SCENICPLUS_obj.uns under which to store region to gene links, only stores when inplace = True
+    inplace: bool = True
+        Wether or not store the region to gene links in the SCENICPLUS_obj, if False a pd.DataFrame will be returned.
     """
     # Create logger
     level = logging.INFO
@@ -623,7 +647,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     log.info(
         f'Calculating region to gene importances, using {importance_scoring_method} method')
     start_time = time.time()
-    region_to_gene_importances = score_regions_to_genes(SCENICPLUS_obj,
+    region_to_gene_importances = _score_regions_to_genes(SCENICPLUS_obj,
                                                         search_space=search_space,
                                                         mask_expr_dropout=mask_expr_dropout,
                                                         genes=genes,
@@ -637,7 +661,7 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
     log.info(
         f'Calculating region to gene correlation, using {correlation_scoring_method} method')
     start_time = time.time()
-    region_to_gene_correlation = score_regions_to_genes(SCENICPLUS_obj,
+    region_to_gene_correlation = _score_regions_to_genes(SCENICPLUS_obj,
                                                         search_space=search_space,
                                                         mask_expr_dropout=mask_expr_dropout,
                                                         genes=genes,
@@ -682,39 +706,68 @@ def calculate_regions_to_genes_relationships(SCENICPLUS_obj: SCENICPLUS,
 
 
 def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
-                            species,
-                            outfile,
-                            region_to_gene_key='region_to_gene',
-                            pbm_host='http://www.ensembl.org',
-                            bigbed_outfile=None,
-                            path_bedToBigBed=None,
-                            assembly=None,
-                            ucsc_track_name='region_to_gene',
-                            ucsc_description='interaction file for region to gene',
-                            cmap_neg='Reds',
-                            cmap_pos='Blues',
-                            key_for_color='importance',
-                            vmin=0,
-                            vmax=1,
-                            scale_by_gene=True,
-                            subset_for_eRegulons_regions=True,
-                            eRegulons_key='eRegulons'):
+                            species: str,
+                            outfile: str,
+                            region_to_gene_key: str =' region_to_gene',
+                            pbm_host:str = 'http://www.ensembl.org',
+                            bigbed_outfile:str = None,
+                            path_bedToBigBed: str= None,
+                            assembly: str = None,
+                            ucsc_track_name: str = 'region_to_gene',
+                            ucsc_description: str = 'interaction file for region to gene',
+                            cmap_neg: str = 'Reds',
+                            cmap_pos: str = 'Greens',
+                            key_for_color: str = 'importance',
+                            vmin: int = 0,
+                            vmax: int = 1,
+                            scale_by_gene: bool = True,
+                            subset_for_eRegulons_regions: bool = True,
+                            eRegulons_key: str = 'eRegulons') -> pd.DataFrame:
     """
     Exports interaction dataframe to UCSC interaction file and (optionally) UCSC bigInteract file.
-    :param region_to_gene_df: interaction dataframe obtained from calculate_regions_to_genes_relationships function.
-    :param species: e.g. "hsapiens", used to get gene annotation from ensembl.
-    :param outfile: path to file to which to write the UCSC interaction (flat text file).
-    :param pbm_host: Path to biomart host to retrieve annotation from
-    :param bigbed_outfile (optional): path to file to which to write the UCSC bigInteract file (binary file).
-    :param path_bedToBigBed: path to the bedToBigBed program.
-    :param assembly: genomic assembly (e.g. hg38) used to get chromosome sizes to convert to bigBed.
-    :param ucsc_track_name: name for the UCSC track.
-    :param ucsc_description: description for the UCSC track.
-    :param scale_per_gene: wether or not to scale region to gene importance scores (scaling is done for each gene seperatly). 
-                           These scaled values are used to calculate color codes.
-    :param cmap_neg: matplotlib colormap for coloring importance scores where the correlation coefficient is negative.
-    :param cmap_pos: matplotlib colormap for coloring importance scores where the correlation coefficient is positive.
-    :param key_for_color: region_to_gene score to color by.
+
+    Parameters
+    ----------
+    SCENICPLUS_obj: SCENICPLUS
+        An instance of class scenicplus_class.SCENICPLUS containing region to gene links in .uns.
+    species: str
+        Species corresponding to your datassets (e.g. hsapiens)
+    outfile: str
+        Path to output file 
+    region_to_gene_key: str =' region_to_gene'
+        Key in SCENICPLUS_obj.uns.keys() under which to find region to gene links.
+    pbm_host:str = 'http://www.ensembl.org'
+        Url of biomart host relevant for your assembly.
+    bigbed_outfile:str = None
+        Path to which to write the bigbed output.
+    path_bedToBigBed: str= None
+        Path to bedToBigBed program, used to convert bed file to bigbed format.
+    assembly: str = None
+        String identifying the assembly of your dataset (e.g. hg39).
+    ucsc_track_name: str = 'region_to_gene'
+        Name of the exported UCSC track
+    ucsc_description: str = 'interaction file for region to gene'
+        Description of the exported UCSC track
+    cmap_neg: str = 'Reds'
+        Matplotlib colormap used to color negative region to gene links.
+    cmap_pos: str = 'Greens'
+        Matplotlib colormap used to color positive region to gene links.
+    key_for_color: str = 'importance'
+        Key pointing to column in region to gene links used to map cmap colors to.
+    vmin: int = 0  
+        vmin of region to gene link colors.
+    vmax: int = 1
+        vmax of region to gene link colors.
+    scale_by_gene: bool = True
+        Boolean specifying wether to scale importance scores of regions linking to the same gene from 0 to 1
+    subset_for_eRegulons_regions: bool = True
+        Boolean specifying wether or not to subset region to gene links for regions and genes in eRegulons.
+    eRegulons_key: str = 'eRegulons'
+        key in SCENICPLUS_obj.uns.keys() under which to find eRegulons.
+    
+    Returns
+    -------
+    pd.DataFrame with region to gene links formatted in the UCSC interaction format.
     """
     # Create logger
     level = logging.INFO

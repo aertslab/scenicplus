@@ -1,3 +1,47 @@
+"""Generate enhancer drive GRNs (eGRS) using the GSEA approach.
+
+Using this approach we will test if the gene set obtained from region-to-gene links, where the regions have a high score for a motif of a certain TF 
+(region indicated in black in the diagram: r8, r11, r18, r20, r22, r24), 
+are enriched in the top of the ranking based on the TF-to-gene links of the same TF (bottom right panel). 
+
+Only genes, from the set, and the regions linked to these genes in the top of the ranking (i.e. leading edge) will be kept.
+
+This aproach is done seperatly for positive and negative TF and region to gene links.
+
+Generating following four combinations:
+
+.. list-table:: Possible eRegulons
+   :widths: 25 25 50
+   :header-rows: 1
+
+   * - TF-to-gene relationship
+     - region-to-gene relationship
+     - biological role
+   * - positive (+)
+     - positive (+)
+     - TF opens chromatin and activates gene expression
+   * - positive (+)
+     - negative (-)
+     - When the TF is expressed the target gene is also expressed but the regions linked to the gene are closed.
+   * - negative (-)
+     - positive (+)
+     - When the TF is expressed the target gene is not expressed. When the target gene is expressed, regions linked to this gene are open. TF could be a chromatin closing repressor.
+   * - negative (-)
+     - negative (-)
+     - When the TF is expressed the target gene is not expressed. When the target gene is expressed, regions linked to this gene are closed.
+
+
+Left panel indicates the TF-to-gene links (blue) and region-to-gene links (yellow).
+Witdh of arrows correspond the strength of the connections based on non-linear regression.
+
+Top right panel indicates regions with a high score for a motif of a TF
+
+Bottom right panel shows GSEA analysis, with on the left genes ranked by TF-to-gene connection strength and on the right the gene-set obtained from region-to-gene links.
+In the diagram: g2, g6, and g10 are located in the top of the TF-to-gene ranking (i.e. leading edge), only these genes and the regions linked to these genes: r20, r18, r11, r8, r24 and r22 
+will be kept. 
+
+"""
+
 import pandas as pd
 import numpy as np
 import logging
@@ -18,7 +62,7 @@ logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('GSEA')
 
 
-def run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
+def _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
     """
     Helper function to run gsea for single e_module
 
@@ -55,8 +99,8 @@ def run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
 
 
 @ray.remote
-def ray_run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
-    return run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context)
+def _ray_run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
+    return _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context)
 
 
 def build_grn(SCENICPLUS_obj: SCENICPLUS,
@@ -112,10 +156,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
         Default: ()
     binarize_using_basc:
-        A boolean specifying wether or not to binarize region-to-gene links using BASC.
-        See: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
-             IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
-        Defailt: False
+        A boolean specifying wether or not to binarize region-to-gene links using BASC. Hopfensitz M, et al.
     min_regions_per_gene:
         An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
         Default: 0
@@ -138,10 +179,10 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         Int specifying minumum number of target genes in leading edge
         default: 5
     inplace
-        Boolean specifying wether to store results in :param:`SCENICPLUS_obj`
+        Boolean specifying wether to store results in `SCENICPLUS_obj`
         default: True
     key_added
-        Key specifying in under which key to store result in :param:`SCENICPLUS_obj`.uns
+        Key specifying in under which key to store result in `SCENICPLUS_obj`.uns
         default: "eRegulons"
     ray_n_cpu
         Int specifying number of cores to use
@@ -155,9 +196,10 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     **kwargs
         Additional keyword arguments passed to `ray.init`
 
-    Returns
-    -------
-    None if inplace is True else list of :class:`~scenicplus.grn_builder.modules.eRegulon` instances.
+    References
+    ----------
+    Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
+
     """
 
     if not adj_key in SCENICPLUS_obj.uns.keys():
@@ -215,7 +257,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                 if len(TF2G_adj_activating) > 0:
                     if ray_n_cpu is None:
                         new_e_modules.append(
-                            run_gsea_for_e_module(
+                            _run_gsea_for_e_module(
                                 e_module,
                                 pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
                                     ascending=False),
@@ -223,7 +265,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                                 frozenset(['positive tf2g'])))
                     else:
                         jobs.append(
-                            ray_run_gsea_for_e_module.remote(
+                            _ray_run_gsea_for_e_module.remote(
                                 e_module,
                                 pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
                                     ascending=False),
@@ -233,7 +275,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                 if len(TF2G_adj_repressing) > 0:
                     if ray_n_cpu is None:
                         new_e_modules.append(
-                            run_gsea_for_e_module(
+                            _run_gsea_for_e_module(
                                 e_module,
                                 pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
                                     ascending=False),
@@ -241,7 +283,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                                 frozenset(['negative tf2g'])))
                     else:
                         jobs.append(
-                            ray_run_gsea_for_e_module.remote(
+                            _ray_run_gsea_for_e_module.remote(
                                 e_module,
                                 pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
                                     ascending=False),
@@ -250,7 +292,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             else:
                 if ray_n_cpu is None:
                     new_e_modules.append(
-                        run_gsea_for_e_module(
+                        _run_gsea_for_e_module(
                             e_module,
                             pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
                                 ascending=False),
@@ -258,7 +300,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
                             frozenset([''])))
                 else:
                     jobs.append(
-                        ray_run_gsea_for_e_module.remote(
+                        _ray_run_gsea_for_e_module.remote(
                             e_module,
                             pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
                                 ascending=False),
