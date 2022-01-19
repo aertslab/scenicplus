@@ -290,7 +290,7 @@ def _export_minimal_loom(
     # Information on the SCope specific alterations: https://github.com/aertslab/SCope/wiki/Data-Format
 
     if cell_annotations is None:
-        cell_annotations = dict(zip(cell_names, ['-'] * ex_mtx.shape[0]))
+        cell_annotations = dict(zip(cell_names, ['-'] * ex_mtx.shape[1]))
 
     # Create an embedding based on tSNE.
     # Name of columns should be "_X" and "_Y".
