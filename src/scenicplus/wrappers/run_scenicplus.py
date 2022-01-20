@@ -340,7 +340,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                 path_bedToBigBed=path_bedToBigBed)
         
     log.info('Saving object')         
-    with open(os.path.join(save_path,'eRegulons.pkl'), 'wb') as f:
+    with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
         dill.dump(scplus_obj, f)
 
     log.info('Finished! Took {} minutes'.format((time.time() - start_time)/60))       
