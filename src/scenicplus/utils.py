@@ -820,7 +820,7 @@ def export_eRegulons(scplus_obj: 'SCENICPLUS',
         cmds = [
             os.path.join(path_bedToBigBed, 'bedToBigBed'),
             out_file,
-            'https://genome.ucsc.edu/goldenPath/help/' + assembly + '.chrom.sizes',
+            'https://hgdownload.cse.ucsc.edu/goldenpath/' + assembly + '/bigZips/' + assembly + '.chrom.sizes',
             bigbed_outfile
         ]
         p = subprocess.Popen(cmds, stdout=subprocess.PIPE,

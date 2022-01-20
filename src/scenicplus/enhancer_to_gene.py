@@ -971,7 +971,7 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
             '-as={}'.format(os.path.join(os.path.join(outfolder, 'interact.as'))),
             '-type=bed5+13',
             os.path.join(outfolder, 'interact.bed.tmp'),
-            'https://genome.ucsc.edu/goldenPath/help/' + assembly + '.chrom.sizes',
+            'https://hgdownload.cse.ucsc.edu/goldenpath/' + assembly + '/bigZips/' + assembly + '.chrom.sizes',
             bigbed_outfile
         ]
         p = subprocess.Popen(cmds, stdout=subprocess.PIPE,
