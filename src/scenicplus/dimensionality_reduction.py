@@ -20,8 +20,63 @@ from sklearn.neighbors import kneighbors_graph
 from typing import Dict, List, Tuple
 from typing import Optional, Union
 from sklearn.decomposition import PCA
+import harmonypy as hm
 
 from .scenicplus_class import SCENICPLUS
+
+def harmony(scplus_obj: SCENICPLUS,
+            variable: str,
+            auc_key: str = 'eRegulon_AUC',
+            out_key: str = 'eRegulon_AUC_harmony',
+            signature_keys : List[str] = ['Gene_based', 'Region_based'],
+            scale: Optional[bool] = True,
+            random_state: Optional[int] = 555,
+            **kwargs):
+    """
+    Apply harmony batch effect correction (Korsunsky et al, 2019) over eRegulon AUC values
+    Parameters
+    ---------
+    scplus_obj: `class::SCENICPLUS`
+        A SCENICPLUS object with eRegulon AUC values calculated.
+    variable: str
+        Variable in scplus.metadata_cell to correct by.
+    auc_key: str, optional
+        Key where AUC values are stored.
+    out_key: str, optional
+        Key where corrected eRegulon values will be output
+    signature_keys: list, optional
+        Whether to scale probability matrix prior to correction. Default: True
+    scale: bool, optional
+        Whether to scale the AUC values
+    random_state: int, optional
+        Random seed used to use with harmony. Default: 555
+    References
+    ---------
+    Korsunsky, I., Millard, N., Fan, J., Slowikowski, K., Zhang, F., Wei, K., ... & Raychaudhuri, S. (2019). Fast, sensitive and accurate integration of
+    single-cell data with Harmony. Nature methods, 16(12), 1289-1296.
+    """
+
+    for key in signature_keys:
+        cell_data = scplus_obj.metadata_cell.copy()
+        data = scplus_obj.uns[auc_key][key].copy().T
+        if scale:
+            data = pd.DataFrame(sklearn.preprocessing.StandardScaler().fit_transform(
+                data), index=data.index.to_list(), columns=data.columns)
+        data_np = data.transpose().to_numpy()
+        ho = hm.run_harmony(
+            data_np,
+            cell_data,
+            variable,
+            random_state=random_state,
+            **kwargs)
+        data_harmony = pd.DataFrame(
+            ho.Z_corr,
+            index=data.index.to_list(),
+            columns=data.columns).T
+        
+        if out_key not in scplus_obj.uns.keys():
+            scplus_obj.uns[out_key]={}
+        scplus_obj.uns[out_key][key] = data_harmony
 
 
 def find_clusters(scplus_obj: SCENICPLUS,
