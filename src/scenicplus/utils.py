@@ -670,12 +670,12 @@ def get_interaction_pr(SCENICPLUS_obj,
         scores = region_to_gene_df.loc[region_to_gene_df['rho']
                                        >= 0, key_for_color].to_numpy()
         mapper = cm.ScalarMappable(norm=norm, cmap=cmap_pos)
-        color_pos = [rgb2hex(mapper.to_rgba(s)) for s in scores]
+        colors_pos = [rgb2hex(mapper.to_rgba(s)) for s in scores]
 
         scores = region_to_gene_df.loc[region_to_gene_df['rho']
                                        < 0, key_for_color].to_numpy()
         mapper = cm.ScalarMappable(norm=norm, cmap=cmap_neg)
-        color_neg = [rgb2hex(mapper.to_rgba(s)) for s in scores]
+        colors_neg = [rgb2hex(mapper.to_rgba(s)) for s in scores]
 
     region_to_gene_df.loc[region_to_gene_df['rho'] >= 0, 'color'] = colors_pos
     region_to_gene_df.loc[region_to_gene_df['rho'] < 0,  'color'] = colors_neg
