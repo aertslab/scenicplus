@@ -91,11 +91,9 @@ def create_nx_tables(scplus_obj: 'SCENICPLUS',
         er_metadata = er_metadata[er_metadata['Region_signature_name'].str.contains(
             '|'.join(subset_eRegulons))]
     if subset_regions is not None:
-        er_metadata = er_metadata[er_metadata['Region'].str.contains(
-            '|'.join(subset_regions))]
+        er_metadata = er_metadata[er_metadata['Region'].isin(subset_regions)]
     if subset_genes is not None:
-        er_metadata = er_metadata[er_metadata['Gene'].str.contains(
-            '|'.join(subset_genes))]
+        er_metadata = er_metadata[er_metadata['Gene'].isin(subset_genes)]
     nx_tables = {}
     nx_tables['Edge'] = {}
     nx_tables['Node'] = {}
