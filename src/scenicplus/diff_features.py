@@ -67,11 +67,11 @@ def get_differential_features(scplus_obj: SCENICPLUS,
     for contrast in contrast_type:
         log.info('Calculating ' + contrast + ' for variable ' + variable)
         if contrast == 'DEGs':
-            adata = anndata.AnnData(X=scplus_obj.X_EXP, obs=pd.DataFrame(
+            adata = anndata.AnnData(X=scplus_obj.X_EXP.copy(), obs=pd.DataFrame(
                 index=scplus_obj.cell_names), var=pd.DataFrame(index=scplus_obj.gene_names))
             min_disp = 0.5
         if contrast == 'DARs':
-            adata = anndata.AnnData(X=scplus_obj.X_ACC.T, obs=pd.DataFrame(
+            adata = anndata.AnnData(X=scplus_obj.X_ACC.copy().T, obs=pd.DataFrame(
                 index=scplus_obj.cell_names), var=pd.DataFrame(index=scplus_obj.region_names))
             min_disp = 0.05
         adata.obs = scplus_obj.metadata_cell

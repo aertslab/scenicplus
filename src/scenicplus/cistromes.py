@@ -179,7 +179,7 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
     cistromes_auc = scplus_obj.uns[auc_key][signature_key]
     cell_data = cell_data.loc[cistromes_auc.index, :]
     dgem = pd.DataFrame(
-        scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
+        scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy()
     categories = list(set(cell_data.loc[:, variable]))
     cistrome_auc_agg_list = list()
     dgem_agg_list = list()
