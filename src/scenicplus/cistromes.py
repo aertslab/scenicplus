@@ -4,7 +4,7 @@
 """
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-#import pycistarget
+import pycistarget
 from pycistarget.motif_enrichment_dem import *
 from pycisTopic.diff_features import *
 from pycisTopic.signature_enrichment import *
