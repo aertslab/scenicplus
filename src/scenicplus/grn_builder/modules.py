@@ -407,8 +407,11 @@ def _binarize_BASC(adjacencies,
 
     def _binarize_basc(x):
         if len(x) > 2 and not all(x == x[0]):
-            threshold, _ = binarize(x, calc_p=False)
-            return threshold
+            try:
+                threshold, _ = binarize(x, calc_p=False)
+                return threshold
+            except:
+                return 0
         else:
             # can only binarize when array is > 2
             return 0
