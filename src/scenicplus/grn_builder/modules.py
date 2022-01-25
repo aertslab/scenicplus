@@ -406,7 +406,7 @@ def _binarize_BASC(adjacencies,
     from ..BASCA import binarize
 
     def _binarize_basc(x):
-        if len(x) > 2:
+        if len(x) > 2 and not all(x == x[0]):
             threshold, _ = binarize(x, calc_p=False)
             return threshold
         else:
