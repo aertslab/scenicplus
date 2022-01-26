@@ -179,9 +179,12 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
                             gridspec_kw={
                                 'height_ratios': height_ratios, 'width_ratios': width_ratios},
                             figsize=figsize)
-    axs_bw = axs[:, 0]
+
     if genes_violin_plot is not None:
         axs_vln = axs[:, 1]
+        axs_bw = axs[:, 0]
+    else:
+        axs_bw = axs
 
     subplot_idx = 0
     # get coordinates from region string
