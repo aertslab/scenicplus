@@ -6,7 +6,7 @@ After sets of regions have been defined (e.g. topics or DARs). The complete pyci
 this function will run cistarget based and DEM based motif enrichment analysis with or without promoter regions.
 """
 
-from typing import Mapping
+from typing import Dict
 import pandas as pd
 import dill
 import pyranges as pr
@@ -16,7 +16,7 @@ from pycistarget.utils import *
 import pybiomart as pbm
 import time
 
-def run_pycistarget(region_sets: Mapping[str, pr.PyRanges],
+def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                  species: str,
                  save_path: str,
                  ctx_db_path: str = None,
