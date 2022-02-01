@@ -35,7 +35,8 @@ def run_pycistarget(region_sets: Mapping[str, pr.PyRanges],
                  _temp_dir: str = None,
                  exclude_motifs: str = None,
                  exclude_collection: List[str] = None):
-    """Wrapper function for pycistarget
+    """
+    Wrapper function for pycistarget
     
 
     Parameters
