@@ -117,13 +117,16 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
         name = 'dmelanogaster_gene_ensembl'
     dataset = pbm.Dataset(name=name,  host=biomart_host)
     annot = dataset.query(attributes=['chromosome_name', 'transcription_start_site', 'strand', 'external_gene_name', 'transcript_biotype'])
-    annot['Chromosome/scaffold name'] = annot['Chromosome/scaffold name'].astype('str')
-    filterf = annot['Chromosome/scaffold name'].str.contains('CHR|GL|JH|MT')
+    annot.columns = ['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
+    filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT')
     annot = annot[~filterf]
-    annot['Chromosome/scaffold name'] = annot['Chromosome/scaffold name'].str.replace(r'(\b\S)', r'chr\1')
-    annot.columns=['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
+    annot['Chromosome'] = annot['Chromosome'].str.replace(r'(\b\S)', r'chr\1')
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot = annot.dropna(subset = ['Chromosome', 'Start'])
+    # Check if chromosomes have chr
+    check = region_sets[list(region_sets.keys())[0]]
+    if 'chr' not in check[list(check.keys())[0]].df['Chromosome'][0]:
+        annot.Chromosome = annot.Chromosome.str.replace('chr', '')
     annot_dem=annot.copy()
     # Define promoter space
     annot['End'] = annot['Start'].astype(int)+promoter_space
