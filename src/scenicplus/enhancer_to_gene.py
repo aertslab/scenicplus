@@ -216,6 +216,9 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             annot.Strand[annot.Strand == 1] = '+'
             annot.Strand[annot.Strand == -1] = '-'
             annot = pr.PyRanges(annot.dropna(axis=0))
+            if 'chr' not in scplus_obj.region_names[0]:
+                annot.Chromosome = annot.Chromosome.str.replace('chr', '')
+            
 
         # 2. Download chromosome sizes from UCSC genome browser
         import requests
@@ -229,6 +232,8 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             chromsizes.columns = ['Chromosome', 'End']
             chromsizes['Start'] = [0]*chromsizes.shape[0]
             chromsizes = chromsizes.loc[:, ['Chromosome', 'Start', 'End']]
+            if 'chr' not in scplus_obj.region_names[0]:
+                annot.Chromosome = annot.Chromosome.str.replace('chr', '')
             chromsizes = pr.PyRanges(chromsizes)
         else:
             raise Exception(
@@ -802,13 +807,15 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     dataset = pbm.Dataset(name=species+'_gene_ensembl',  host=pbm_host)
     annot = dataset.query(attributes=['chromosome_name', 'start_position', 'end_position',
                           'strand', 'external_gene_name', 'transcription_start_site', 'transcript_biotype'])
-    annot['Chromosome/scaffold name'] = 'chr' + \
-        annot['Chromosome/scaffold name'].astype(str)
     annot.columns = ['Chromosome', 'Start', 'End', 'Strand',
                      'Gene', 'Transcription_Start_Site', 'Transcript_type']
+    annot['Chromosome'] = 'chr' + \
+        annot['Chromosome'].astype(str)
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
+    if 'chr' not in scplus_obj.region_names[0]:
+        annot.Chromosome = annot.Chromosome.str.replace('chr', '')
 
     log.info('Formatting data ...')
     # get gene to tss mapping, take the one equal to the gene start/end location if possible otherwise take the first one
