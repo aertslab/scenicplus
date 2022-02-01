@@ -1,4 +1,5 @@
-"""Wrapper functions to run motif enrichment analysis using pycistarget
+"""
+Wrapper functions to run motif enrichment analysis using pycistarget
 
 After sets of regions have been defined (e.g. topics or DARs). The complete pycistarget workflo can be run using a single function.
 
@@ -8,6 +9,7 @@ this function will run cistarget based and DEM based motif enrichment analysis w
 from typing import Mapping
 import pandas as pd
 import dill
+import pyranges as pr
 from pycistarget.motif_enrichment_cistarget import *
 from pycistarget.motif_enrichment_dem import *
 from pycistarget.utils import *
