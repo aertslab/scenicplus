@@ -581,10 +581,10 @@ def get_interaction_pr(SCENICPLUS_obj,
                                       external_gene_name_query,
                                       transcription_start_site_query,
                                       'transcript_biotype'])
-    annot['Chromosome/scaffold name'] = 'chr' + \
-        annot['Chromosome/scaffold name'].astype(str)
     annot.columns = ['Chromosome', 'Start', 'End', 'Strand',
                      'Gene', 'Transcription_Start_Site', 'Transcript_type']
+    annot['Chromosome'] = 'chr' + \
+        annot['Chromosome'].astype(str)
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
