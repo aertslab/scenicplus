@@ -104,7 +104,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     check_folder = os.path.isdir(save_path)
     if not check_folder:
         os.makedirs(save_path)
-        log.info("Created folder : ", save_path)
+        log.info("Created folder : " + save_path)
     else:
         log.info(save_path + " folder already exists.")
         
