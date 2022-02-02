@@ -216,7 +216,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             annot.Strand[annot.Strand == 1] = '+'
             annot.Strand[annot.Strand == -1] = '-'
             annot = pr.PyRanges(annot.dropna(axis=0))
-            if 'chr' not in scplus_obj.region_names[0]:
+            if 'chr' not in SCENICPLUS_obj.region_names[0]:
                 annot.Chromosome = annot.Chromosome.str.replace('chr', '')
             
 
@@ -232,7 +232,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             chromsizes.columns = ['Chromosome', 'End']
             chromsizes['Start'] = [0]*chromsizes.shape[0]
             chromsizes = chromsizes.loc[:, ['Chromosome', 'Start', 'End']]
-            if 'chr' not in scplus_obj.region_names[0]:
+            if 'chr' not in SCENICPLUS_obj.region_names[0]:
                 annot.Chromosome = annot.Chromosome.str.replace('chr', '')
             chromsizes = pr.PyRanges(chromsizes)
         else:

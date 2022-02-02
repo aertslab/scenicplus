@@ -588,7 +588,9 @@ def get_interaction_pr(SCENICPLUS_obj,
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
-
+    if 'chr' not in SCENICPLUS_obj.region_names[0]:
+        annot.Chromosome = annot.Chromosome.str.replace('chr', '')
+        
     annot['TSSeqStartEnd'] = np.logical_or(
         annot['Transcription_Start_Site'] == annot['Start'], annot['Transcription_Start_Site'] == annot['End'])
     gene_to_tss = annot[['Gene', 'Transcription_Start_Site']].groupby(
