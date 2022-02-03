@@ -814,7 +814,7 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
-    if 'chr' not in scplus_obj.region_names[0]:
+    if 'chr' not in SCENICPLUS_obj.region_names[0]:
         annot.Chromosome = annot.Chromosome.str.replace('chr', '')
 
     log.info('Formatting data ...')
