@@ -83,10 +83,15 @@ def _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
     """
     gene_set = e_module.target_genes  # is already made unique by the class
     TF = e_module.transcription_factor
-    NES, pval, LE_genes = run_gsea(
-        ranked_gene_list=rnk,
-        gene_set=gene_set,
-        n_perm=gsea_n_perm)
+    try:
+        NES, pval, LE_genes = run_gsea(
+            ranked_gene_list=rnk,
+            gene_set=gene_set,
+            n_perm=gsea_n_perm)
+    except:
+        NES = np.nan
+        pval = np.nan
+        LE_genes = np.nan
     return eRegulon(
         transcription_factor=TF,
         cistrome_name=e_module.cistrome_name,
