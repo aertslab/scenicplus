@@ -193,7 +193,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
             log.info('Calculating region ranking')
             region_ranking = make_rankings(scplus_obj, target='region')
             with open(os.path.join(save_path,'region_ranking.pkl'), 'wb') as f:
-                dill.dump(region_ranking, f)
+                dill.dump(region_ranking, f, protocol = -1)
         log.info('Calculating eGRNs region based AUC')
         score_eRegulons(scplus_obj,
                 ranking = region_ranking,
@@ -207,7 +207,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
             log.info('Calculating gene ranking')
             gene_ranking = make_rankings(scplus_obj, target='gene')
             with open(os.path.join(save_path,'gene_ranking.pkl'), 'wb') as f:
-                dill.dump(gene_ranking, f)
+                dill.dump(gene_ranking, f, protocol = -1)
         log.info('Calculating eGRNs gene based AUC')
         score_eRegulons(scplus_obj,
                 gene_ranking,
@@ -341,7 +341,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         
     log.info('Saving object')         
     with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
-        dill.dump(scplus_obj, f)
+        dill.dump(scplus_obj, f, protocol = -1)
 
     log.info('Finished! Took {} minutes'.format((time.time() - start_time)/60))       
     
