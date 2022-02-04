@@ -237,99 +237,97 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
     if ray_n_cpu is not None:
         ray.init(num_cpus=ray_n_cpu, **kwargs)
         jobs = []
-    try:
-        log.info(f'Running GSEA...')
-        new_e_modules = []
-        # dict so adjacencies matrix is only subsetted once per TF (improves performance)
-        TF_to_TF_adj_d = {}
-        tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
-        for e_module in tqdm(e_modules, total=len(e_modules), desc=tqdm_desc, disable=disable_tqdm):
-            TF = e_module.transcription_factor
-            if TF in TF_to_TF_adj_d.keys():
-                TF2G_adj = TF_to_TF_adj_d[TF]
-            else:
-                TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
-                TF_to_TF_adj_d[TF] = TF2G_adj
-            if rho_dichotomize_tf2g:
-                TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho']
-                                                   > rho_threshold]
-                TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho']
-                                                   < -rho_threshold]
 
-                TF2G_adj_activating.index = TF2G_adj_activating['target']
-                TF2G_adj_repressing.index = TF2G_adj_repressing['target']
+    log.info(f'Running GSEA...')
+    new_e_modules = []
+    # dict so adjacencies matrix is only subsetted once per TF (improves performance)
+    TF_to_TF_adj_d = {}
+    tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
+    for e_module in tqdm(e_modules, total=len(e_modules), desc=tqdm_desc, disable=disable_tqdm):
+        TF = e_module.transcription_factor
+        if TF in TF_to_TF_adj_d.keys():
+            TF2G_adj = TF_to_TF_adj_d[TF]
+        else:
+            TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
+            TF_to_TF_adj_d[TF] = TF2G_adj
+        if rho_dichotomize_tf2g:
+            TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho']
+                                               > rho_threshold]
+            TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho']
+                                               < -rho_threshold]
 
-                if len(TF2G_adj_activating) > 0:
-                    if ray_n_cpu is None:
-                        new_e_modules.append(
-                            _run_gsea_for_e_module(
-                                e_module,
-                                pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
-                                    ascending=False),
-                                gsea_n_perm,
-                                frozenset(['positive tf2g'])))
-                    else:
-                        jobs.append(
-                            _ray_run_gsea_for_e_module.remote(
-                                e_module,
-                                pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
-                                    ascending=False),
-                                gsea_n_perm,
-                                frozenset(['positive tf2g'])))
+            TF2G_adj_activating.index = TF2G_adj_activating['target']
+            TF2G_adj_repressing.index = TF2G_adj_repressing['target']
 
-                if len(TF2G_adj_repressing) > 0:
-                    if ray_n_cpu is None:
-                        new_e_modules.append(
-                            _run_gsea_for_e_module(
-                                e_module,
-                                pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
-                                    ascending=False),
-                                gsea_n_perm,
-                                frozenset(['negative tf2g'])))
-                    else:
-                        jobs.append(
-                            _ray_run_gsea_for_e_module.remote(
-                                e_module,
-                                pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
-                                    ascending=False),
-                                gsea_n_perm,
-                                frozenset(['negative tf2g'])))
-            else:
+            if len(TF2G_adj_activating) > 0:
                 if ray_n_cpu is None:
                     new_e_modules.append(
                         _run_gsea_for_e_module(
                             e_module,
-                            pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
+                            pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
                                 ascending=False),
                             gsea_n_perm,
-                            frozenset([''])))
+                            frozenset(['positive tf2g'])))
                 else:
                     jobs.append(
                         _ray_run_gsea_for_e_module.remote(
                             e_module,
-                            pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
+                            pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
                                 ascending=False),
                             gsea_n_perm,
-                            frozenset([''])))
-        if ray_n_cpu is not None:
-            def to_iterator(obj_ids):
-                while obj_ids:
-                    finished_ids, obj_ids = ray.wait(obj_ids)
-                    for finished_id in finished_ids:
-                        yield ray.get(finished_id)
+                            frozenset(['positive tf2g'])))
 
-            for e_module in tqdm(to_iterator(jobs),
-                                 total=len(jobs),
-                                 desc=f'Running using {ray_n_cpu} cores',
-                                 smoothing=0.1,
-                                 disable=disable_tqdm):
-                new_e_modules.append(e_module)
+            if len(TF2G_adj_repressing) > 0:
+                if ray_n_cpu is None:
+                    new_e_modules.append(
+                        _run_gsea_for_e_module(
+                            e_module,
+                            pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
+                                ascending=False),
+                            gsea_n_perm,
+                            frozenset(['negative tf2g'])))
+                else:
+                    jobs.append(
+                        _ray_run_gsea_for_e_module.remote(
+                            e_module,
+                            pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
+                                ascending=False),
+                            gsea_n_perm,
+                            frozenset(['negative tf2g'])))
+        else:
+            if ray_n_cpu is None:
+                new_e_modules.append(
+                    _run_gsea_for_e_module(
+                        e_module,
+                        pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
+                            ascending=False),
+                        gsea_n_perm,
+                        frozenset([''])))
+            else:
+                jobs.append(
+                    _ray_run_gsea_for_e_module.remote(
+                        e_module,
+                        pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
+                            ascending=False),
+                        gsea_n_perm,
+                        frozenset([''])))
+    if ray_n_cpu is not None:
+        def to_iterator(obj_ids):
+            while obj_ids:
+                finished_ids, obj_ids = ray.wait(obj_ids)
+                for finished_id in finished_ids:
+                    yield ray.get(finished_id)
 
-    except Exception as e:
-        print(e)
-    finally:
-        if ray_n_cpu is not None:
-            ray.shutdown()
+        for e_module in tqdm(to_iterator(jobs),
+                             total=len(jobs),
+                             desc=f'Running using {ray_n_cpu} cores',
+                             smoothing=0.1,
+                             disable=disable_tqdm):
+            new_e_modules.append(e_module)
+
+
+    if ray_n_cpu is not None:
+        ray.shutdown()
 
     # filter out nans
     new_e_modules = [m for m in new_e_modules if not np.isnan(
