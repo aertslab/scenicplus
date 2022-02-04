@@ -265,6 +265,6 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                     
     log.info('Saving object')         
     with open(os.path.join(save_path,'menr.pkl'), 'wb') as f:
-        dill.dump(menr, f)
+        dill.dump(menr, f, protocol=-1)
 
     log.info('Finished! Took {} minutes'.format((time.time() - start_time)/60))  
