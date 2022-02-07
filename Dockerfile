@@ -48,6 +48,7 @@ RUN  cd /tmp/pycisTopic && \
 
 # install Mallet (https://github.com/mimno/Mallet)
 # https://github.com/docker-library/openjdk/blob/0584b2804ed12dca7c5e264b5fc55fc07a3ac148/8-jre/slim/Dockerfile#L51-L54
+RUN apt update
 RUN mkdir -p /usr/share/man/man1 && \
     apt-get install -y --no-install-recommends ant openjdk-11-jdk && \
     git clone --depth=1 https://github.com/mimno/Mallet.git /tmp/Mallet && \
