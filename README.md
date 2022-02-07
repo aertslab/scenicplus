@@ -61,4 +61,4 @@ Coming soon
 ## References
 1. [Bravo Gonzalez-Blas, C. *et al.* (2020). Identification of genomic enhancers through spatial integration of single-cell transcriptomics and epigenomics. Molecular Systems Biology](https://www.embopress.org/doi/full/10.15252/msb.20209438)
 
-2. [Janssens, J., Aibar, S., Taskiran, I.I. *et al.* (2021) Decoding gene regulation in the fly brain. BioRxiv](https://www.biorxiv.org/content/10.1101/2021.08.11.454937v1)
+2. [Janssens, J., Aibar, S., Taskiran, I.I. *et al.* (2022) Decoding gene regulation in the fly brain. Natre](https://www.nature.com/articles/s41586-021-04262-z)
