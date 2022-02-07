@@ -46,6 +46,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     downstream: Optional[List] = [1000, 150000],
     region_ranking: Optional['CisTopicImputedFeatures'] = None,
     gene_ranking: Optional['CisTopicImputedFeatures'] = None,
+    simplified_eGRN: Optional[bool] = False,
     calculate_TF_eGRN_correlation: Optional[bool] = True,
     calculate_DEGs_DARs: Optional[bool] = True,
     export_to_loom_file: Optional[bool] = True,
@@ -82,6 +83,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         Precomputed region ranking
     gene_ranking: `class::CisTopicImputedFeatures`, optional
         Precomputed gene ranking
+    simplified_eGRN: bool, optional
+        Whether to output simplified eGRNs (only TF-G sign rather than TF-G_R-G)
     calculate_TF_eGRN_correlation: bool, optional
         Whether to calculate the TF-eGRN correlation based on the variables
     calculate_DEGs_DARs: bool, optional
@@ -186,6 +189,18 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         get_eRegulons_as_signatures(scplus_obj,
                                      eRegulon_metadata_key='eRegulon_metadata', 
                                      key_added='eRegulon_signatures')
+                                     
+    if simplified_eGRN is True:
+        md = scplus_obj.uns['eRegulon_signatures']['Gene_based']
+        names = list(set([x.split('_(')[0][:len(x.split('_(')[0]) - 2] for x in md.keys()]))
+        scplus_obj.uns['eRegulon_signatures']['Gene_based'] = {x:list(set(sum([value for key, value in md.items() if key.startswith(x)], []))) for x in names}
+        scplus_obj.uns['eRegulon_signatures']['Gene_based'] = {x+'_('+str(len(scplus_obj.uns['eRegulon_signatures']['Gene_based'][x]))+'g)': scplus_obj.uns['eRegulon_signatures']['Gene_based'][x] for x in scplus_obj.uns['eRegulon_signatures']['Gene_based'].keys()}
+
+        md = scplus_obj.uns['eRegulon_signatures']['Region_based']
+        names = list(set([x.split('_(')[0][:len(x.split('_(')[0]) - 2] for x in md.keys()]))
+        scplus_obj.uns['eRegulon_signatures']['Region_based'] = {x:list(set(sum([value for key, value in md.items() if key.startswith(x)], []))) for x in names}
+        scplus_obj.uns['eRegulon_signatures']['Region_based'] = {x+'_('+str(len(scplus_obj.uns['eRegulon_signatures']['Region_based'][x]))+'r)': scplus_obj.uns['eRegulon_signatures']['Region_based'][x] for x in scplus_obj.uns['eRegulon_signatures']['Region_based'].keys()}
+
     
     if 'eRegulon_AUC' not in scplus_obj.uns.keys():
         log.info('Calculating eGRNs AUC')
