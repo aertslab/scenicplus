@@ -176,7 +176,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 log.info('Running cisTarget without promoters for '+key)
                 regions_overlaps = {key: regions[key].count_overlaps(annot) for key in regions.keys()}
                 regions_np = {key: regions_overlaps[key][regions_overlaps[key].NumberOverlaps == 0][['Chromosome', 'Start', 'End']] for key in regions.keys()}
-                db_regions = set(pd.concat([ctx_db.regions_to_db[x] for x in ctx_db.regions_to_db.keys()])['Target'])
+                db_regions = set(pd.concat([ctx_db.regions_to_db[x] for x in ctx_db.regions_to_db.keys()])['Query'])
                 ctx_db.regions_to_db = {x: target_to_query(regions_np[x], list(db_regions), fraction_overlap = 0.4) for x in regions_np.keys()}
                 menr['CTX_'+key+'_No_promoters'] = run_cistarget(ctx_db = ctx_db,
                                    region_sets = regions_np,
@@ -238,7 +238,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 ## REMOVE PROMOTERS
                 regions_overlaps = {key: regions[key].count_overlaps(annot) for key in regions.keys()}
                 regions_np = {key: regions_overlaps[key][regions_overlaps[key].NumberOverlaps == 0][['Chromosome', 'Start', 'End']] for key in regions.keys()}
-                db_regions = set(pd.concat([dem_db.regions_to_db[x] for x in dem_db.regions_to_db.keys()])['Target'])
+                db_regions = set(pd.concat([dem_db.regions_to_db[x] for x in dem_db.regions_to_db.keys()])['Query'])
                 dem_db.regions_to_db = {x: target_to_query(regions_np[x], list(db_regions), fraction_overlap = 0.4) for x in regions_np.keys()}
                 menr['DEM_'+key+'_No_promoters'] = DEM(dem_db = dem_db,
                                region_sets = regions_np,
