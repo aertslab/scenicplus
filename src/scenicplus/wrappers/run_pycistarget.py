@@ -127,6 +127,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot = annot.dropna(subset = ['Chromosome', 'Start'])
     # Check if chromosomes have chr
+    check = region_sets[list(region_sets.keys())[0]]
     if not any(['chr' in c for c in check[list(check.keys())[0]].df['Chromosome']]):
         annot.Chromosome = annot.Chromosome.str.replace('chr', '')
     annot_dem=annot.copy()
@@ -230,8 +231,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                motif_annotation =   annotation,
                                path_to_motif_annotations = path_to_motif_annotations,
                                n_cpu = n_cpu,
-                               tmp_dir= _temp_dir,
-                               annotation_version = annotation_version)
+                               annotation_version = annotation_version,
+                               _temp_dir= _temp_dir)
             out_folder = os.path.join(save_path,'DEM_'+key+'_All')
             check_folder = os.path.isdir(out_folder)
             if not check_folder:
@@ -263,8 +264,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                motif_annotation = annotation,
                                path_to_motif_annotations = path_to_motif_annotations,
                                n_cpu = n_cpu,
-                               tmp_dir= _temp_dir,
-                               annotation_version = annotation_version)
+                               annotation_version = annotation_version,
+                               _temp_dir= _temp_dir)
                 out_folder = os.path.join(save_path,'DEM_'+key+'_No_promoters')
                 check_folder = os.path.isdir(out_folder)
                 if not check_folder:
