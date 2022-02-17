@@ -127,8 +127,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot = annot.dropna(subset = ['Chromosome', 'Start'])
     # Check if chromosomes have chr
-    check = region_sets[list(region_sets.keys())[0]]
-    if 'chr' not in check[list(check.keys())[0]].df['Chromosome'][0]:
+    if not any(['chr' in c for c in check[list(check.keys())[0]].df['Chromosome']]):
         annot.Chromosome = annot.Chromosome.str.replace('chr', '')
     annot_dem=annot.copy()
     # Define promoter space

@@ -588,7 +588,7 @@ def get_interaction_pr(SCENICPLUS_obj,
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
-    if 'chr' not in SCENICPLUS_obj.region_names[0]:
+    if not any(['chr' in c for c in SCENICPLUS_obj.region_names]):
         annot.Chromosome = annot.Chromosome.str.replace('chr', '')
         
     annot['TSSeqStartEnd'] = np.logical_or(

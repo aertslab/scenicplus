@@ -216,7 +216,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             annot.Strand[annot.Strand == 1] = '+'
             annot.Strand[annot.Strand == -1] = '-'
             annot = pr.PyRanges(annot.dropna(axis=0))
-            if 'chr' not in SCENICPLUS_obj.region_names[0]:
+            if not any(['chr' in c for c in SCENICPLUS_obj.region_names]):
                 annot.Chromosome = annot.Chromosome.str.replace('chr', '')
             
 
@@ -232,7 +232,7 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
             chromsizes.columns = ['Chromosome', 'End']
             chromsizes['Start'] = [0]*chromsizes.shape[0]
             chromsizes = chromsizes.loc[:, ['Chromosome', 'Start', 'End']]
-            if 'chr' not in SCENICPLUS_obj.region_names[0]:
+            if not any(['chr' in c for c in SCENICPLUS_obj.region_names]):
                 annot.Chromosome = annot.Chromosome.str.replace('chr', '')
             chromsizes = pr.PyRanges(chromsizes)
         else:
@@ -814,7 +814,7 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot.Strand[annot.Strand == 1] = '+'
     annot.Strand[annot.Strand == -1] = '-'
-    if 'chr' not in SCENICPLUS_obj.region_names[0]:
+    if not any(['chr' in c for c in SCENICPLUS_obj.region_names]):
         annot.Chromosome = annot.Chromosome.str.replace('chr', '')
 
     log.info('Formatting data ...')
