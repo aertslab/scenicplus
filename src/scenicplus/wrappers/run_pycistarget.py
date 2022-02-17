@@ -19,6 +19,7 @@ import time
 def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                  species: str,
                  save_path: str,
+                 save_partial: bool = False,
                  ctx_db_path: str = None,
                  dem_db_path: str = None,
                  run_without_promoters: bool = False,
@@ -49,6 +50,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
         Species from which genomic coordinates come from, options are: homo_sapiens, mus_musculus and drosophila_melanogaster.
     save_path: str
         Directory in which to save outputs.
+    save_partial: bool=False
+        Whether to save the individual analyses as pkl. Useful to run analyses in chunks or add new settings.
     ctx_db_path: str = None
         Path to cistarget database containing rankings of motif scores
     dem_db_path: str = None
@@ -170,6 +173,9 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
             for x in menr['CTX_'+key+'_All'].keys():
                 out_file = os.path.join(out_folder, str(x) +'.html')
                 menr['CTX_'+key+'_All'][str(x)].motif_enrichment.to_html(open(out_file, 'w'), escape=False, col_space=80)
+            if(save_partial):
+                with open(os.path.join(save_path,'CTX_'+key+'_All' + '.pkl'), 'wb') as f:
+                    dill.dump(menr['CTX_'+key+'_All'], f, protocol=-1)
 
             if run_without_promoters is True:
                 ## REMOVE PROMOTERS
@@ -199,6 +205,10 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 for x in menr['CTX_'+key+'_No_promoters'].keys():
                     out_file = os.path.join(out_folder, str(x) +'.html')
                     menr['CTX_'+key+'_No_promoters'][str(x)].motif_enrichment.to_html(open(out_file, 'w'), escape=False, col_space=80)
+                
+                if(save_partial):
+                    with open(os.path.join(save_path,'CTX_'+key+'_No_promoters' + '.pkl'), 'wb') as f:
+                      dill.dump(menr['CTX_'+key+'_No_promoters'], f, protocol=-1)
         ## DEM
         if dem_db_path is not None:
             log.info('Running DEM for '+key)
@@ -233,6 +243,10 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
             for x in menr['DEM_'+key+'_All'].motif_enrichment.keys():
                 out_file = os.path.join(out_folder, str(x) +'.html')
                 menr['DEM_'+key+'_All'].motif_enrichment[str(x)].to_html(open(out_file, 'w'), escape=False, col_space=80)
+            if(save_partial):
+                with open(os.path.join(save_path, 'DEM_'+key+'_All'+'.pkl'), 'wb') as f:
+                  dill.dump(menr['DEM_'+key+'_All'], f, protocol=-1)
+                
             if run_without_promoters is True:
                 log.info('Running DEM without promoters for '+key)
                 ## REMOVE PROMOTERS
@@ -262,6 +276,9 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 for x in menr['DEM_'+key+'_No_promoters'].motif_enrichment.keys():
                     out_file = os.path.join(out_folder, str(x) +'.html')
                     menr['DEM_'+key+'_No_promoters'].motif_enrichment[str(x)].to_html(open(out_file, 'w'), escape=False, col_space=80)
+              if(save_partial):
+                    with open(os.path.join(save_path, 'DEM_'+key+'_No_promoters'+'.pkl'), 'wb') as f:
+                      dill.dump(menr['DEM_'+key+'_All'], f, protocol=-1)
                     
     log.info('Saving object')         
     with open(os.path.join(save_path,'menr.pkl'), 'wb') as f:
