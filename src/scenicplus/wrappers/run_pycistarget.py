@@ -276,7 +276,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 for x in menr['DEM_'+key+'_No_promoters'].motif_enrichment.keys():
                     out_file = os.path.join(out_folder, str(x) +'.html')
                     menr['DEM_'+key+'_No_promoters'].motif_enrichment[str(x)].to_html(open(out_file, 'w'), escape=False, col_space=80)
-              if(save_partial):
+                if(save_partial):
                     with open(os.path.join(save_path, 'DEM_'+key+'_No_promoters'+'.pkl'), 'wb') as f:
                       dill.dump(menr['DEM_'+key+'_All'], f, protocol=-1)
                     
