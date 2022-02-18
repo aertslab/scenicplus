@@ -269,6 +269,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
              signature_keys=['Gene_based', 'Region_based'],
              n_cpu=n_cpu)
              
+    if not hasattr(scplus_obj, 'dr_cell'):
+        scplus_obj.dr_cell = {}         
     if 'eRegulons_UMAP' not in scplus_obj.dr_cell.keys():
         log.info('Making eGRNs AUC UMAP')
         run_eRegulons_umap(scplus_obj,

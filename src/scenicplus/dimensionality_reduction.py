@@ -229,7 +229,8 @@ def run_eRegulons_tsne(scplus_obj: SCENICPLUS,
         columns=[
             'tSNE_1',
             'tSNE_2'])
-
+    if not hasattr(scplus_obj, 'dr_cell'):
+        scplus_obj.dr_cell = {}
     scplus_obj.dr_cell[reduction_name] = dr
 
 
@@ -297,6 +298,8 @@ def run_eRegulons_umap(scplus_obj: SCENICPLUS,
         columns=[
             'UMAP_1',
             'UMAP_2'])
+    if not hasattr(scplus_obj, 'dr_cell'):
+        scplus_obj.dr_cell = {}
     scplus_obj.dr_cell[reduction_name] = dr
 
 
@@ -364,6 +367,8 @@ def run_eRegulons_pca(scplus_obj: SCENICPLUS,
         embedding,
         index=data_names,
         columns=[f'PC_{i}' for i in range(n_pcs)])[['PC_0', 'PC_1']]
+    if not hasattr(scplus_obj, 'dr_cell'):
+        scplus_obj.dr_cell = {}
     scplus_obj.dr_cell[reduction_name] = dr
 
 
