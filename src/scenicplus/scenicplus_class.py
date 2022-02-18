@@ -697,7 +697,9 @@ def create_SCENICPLUS_object(
             metadata_regions=ACC_region_metadata_subset,
             metadata_genes=GEX_gene_metadata,
             metadata_cell=metadata_cell,
-            menr=menr)
+            menr=menr,
+            dr_cell={},
+            dr_region={})
 
     if region_metadata is not None:
         SCENICPLUS_obj.add_region_data(region_metadata)
