@@ -585,8 +585,8 @@ def create_SCENICPLUS_object(
             metadata_genes=GEX_gene_metadata,
             metadata_cell=ACC_GEX_cell_metadata,
             menr=menr,
-            dr_cell=dr_cell if len(dr_cell.keys()) > 0 else None,
-            dr_region=ACC_dr_region if len(ACC_dr_region.keys()) > 0 else None)
+            dr_cell=dr_cell if len(dr_cell.keys()) > 0 else {},
+            dr_region=ACC_dr_region if len(ACC_dr_region.keys()) > 0 else {})
 
     else:
         from .utils import generate_pseudocells_for_numpy, generate_pseudocell_names
