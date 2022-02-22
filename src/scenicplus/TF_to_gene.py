@@ -240,6 +240,13 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
         ex_matrix, gene_names, tf_names)
     tf_matrix, tf_matrix_gene_names = to_tf_matrix(
         ex_matrix, gene_names, tf_names)
+    
+       #convert ex_matrix, tf_matrix to np.array if necessary
+    if not isinstance(ex_matrix, np.array):
+        ex_matrix = np.array(ex_matrix)
+    
+    if not isinstance(tf_matrix, np.array):
+        tf_matrix = np.array(tf_matrix)
 
     ray.init(num_cpus=ray_n_cpu, **kwargs)
     log.info(f'Calculating TF to gene correlation, using {method} method')
