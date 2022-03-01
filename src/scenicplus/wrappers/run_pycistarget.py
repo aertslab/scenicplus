@@ -32,6 +32,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                  dem_motif_hit_thr: float = 3.0,
                  dem_max_bg_regions: int = 500,
                  annotation : List[str] = ['Direct_annot', 'Orthology_annot'],
+                 motif_similarity_fdr: float = 0.000001,
                  path_to_motif_annotations: str = None,
                  annotation_version: str = 'v9',
                  n_cpu : int = 1,
@@ -41,7 +42,6 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     """
     Wrapper function for pycistarget
     
-
     Parameters
     ---------
     region_sets: Mapping[str, pr.PyRanges]
@@ -92,7 +92,6 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
         Path to csv file containing motif to exclude from the analysis.
     exclude_collection: List[str] = None
         List of strings identifying which motif collections to exclude from analysis.
-
     """
     
     # Create logger
@@ -159,6 +158,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                    nes_threshold = ctx_nes_threshold,
                                    rank_threshold = ctx_rank_threshold,
                                    annotation = annotation,
+                                   motif_similarity_fdr = motif_similarity_fdr,
                                    path_to_motif_annotations = path_to_motif_annotations,
                                    n_cpu = n_cpu,
                                    _temp_dir= _temp_dir,
@@ -191,6 +191,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                    nes_threshold = ctx_nes_threshold,
                                    rank_threshold = ctx_rank_threshold,
                                    annotation = annotation,
+                                   motif_similarity_fdr = motif_similarity_fdr, 
                                    path_to_motif_annotations = path_to_motif_annotations,
                                    n_cpu = n_cpu,
                                    _temp_dir= _temp_dir,
@@ -229,6 +230,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                genome_annotation = annot_dem,
                                promoter_space = promoter_space,
                                motif_annotation =   annotation,
+                               motif_similarity_fdr = motif_similarity_fdr, 
                                path_to_motif_annotations = path_to_motif_annotations,
                                n_cpu = n_cpu,
                                annotation_version = annotation_version,
@@ -263,6 +265,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                specie = species,
                                promoter_space = promoter_space,
                                motif_annotation = annotation,
+                               motif_similarity_fdr = motif_similarity_fdr, 
                                path_to_motif_annotations = path_to_motif_annotations,
                                n_cpu = n_cpu,
                                annotation_version = annotation_version,
