@@ -120,6 +120,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     dataset = pbm.Dataset(name=name,  host=biomart_host)
     annot = dataset.query(attributes=['chromosome_name', 'transcription_start_site', 'strand', 'external_gene_name', 'transcript_biotype'])
     annot.columns = ['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
+    annot['Chromosome'] = annot['Chromosome'].astype('str')
     filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT')
     annot = annot[~filterf]
     annot['Chromosome'] = annot['Chromosome'].str.replace(r'(\b\S)', r'chr\1')
