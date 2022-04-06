@@ -270,3 +270,12 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap',
     plt.quiver(grid_xy[mask, 0], grid_xy[mask, 1], uv[mask, 0], uv[mask, 1], zorder=1, color=colormap(color[mask]), scale=scale)
     if return_data == True:
         return df
+        
+def select_regulons(tf, selected_features):
+    gene_regulon_name = [x for x in selected_features['Gene'] if x.startswith(tf+'_')]
+    if len(gene_regulon_name) > 1:
+        gene_regulon_name = [x for x in gene_regulon_name if 'extended' not in x]
+    region_regulon_name = [x for x in selected_features['Region'] if x.startswith(tf+'_')]
+    if len(region_regulon_name) > 1:
+        region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
+    return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
