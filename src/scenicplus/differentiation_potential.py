@@ -278,4 +278,3 @@ def select_regulons(tf, selected_features):
     region_regulon_name = [x for x in selected_features['Region'] if x.startswith(tf+'_')]
     if len(region_regulon_name) > 1:
         region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
-    return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
