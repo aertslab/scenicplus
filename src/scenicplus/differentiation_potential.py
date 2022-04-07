@@ -28,7 +28,7 @@ def get_embedding_dpt(adata, group_var, root_group, embedding_key='X_umap', n_dc
     sc.pl.embedding(adata, embedding_key, color=['clusters', 'distance'], legend_loc='on data', cmap='viridis')
 
 
-def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = True, window=100):
+def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = True):
     mat_list = []
     if split_groups == True:
         for group in path:
@@ -49,11 +49,6 @@ def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = Tru
         mat = pd.DataFrame(path_adata.X)
         mat.index = path_adata.obs.index
         mat.columns = path_adata.var.index
-    cell_names = mat.index
-    mat = mat.rolling(window=window, min_periods=0, axis=0).mean()
-    #scaler = MinMaxScaler()
-    #mat = pd.DataFrame(scaler.fit_transform(mat), columns=mat.columns)
-    mat.index = cell_names
     return mat
 
 
@@ -66,7 +61,7 @@ def fitgam(x,y, feature_range=(0, 1)):
     pval = gam.statistics_['p_values']
     return yhat, pval[0]
 
-def plot_potential(adata, paths_cascades, path, tf, show_plot=True, return_data=False, gam_smooth=True):    
+def plot_potential(adata, paths_cascades, path, tf, window=10, show_plot=True, return_data=False, gam_smooth=True, dpt_var='distance'):    
     gene_data = paths_cascades['Gene'][path]
     region_data = paths_cascades['Region'][path]
     tf_data = paths_cascades['TF'][path]
@@ -89,13 +84,31 @@ def plot_potential(adata, paths_cascades, path, tf, show_plot=True, return_data=
     tf_expr_norm = scaler.fit_transform(adata[:,tf_name].X.copy())
     tf_ov = pd.DataFrame(tf_expr_norm, index=adata.obs.index, columns=[tf_name+'_all_paths'])
     tf_ov = tf_ov.loc[tf_data.index]
-    df = pd.DataFrame([tf_data, region, gene, tf_ov.iloc[:,0]]).T
+    tf_ov = tf_ov.iloc[:,0]
+    max_value = np.max(tf_ov)
+    
+    df = pd.DataFrame([tf_data, region, gene, tf_ov]).T
+    cell_names = df.index
+    df = df.rolling(window=window, min_periods=0, axis=0).mean()
+    df.index = cell_names
+    tf_data = np.array(df.iloc[:,0])
+    region = np.array(df.iloc[:,1])
+    gene = np.array(df.iloc[:,2])
+    tf_ov = np.array(df.iloc[:,3])
     
     if gam_smooth == True:
         tf_data, _ = fitgam(np.array(range(0,tf_data.shape[0])), tf_data, feature_range=(0,1))
         region, _ = fitgam(np.array(range(0,region_data.shape[0])), region, feature_range=(0,1))
         gene, _ = fitgam(np.array(range(0,gene_data.shape[0])), gene, feature_range=(0,1))
-        tf_ov, _ = fitgam(np.array(range(0,tf_ov.shape[0])), tf_ov, feature_range=(0,np.array(tf_ov.max())[0]))
+        tf_ov, _ = fitgam(np.array(range(0,tf_ov.shape[0])), tf_ov, feature_range=(0,max_value))
+    else:
+        scaler = MinMaxScaler(feature_range=(0,1))
+        tf_data = scaler.fit_transform(tf_data.reshape(-1, 1))
+        region = scaler.fit_transform(region.reshape(-1, 1))
+        gene = scaler.fit_transform(gene.reshape(-1, 1))
+        scaler = MinMaxScaler(feature_range=(0,max_value))
+        tf_ov = scaler.fit_transform(tf_ov.reshape(-1, 1))
+        
     
     if show_plot == True:
         plt.plot(range(0,tf_data.shape[0]), tf_data, color='red', label=tf)
@@ -223,7 +236,7 @@ def calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_gr
 
 
 
-def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap',
+def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=10,
              plot_type='tf_to_gene', gam_smooth = True, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
              n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
              figsize =(10, 10), colormap = cm.Greys, return_data = False):
@@ -235,7 +248,7 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap',
     y_list = []
     tf_expr_list = []
     for k in ke:
-        df = plot_potential(adata, paths_cascade, k, tf, return_data=True, show_plot=False, gam_smooth=gam_smooth) 
+        df = plot_potential(adata, paths_cascade, k, tf, window=window, return_data=True, show_plot=False, gam_smooth=gam_smooth) 
         arrow_map = calculate_arrows(df, penalization)
         embedding = pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index, columns=['x', 'y'])
         embedding.iloc[:,0] = embedding.iloc[:,0]+abs(min(embedding.iloc[:,0]))
@@ -278,3 +291,4 @@ def select_regulons(tf, selected_features):
     region_regulon_name = [x for x in selected_features['Region'] if x.startswith(tf+'_')]
     if len(region_regulon_name) > 1:
         region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
+    return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
