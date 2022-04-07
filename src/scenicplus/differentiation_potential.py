@@ -119,12 +119,11 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True, re
         plt.legend()
     
     if return_data == True:
-        if gam_smooth == True:
-            index = df.index
-            columns = df.columns
-            df = pd.DataFrame([tf_data[:,0], region[:,0], gene[:,0], tf_ov[:,0]]).T
-            df.index = index
-            df.columns = columns   
+        index = df.index
+        columns = df.columns
+        df = pd.DataFrame([tf_data[:,0], region[:,0], gene[:,0], tf_ov[:,0]]).T
+        df.index = index
+        df.columns = columns   
         return df
     
 def pairwise(iterable):
