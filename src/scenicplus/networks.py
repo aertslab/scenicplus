@@ -1,6 +1,7 @@
 """export eRegulons to eGRN network and plot.
 """
 
+import json
 import pandas as pd
 from typing import Union, Dict, Sequence, Optional, List
 import anndata
@@ -687,3 +688,21 @@ def concentrical_layout(G,
     ) if k in regions_targetting_TFs}
 
     return {**pos_TF, **pos_regions, **pos_genes, **pos_add, **pos_regions_TF}
+    
+def export_to_cytoscape(G, pos, out_file, pos_scaling_factor=200, size_scaling_factor=1):
+    """
+    A function to export to cytoscape
+    """
+    cy = nx.cytoscape_data(G)
+    for n in cy["elements"]["nodes"]:
+        for k, v in n.items():
+            v["label"] = v.pop("value")
+    for n, p in zip(cy["elements"]["nodes"], pos.values()):
+        n["position"] = {"x": int(p[0] * POS_SCALING_FACTOR), "y": int(p[1] * POS_SCALING_FACTOR)}
+    for n in cy["elements"]["nodes"]:
+        n['data']['font_size'] = int(n['data']['font_size'])
+        n['data']['size'] = n['data']['size']*SIZE_SCALING_FACTOR
+        n['data']['shape'] = n['data']['shape'].capitalize()
+    json_string = json.dumps(cy, indent = 2)
+    with open(out_file, 'w') as outfile:
+        outfile.write(json_string) 
