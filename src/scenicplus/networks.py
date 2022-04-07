@@ -1,5 +1,4 @@
 """export eRegulons to eGRN network and plot.
-
 """
 
 import pandas as pd
@@ -12,6 +11,7 @@ import matplotlib.cm as cm
 import networkx as nx
 from matplotlib.colors import to_rgba, to_hex
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def _format_df_nx(df, key, var):
@@ -205,7 +205,11 @@ def _format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, tran
             x[x < min_alpha] = min_alpha
             color[:, -1] = x
         else:
-            color[:, -1] = [transparency_by[table_id]['fixed_alpha']]
+            for i in range(0, len(color)):
+                c = list(color[i])
+                c[-1] = transparency_by[table_id]['fixed_alpha']
+                color[i] = tuple(c)
+
 
     # Size/Width
     if table_id in size_by.keys():
@@ -295,11 +299,25 @@ def _format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, tran
                            label_color_var]).T.reset_index(drop=True)
 
     dt = pd.concat([dt1, dt2], axis=1)
+    color = dt.iloc[:,2]
+    dt['color_rgb'] = [to_hex(to_rgba(x)) for x in color]
+    dt['color_alpha'] = [to_rgba(x)[3] for x in color]
+    scaler = MinMaxScaler(feature_range=(200,255))
+    dt['color_alpha'] = scaler.fit_transform(np.array(dt['color_alpha']).reshape(-1,1))
+    if len(set(dt['color_alpha'])) == 1:
+        dt['color_alpha'] = [255]*dt.shape[0]
     if table_type == 'Edge':
-        dt.columns = ['source', 'target', 'color', 'width']
+        dt.columns = ['source', 'target', 'color', 'width', 'color_rgb', 'color_alpha']
     else:
+        color = dt.iloc[:,6]
+        dt['font_color_rgb'] = [to_hex(to_rgba(x)) for x in color]
+        dt['font_color_alpha'] = [to_rgba(x)[3] for x in color]
+        dt['font_color_alpha'] = scaler.fit_transform(np.array(dt['font_color_alpha']).reshape(-1,1))
+        if len(set(dt['font_color_alpha'])) == 1:
+            dt['font_color_alpha'] = [255]*dt.shape[0]
         dt.columns = ['group', 'label', 'color',
-                      'size', 'shape', 'font_size', 'font_color']
+                      'size', 'shape', 'font_size', 'font_color', 'color_rgb', 'color_alpha',
+                      'font_color_rgb', 'font_color_alpha']
     return dt
 
 
@@ -417,7 +435,6 @@ def create_nx_graph(nx_tables: Dict,
     node_tables.index = node_tables['label']
     node_tables_d = node_tables.to_dict()
     for key in node_tables_d.keys():
-        if 'font' not in key:
             nx.set_node_attributes(G, node_tables_d[key], name=key)
     nx.set_node_attributes(G, node_tables_d['label'], name='title')
     font_nt_d = node_tables[['font_size', 'font_color']]
