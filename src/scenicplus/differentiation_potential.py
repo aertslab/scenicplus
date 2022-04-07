@@ -61,7 +61,7 @@ def fitgam(x,y, feature_range=(0, 1)):
     pval = gam.statistics_['p_values']
     return yhat, pval[0]
 
-def plot_potential(adata, paths_cascades, path, tf, window=10, show_plot=True, return_data=False, gam_smooth=True, dpt_var='distance'):    
+def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True, return_data=False, gam_smooth=True, dpt_var='distance'):    
     gene_data = paths_cascades['Gene'][path]
     region_data = paths_cascades['Region'][path]
     tf_data = paths_cascades['TF'][path]
@@ -236,7 +236,7 @@ def calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_gr
 
 
 
-def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=10,
+def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=1,
              plot_type='tf_to_gene', gam_smooth = True, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
              n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
              figsize =(10, 10), colormap = cm.Greys, return_data = False):
