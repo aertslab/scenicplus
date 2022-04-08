@@ -305,13 +305,14 @@ def select_regulons(tf, selected_features):
         region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
     return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
     
-def cell_forces(adata, path_cascade, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
+def cell_forces(adata, paths_cascade, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
                 tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     df_list=[]
     if selected_eGRNs is None:
         selected_eGRNs = paths_cascade['Gene'][ke[0]].columns
     for tf in selected_eGRNs:
+        print(tf)
         df_list_TF = []
         for k in ke:
             df = plot_potential(adata, paths_cascade, k, tf, window=window, return_data=True, show_plot=False, gam_smooth=gam_smooth, use_ranked_dpt=use_ranked_dpt) 
