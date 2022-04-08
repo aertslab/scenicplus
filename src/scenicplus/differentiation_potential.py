@@ -58,7 +58,7 @@ def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = Tru
 
 def fitgam(x,y, feature_range=(0, 1)):
     x = x.reshape(-1,1)
-    gam = LinearGAM(s(0)).gridsearch(x, y)
+    gam = LinearGAM(s(0)).gridsearch(x, y, progress=False)
     yhat=gam.partial_dependence(term=0, X=x)
     scaler = MinMaxScaler(feature_range=feature_range)
     yhat = scaler.fit_transform(yhat.reshape(-1, 1))
