@@ -39,6 +39,7 @@ def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = Tru
             mat = pd.DataFrame(path_adata.X)
             mat.index = path_adata.obs.index
             mat.columns = path_adata.var.index
+            mat[dpt_var] = path_adata.obs.loc[:,dpt_var]
             mat_list.append(mat)
         mat = pd.concat(mat_list)
     else:
@@ -49,6 +50,7 @@ def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = Tru
         mat = pd.DataFrame(path_adata.X)
         mat.index = path_adata.obs.index
         mat.columns = path_adata.var.index
+        mat[dpt_var] = path_adata.obs.loc[:,dpt_var]
     return mat
 
 
@@ -61,10 +63,19 @@ def fitgam(x,y, feature_range=(0, 1)):
     pval = gam.statistics_['p_values']
     return yhat, pval[0]
 
-def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True, return_data=False, gam_smooth=True, dpt_var='distance'):    
+def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True,
+                   return_data=False, gam_smooth=True, dpt_var='distance', use_ranked_dpt=False):    
     gene_data = paths_cascades['Gene'][path]
     region_data = paths_cascades['Region'][path]
     tf_data = paths_cascades['TF'][path]
+    
+    if use_ranked_dpt:
+        dpt = pd.DataFrame(list(range(0,tf_data.shape[0])))
+        dpt.index = tf_data.index
+        dpt.columns = [dpt_var]
+        dpt = dpt.iloc[:,0]
+    else:
+        dpt = tf_data[dpt_var]
         
     gene_regulon_name = [x for x in gene_data.columns if x.startswith(tf+'_')]
     if len(gene_regulon_name) > 1:
@@ -87,7 +98,9 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True, re
     tf_ov = tf_ov.iloc[:,0]
     max_value = np.max(tf_ov)
     
-    df = pd.DataFrame([tf_data, region, gene, tf_ov]).T
+    df = pd.DataFrame([tf_data, region, gene, tf_ov, dpt]).T
+    df = df.sort_values(dpt_var)
+    dpt = np.array(df.iloc[:,4])
     cell_names = df.index
     df = df.rolling(window=window, min_periods=0, axis=0).mean()
     df.index = cell_names
@@ -97,10 +110,10 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True, re
     tf_ov = np.array(df.iloc[:,3])
     
     if gam_smooth == True:
-        tf_data, _ = fitgam(np.array(range(0,tf_data.shape[0])), tf_data, feature_range=(0,1))
-        region, _ = fitgam(np.array(range(0,region_data.shape[0])), region, feature_range=(0,1))
-        gene, _ = fitgam(np.array(range(0,gene_data.shape[0])), gene, feature_range=(0,1))
-        tf_ov, _ = fitgam(np.array(range(0,tf_ov.shape[0])), tf_ov, feature_range=(0,max_value))
+        tf_data, _ = fitgam(dpt, tf_data, feature_range=(0,1))
+        region, _ = fitgam(dpt, region, feature_range=(0,1))
+        gene, _ = fitgam(dpt, gene, feature_range=(0,1))
+        tf_ov, _ = fitgam(dpt, tf_ov, feature_range=(0,max_value))
     else:
         scaler = MinMaxScaler(feature_range=(0,1))
         tf_data = scaler.fit_transform(tf_data.reshape(-1, 1))
@@ -111,17 +124,17 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True, re
         
     
     if show_plot == True:
-        plt.plot(range(0,tf_data.shape[0]), tf_data, color='red', label=tf)
-        plt.plot(range(0,region_data.shape[0]), region, color='green', label=region_regulon_name[0])
-        plt.plot(range(0,gene_data.shape[0]), gene, color='blue', label=gene_regulon_name[0])
-        plt.plot(range(0,tf_ov.shape[0]), tf_ov, '--', color='grey', label=tf+'_all_paths')
+        plt.plot(dpt, tf_data, color='red', label=tf)
+        plt.plot(dpt, region, color='green', label=region_regulon_name[0])
+        plt.plot(dpt, gene, color='blue', label=gene_regulon_name[0])
+        plt.plot(dpt, tf_ov, '--', color='grey', label=tf+'_all_paths')
         plt.title(path)
         plt.legend()
     
     if return_data == True:
         index = df.index
         columns = df.columns
-        df = pd.DataFrame([tf_data[:,0], region[:,0], gene[:,0], tf_ov[:,0]]).T
+        df = pd.DataFrame([tf_data[:,0], region[:,0], gene[:,0], tf_ov[:,0], dpt]).T
         df.index = index
         df.columns = columns   
         return df
@@ -236,7 +249,7 @@ def calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_gr
 
 
 def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=1,
-             plot_type='tf_to_gene', gam_smooth = True, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
+             plot_type='tf_to_gene', gam_smooth = True, use_ranked_dpt = False, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
              n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
              figsize =(10, 10), colormap = cm.Greys, return_data = False):
     tf_name = tf.split('_')[0]
@@ -247,7 +260,7 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', wind
     y_list = []
     tf_expr_list = []
     for k in ke:
-        df = plot_potential(adata, paths_cascade, k, tf, window=window, return_data=True, show_plot=False, gam_smooth=gam_smooth) 
+        df = plot_potential(adata, paths_cascade, k, tf, window=window, return_data=True, show_plot=False, gam_smooth=gam_smooth, use_ranked_dpt = use_ranked_dpt) 
         arrow_map = calculate_arrows(df, penalization)
         embedding = pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index, columns=['x', 'y'])
         embedding.iloc[:,0] = embedding.iloc[:,0]+abs(min(embedding.iloc[:,0]))
@@ -291,3 +304,31 @@ def select_regulons(tf, selected_features):
     if len(region_regulon_name) > 1:
         region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
     return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
+    
+def cell_forces(adata, path_cascade, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
+                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
+    ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
+    df_list=[]
+    if selected_eGRNs is None:
+        selected_eGRNs = paths_cascade['Gene'][ke[0]].columns
+    for tf in selected_eGRNs:
+        df_list_TF = []
+        for k in ke:
+            df = plot_potential(adata, paths_cascade, k, tf, window=window, return_data=True, show_plot=False, gam_smooth=gam_smooth, use_ranked_dpt=use_ranked_dpt) 
+            df = calculate_arrows(df, penalization)
+            df[plot_type+'_match'] =  [df[plot_type+'_match'][i] if df.iloc[i,0] > tf_traj_thr and df.iloc[i,3] > tf_expr_thr else df.index[i] for i in range(df.shape[0])]
+            df[plot_type+'_length'] =  [df[plot_type+'_length'][i] if df[plot_type+'_match'][i] != df.index[i] else 0.0 for i in range(df.shape[0])]
+            df = df.loc[:,[plot_type+'_length']].fillna(0.0)
+            df = df.reset_index()
+            df_list_TF.append(df)
+        df = pd.concat(df_list_TF)
+        df = df.sort_values(plot_type+'_length', ascending=False)
+        df = df.drop_duplicates(subset='index', keep='first')
+        df.index = df.loc[:,'index']
+        df = df.loc[:,[plot_type+'_length']]
+        df.columns = [tf]
+        df.index.name = None
+        df = df.loc[adata.obs.index,:]
+        df_list.append(df)
+    df = pd.concat(df_list, axis=1)
+    return df
