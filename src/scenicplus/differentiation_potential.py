@@ -13,6 +13,10 @@ from matplotlib.colors import Normalize
 import anndata
 import ray
 from tqdm import tqdm
+from scipy.spatial.distance import jensenshannon
+from math import ceil, floor
+from adjustText import adjust_text
+from .RSS import _plot_rss_internal
 
 def get_embedding_dpt(adata, group_var, root_group, embedding_key='X_umap', n_dcs=2, figsize=(12,8)):
     adata_h = anndata.AnnData(X=pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index))
@@ -384,3 +388,103 @@ def cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type='tf_to_gene', win
     else:
         return None
     
+def forces_rss(adata, df,  variable):
+    data_mat = df
+    cell_data_series = adata.obs.loc[data_mat.index, variable]
+    cell_data = list(cell_data_series.unique())
+    n_types = len(cell_data)
+    regulons = list(data_mat.columns)
+    n_regulons = len(regulons)
+    rss_values = np.empty(shape=(n_types, n_regulons), dtype=np.float)
+
+    def rss(aucs, labels):
+        # jensenshannon function provides distance which is the sqrt of the JS divergence.
+        return 1.0 - jensenshannon(aucs / aucs.sum(), labels / labels.sum())
+
+    for cidx, regulon_name in enumerate(regulons):
+        for ridx, type in enumerate(cell_data):
+            rss_values[ridx, cidx] = rss(
+                data_mat[regulon_name], (cell_data_series == type).astype(int))
+
+    rss_values = pd.DataFrame(
+        data=rss_values, index=cell_data, columns=regulons)
+    return rss_values
+    
+def plot_forces_rss(rss_values,
+             top_n = 5,
+             selected_groups = None,
+             num_columns = 1,
+             figsize = (6.4, 4.8),
+             fontsize = 12,
+             save = None):
+    data_mat = rss_values
+    if selected_groups is None:
+        cats = sorted(data_mat.index.tolist())
+    else:
+        cats = selected_groups
+
+    if num_columns > 1:
+        num_rows = int(np.ceil(len(cats) / num_columns))
+        if figsize == (6.4, 4.8):
+            figsize = (6.4 * num_columns, 4.8 * num_rows)
+        i = 1
+        fig = plt.figure(figsize=figsize)
+
+    pdf = None
+    if (save is not None) & (num_columns == 1):
+        pdf = matplotlib.backends.backend_pdf.PdfPages(save)
+
+    for c in cats:
+        x = data_mat.T[c]
+        if num_columns > 1:
+            ax = fig.add_subplot(num_rows, num_columns, i)
+            i = i + 1
+        else:
+            fig = plt.figure(figsize=figsize)
+            ax = plt.axes()
+        _plot_rss_internal(data_mat, c, top_n=top_n, max_n=None, ax=ax)
+        ax.set_ylim(x.min()-(x.max()-x.min())*0.05,
+                    x.max()+(x.max()-x.min())*0.05)
+        for t in ax.texts:
+            t.set_fontsize(fontsize)
+        ax.set_ylabel('')
+        ax.set_xlabel('')
+        adjust_text(ax.texts, autoalign='xy', ha='right', va='bottom', arrowprops=dict(
+            arrowstyle='-', color='lightgrey'), precision=0.001)
+        if num_columns == 1:
+            fig.text(0.5, 0.0, 'eRegulon rank', ha='center',
+                     va='center', size='x-large')
+            fig.text(0.00, 0.5, 'eRegulon specificity score (eRSS)',
+                     ha='center', va='center', rotation='vertical', size='x-large')
+            plt.tight_layout()
+            plt.rcParams.update({
+                'figure.autolayout': True,
+                'figure.titlesize': 'large',
+                'axes.labelsize': 'medium',
+                'axes.titlesize': 'large',
+                'xtick.labelsize': 'medium',
+                'ytick.labelsize': 'medium'
+            })
+            if save is not None:
+                pdf.savefig(fig, bbox_inches='tight')
+            plt.show()
+
+    if num_columns > 1:
+        fig.text(0.5, 0.0, 'eRegulon rank', ha='center',
+                 va='center', size='x-large')
+        fig.text(0.00, 0.5, 'eRegulon specificity score (eRSS)',
+                 ha='center', va='center', rotation='vertical', size='x-large')
+        plt.tight_layout()
+        plt.rcParams.update({
+            'figure.autolayout': True,
+            'figure.titlesize': 'large',
+            'axes.labelsize': 'medium',
+            'axes.titlesize': 'large',
+            'xtick.labelsize': 'medium',
+            'ytick.labelsize': 'medium'
+        })
+        if save is not None:
+            fig.savefig(save, bbox_inches='tight')
+        plt.show()
+    if (save is not None) & (num_columns == 1):
+        pdf = pdf.close()
