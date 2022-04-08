@@ -11,6 +11,8 @@ from scipy.stats import norm
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 import anndata
+import ray
+from tqdm import tqdm
 
 def get_embedding_dpt(adata, group_var, root_group, embedding_key='X_umap', n_dcs=2, figsize=(12,8)):
     adata_h = anndata.AnnData(X=pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index))
@@ -89,6 +91,8 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True,
     if '_' in tf:
         tf = tf.split('_')[0]
     tf_data = tf_data[tf]
+    
+    
     
     tf_name = tf.split('_')[0]
     scaler = MinMaxScaler()
@@ -306,15 +310,58 @@ def select_regulons(tf, selected_features):
     return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
     
 def cell_forces(adata, paths_cascade, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
-                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
+                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05, n_cpu = 1, **kwargs):
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     df_list=[]
     if selected_eGRNs is None:
         selected_eGRNs = paths_cascade['Gene'][ke[0]].columns
-    for tf in selected_eGRNs:
-        print(tf)
-        df_list_TF = []
-        for k in ke:
+    if n_cpu == 1: 
+        for tf in selected_eGRNs:
+            df = cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type, window, gam_smooth, use_ranked_dpt,
+                tf_traj_thr, tf_expr_thr, selected_eGRNs, penalization)
+            if df is not None:
+                df_list.append(df)
+    else:
+        ray.init(num_cpus=n_cpu, **kwargs)
+        try:
+            jobs = []
+            for tf in tqdm(selected_eGRNs, total=len(selected_eGRNs), desc='initializing'):
+                jobs.append(cell_forces_per_tf_ray.remote(adata, paths_cascade, tf, ke, plot_type, window, gam_smooth, use_ranked_dpt,
+                tf_traj_thr, tf_expr_thr, selected_eGRNs, penalization))
+            def to_iterator(obj_ids):
+                while obj_ids:
+                    finished_ids, obj_ids = ray.wait(obj_ids)
+                    for finished_id in finished_ids:
+                        yield ray.get(finished_id)
+            for df in tqdm(to_iterator(jobs),
+                            total=len(jobs),
+                            desc=f'Running using {n_cpu} cores',
+                            smoothing=0.1):
+                if df is not None:
+                    df_list.append(df)
+        except Exception as e:
+            print(e)
+        finally:
+            ray.shutdown()
+            
+    if len(df_list) > 0:
+        df = pd.concat(df_list, axis=1)
+        return df
+    else:
+        return None
+
+@ray.remote
+def cell_forces_per_tf_ray(adata, paths_cascade, tf, ke, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
+                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
+    return cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type, window, gam_smooth, use_ranked_dpt,
+                tf_traj_thr, tf_expr_thr, selected_eGRNs, penalization)
+    
+def cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
+                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
+    flag = True
+    df_list_TF = []
+    for k in ke:
+        if paths_cascade['TF'][k][tf.split('_')[0]].sum() > 0:
             df = plot_potential(adata, paths_cascade, k, tf, window=window, return_data=True, show_plot=False, gam_smooth=gam_smooth, use_ranked_dpt=use_ranked_dpt) 
             df = calculate_arrows(df, penalization)
             df[plot_type+'_match'] =  [df[plot_type+'_match'][i] if df.iloc[i,0] > tf_traj_thr and df.iloc[i,3] > tf_expr_thr else df.index[i] for i in range(df.shape[0])]
@@ -322,6 +369,9 @@ def cell_forces(adata, paths_cascade, plot_type='tf_to_gene', window=1, gam_smoo
             df = df.loc[:,[plot_type+'_length']].fillna(0.0)
             df = df.reset_index()
             df_list_TF.append(df)
+        else:
+            flag = False
+    if flag is True:
         df = pd.concat(df_list_TF)
         df = df.sort_values(plot_type+'_length', ascending=False)
         df = df.drop_duplicates(subset='index', keep='first')
@@ -330,6 +380,7 @@ def cell_forces(adata, paths_cascade, plot_type='tf_to_gene', window=1, gam_smoo
         df.columns = [tf]
         df.index.name = None
         df = df.loc[adata.obs.index,:]
-        df_list.append(df)
-    df = pd.concat(df_list, axis=1)
-    return df
+        return df
+    else:
+        return None
+    
