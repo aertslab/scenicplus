@@ -433,11 +433,13 @@ def create_nx_graph(nx_tables: Dict,
     # Create graph
     edge_tables = pd.concat([_format_nx_table_internal(
         nx_tables, 'Edge', x, color_edge_by, transparency_edge_by, width_edge_by, {}) for x in use_edge_tables])
+    edge_tables.dropna(axis = 0, how = 'any', inplace = True)
     G = nx.from_pandas_edgelist(edge_tables, edge_attr=True)
     # Add node tables
     node_tables = pd.concat([_format_nx_table_internal(nx_tables, 'Node', x, color_node_by, transparency_node_by,
                             size_node_by, shape_node_by, label_size_by, label_color_by) for x in use_node_tables])
     node_tables.index = node_tables['label']
+    node_tables.dropna(axis = 0, how = 'any', inplace = True)
     node_tables_d = node_tables.to_dict()
     for key in node_tables_d.keys():
             nx.set_node_attributes(G, node_tables_d[key], name=key)
@@ -451,8 +453,8 @@ def create_nx_graph(nx_tables: Dict,
     else:
         pos = nx.kamada_kawai_layout(G)
         
-    x_pos_dict = {x:pos[x][0]*scale_position_by for x in pos.keys()}
-    y_pos_dict = {x:pos[x][1]*scale_position_by for x in pos.keys()}
+    x_pos_dict = {x:pos[x][0]*scale_position_by for x in pos.keys() if not np.isnan(pos[x][0])}
+    y_pos_dict = {x:pos[x][1]*scale_position_by for x in pos.keys() if not np.isnan(pos[x][0])}
     fixed_dict = {x:{'fixed.x': True, 'fixed.y': True} for x in pos.keys()}
     nx.set_node_attributes(G, x_pos_dict, name='x')
     nx.set_node_attributes(G, y_pos_dict, name='y')
@@ -710,8 +712,6 @@ def export_to_cytoscape(G, pos, out_file, pos_scaling_factor=200, size_scaling_f
         n['data']['font_size'] = int(n['data']['font_size'])
         n['data']['size'] = n['data']['size']*size_scaling_factor
         n['data']['shape'] = n['data']['shape'].capitalize()
-    return cy
     json_string = json.dumps(cy, indent = 2)
     with open(out_file, 'w') as outfile:
-        outfile.write(json_string) 
         outfile.write(json_string) 
