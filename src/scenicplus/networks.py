@@ -204,7 +204,11 @@ def _format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, tran
             norm = plt.Normalize(v_min, v_max)
             x = norm(transparency_var)
             x[x < min_alpha] = min_alpha
-            color[:, -1] = x
+            for i in range(0, len(color)):
+                c = list(color[i])
+                c[-1] = x[i]
+                color[i] = tuple(c)
+            #color[:, -1] = x
         else:
             for i in range(0, len(color)):
                 c = list(color[i])
