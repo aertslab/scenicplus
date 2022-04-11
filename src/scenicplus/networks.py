@@ -645,12 +645,16 @@ def concentrical_layout(G,
     pos_TF = {}
     for TF in TF_nodes:
         # get regions targetted by this TF and their position
-        regions = source_target_dict[TF]
+        if TF in source_target_dict.keys():
+            regions = source_target_dict[TF]
+        else:
+            regions = []
         if all([r in regions_targetting_TFs for r in regions]):
             additional_genes_to_position.append(TF)
             continue
         pos_regions_TF = np.array(
             [pos_regions[r] for r in regions if r not in regions_targetting_TFs])
+
         if len(regions) > 1:
             # get the positions which are furthest apart and "draw" a line through them
             pairwise_distances = _pairwise_distance(pos_regions_TF)
