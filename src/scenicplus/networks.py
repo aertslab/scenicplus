@@ -702,11 +702,12 @@ def export_to_cytoscape(G, pos, out_file, pos_scaling_factor=200, size_scaling_f
         for k, v in n.items():
             v["label"] = v.pop("value")
     for n, p in zip(cy["elements"]["nodes"], pos.values()):
-        n["position"] = {"x": int(p[0] * pos_scaling_factor), "y": int(p[1] * pos_scaling_factor)}
+        if not np.isnan(p[0]) and not np.isnan(p[1]):
+            n["position"] = {"x": int(p[0] * pos_scaling_factor), "y": int(p[1] * pos_scaling_factor)}
     for n in cy["elements"]["nodes"]:
         n['data']['font_size'] = int(n['data']['font_size'])
         n['data']['size'] = n['data']['size']*size_scaling_factor
         n['data']['shape'] = n['data']['shape'].capitalize()
-    json_string = json.dumps(cy, indent = 2)
+    json_string = json.dumps(str(cy), indent = 2)
     with open(out_file, 'w') as outfile:
         outfile.write(json_string) 
