@@ -32,7 +32,8 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
     pip install --no-cache-dir plotly && \
     pip install --no-cache-dir kaleido && \
     pip install --no-cache-dir pyvis && \
-    pip install --no-cache-dir -r /tmp/requirements.txt 
+    pip install velocyto && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
     
 # install ctxcore from local copy:
 COPY ctxcore /tmp/ctxcore
