@@ -371,6 +371,153 @@ def run_eRegulons_pca(scplus_obj: SCENICPLUS,
         scplus_obj.dr_cell = {}
     scplus_obj.dr_cell[reduction_name] = dr
 
+def plot_metadata_given_ax(scplus_obj,
+                  ax,
+                  reduction_name: str,
+                  variable: List[str],
+                  remove_nan: Optional[bool] = True,
+                  show_label: Optional[bool] = True,
+                  show_legend: Optional[bool] = False,
+                  cmap: Optional[Union[str, 'matplotlib.cm']] = cm.viridis,
+                  dot_size: Optional[int] = 10,
+                  text_size: Optional[int] = 10,
+                  alpha: Optional[Union[float, int]] = 1,
+                  seed: Optional[int] = 555,
+                  color_dictionary: Optional[Dict[str, str]] = {},
+                  selected_cells: Optional[List[str]] = None):
+    """
+    Plot categorical and continuous metadata into dimensionality reduction.
+
+    Parameters
+    ---------
+    scplus_obj: `class::SCENICPLUS`
+            A SCENICPLUS object with dimensionality reductions.
+    reduction_name: str
+            Name of the dimensionality reduction to use
+    variables: list
+            List of variables to plot. They should be included in `class::SCENICPLUS.metadata_cell`.
+    remove_nan: bool, optional
+            Whether to remove data points for which the variable value is 'nan'. Default: True
+    show_label: bool, optional
+            For categorical variables, whether to show the label in the plot. Default: True
+    show_legend: bool, optional
+            For categorical variables, whether to show the legend next to the plot. Default: False
+    cmap: str or 'matplotlib.cm', optional
+            For continuous variables, color map to use for the legend color bar. Default: cm.viridis
+    dot_size: int, optional
+            Dot size in the plot. Default: 10
+    text_size: int, optional
+            For categorical variables and if show_label is True, size of the labels in the plot. Default: 10
+    alpha: float, optional
+            Transparency value for the dots in the plot. Default: 1
+    seed: int, optional
+            Random seed used to select random colors. Default: 555
+    color_dictionary: dict, optional
+            A dictionary containing an entry per variable, whose values are dictionaries with variable levels as keys and corresponding colors as values.
+            Default: None
+    figsize: tuple, optional
+            Size of the figure. If num_columns is 1, this is the size for each figure; if num_columns is above 1, this is the overall size of the figure (if keeping
+            default, it will be the size of each subplot in the figure). Default: (6.4, 4.8)
+    num_columns: int, optional
+            For multiplot figures, indicates the number of columns (the number of rows will be automatically determined based on the number of plots). Default: 1
+    selected_cells: list, optional
+            A list with selected cells to plot.
+    save: str, optional
+            Path to save plot. Default: None.
+    """
+    embedding = scplus_obj.dr_cell[reduction_name]
+    data_mat = scplus_obj.metadata_cell.copy()
+
+    if selected_cells is not None:
+        data_mat = data_mat.loc[selected_cells]
+        embedding = embedding.loc[selected_cells]
+
+    data_mat = data_mat.loc[embedding.index.to_list()]
+
+    var_data = data_mat.copy().loc[:, variable].dropna().to_list()
+    if isinstance(var_data[0], str):
+        if (remove_nan) & (data_mat[variable].isnull().sum() > 0):
+            var_data = data_mat.copy().loc[:, variable].dropna().to_list()
+            emb_nan = embedding.loc[data_mat.copy(
+            ).loc[:, var].dropna().index.tolist()]
+            label_pd = pd.concat(
+                [emb_nan, data_mat.loc[:, [variable]].dropna()], axis=1, sort=False)
+        else:
+            var_data = data_mat.copy().astype(
+                str).fillna('NA').loc[:, variable].to_list()
+            label_pd = pd.concat([embedding, data_mat.astype(
+                str).fillna('NA').loc[:, [variable]]], axis=1, sort=False)
+
+        categories = set(var_data)
+        try:
+            color_dict = color_dictionary[variable]
+        except BaseException:
+            random.seed(seed)
+            color = list(map(
+                lambda i: "#" +
+                "%06x" % random.randint(
+                    0, 0xFFFFFF), range(len(categories))
+            ))
+            color_dict = dict(zip(categories, color))
+
+        if (remove_nan) & (data_mat[variable].isnull().sum() > 0):
+            ax.scatter(emb_nan.iloc[:, 0], emb_nan.iloc[:, 1], c=data_mat.loc[:, variable].dropna(
+            ).apply(lambda x: color_dict[x]), s=dot_size, alpha=alpha)
+            ax.set_xlabel(emb_nan.columns[0])
+            ax.set_ylabel(emb_nan.columns[1])
+        else:
+            ax.scatter(embedding.iloc[:, 0], embedding.iloc[:, 1], c=data_mat.astype(str).fillna(
+                'NA').loc[:, variable].apply(lambda x: color_dict[x]), s=dot_size, alpha=alpha)
+            ax.set_xlabel(embedding.columns[0])
+            ax.set_ylabel(embedding.columns[1])
+
+        if show_label:
+            label_pos = label_pd.groupby(variable).agg(
+                {label_pd.columns[0]: np.mean, label_pd.columns[1]: np.mean})
+            texts = []
+            for label in label_pos.index.tolist():
+                texts.append(
+                    ax.text(
+                        label_pos.loc[label][0],
+                        label_pos.loc[label][1],
+                        label,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        size=text_size,
+                        weight='bold',
+                        color=color_dict[label],
+                        path_effects=[
+                            PathEffects.withStroke(
+                                linewidth=3,
+                                foreground='w')]))
+            adjust_text(texts)
+
+        ax.set_title(variable)
+        patchList = []
+        for key in color_dict:
+            data_key = mpatches.Patch(color=color_dict[key], label=key)
+            patchList.append(data_key)
+        if show_legend:
+            ax.legend(
+                handles=patchList, bbox_to_anchor=(
+                    1.04, 1), loc="upper left")
+        return ax
+    else:
+        var_data = data_mat.copy().loc[:, variable].to_list()
+        o = np.argsort(var_data)
+        ax.scatter(embedding.iloc[o, 0], embedding.iloc[o, 1], c=subset_list(
+            var_data, o), cmap=cmap, s=dot_size, alpha=alpha)
+        ax.set_xlabel(embedding.columns[0])
+        ax.set_ylabel(embedding.columns[1])
+        ax.set_title(variable)
+        # setup the colorbar
+        normalize = mcolors.Normalize(
+            vmin=np.array(var_data).min(),
+            vmax=np.array(var_data).max())
+        scalarmappaple = cm.ScalarMappable(norm=normalize, cmap=cmap)
+        scalarmappaple.set_array(var_data)
+        plt.colorbar(scalarmappaple, ax = ax)
+        return ax
 
 def plot_metadata(scplus_obj: SCENICPLUS,
                   reduction_name: str,
@@ -562,6 +709,67 @@ def plot_metadata(scplus_obj: SCENICPLUS,
 def subset_list(target_list, index_list):
     X = list(map(target_list.__getitem__, index_list))
     return X
+
+def plot_AUC_given_ax(
+    scplus_obj,
+    reduction_name,
+    feature,
+    ax,
+    auc_key = 'eRegulon_AUC',
+    signature_key = 'Gene_based',
+    cmap = cm.viridis,
+    dot_size = 10,
+    alpha = 1,
+    scale = False,
+    selected_cells = None):
+
+    embedding = scplus_obj.dr_cell[reduction_name].copy()
+
+    if scale:
+        data_mat = pd.DataFrame(
+                    sklearn.preprocessing.StandardScaler().fit_transform(
+                        scplus_obj.uns[auc_key][signature_key].T), 
+                        index=scplus_obj.uns[auc_key][signature_key].T.index.to_list(), 
+                        columns=scplus_obj.uns[auc_key][signature_key].T.columns).T
+    else:
+        data_mat = scplus_obj.uns[auc_key][signature_key]
+
+    if selected_cells is not None:
+        data_mat = data_mat[selected_cells]
+
+    data_mat = data_mat.fillna(0)
+    feature_data = data_mat[feature].squeeze()
+    feature_data = feature_data.sort_values()
+    embedding_plot = embedding.loc[feature_data.index.tolist()]
+    o = np.argsort(feature_data)
+    if not scale:
+        ax.scatter(
+            embedding_plot.iloc[o, 0], 
+            embedding_plot.iloc[o, 1], 
+            c=subset_list(feature_data, o), 
+            cmap=cmap, 
+            s=dot_size, 
+            alpha=alpha,
+            vmin=0, 
+            vmax=max(feature_data))
+        normalize = mcolors.Normalize(
+            vmin=0, vmax=np.array(feature_data).max())
+    else:
+        ax.scatter(
+            embedding_plot.iloc[o, 0], 
+            embedding_plot.iloc[o, 1], 
+            c=subset_list(feature_data, o), cmap=cmap, s=dot_size, alpha=alpha)
+        normalize = mcolors.Normalize(
+            vmin=np.array(feature_data).min(),
+            vmax=np.array(feature_data).max())
+    ax.set_xlabel(embedding_plot.columns[0])
+    ax.set_ylabel(embedding_plot.columns[1])
+    ax.set_title(feature)
+    # setup the colorbar
+    scalarmappaple = cm.ScalarMappable(norm=normalize, cmap=cmap)
+    scalarmappaple.set_array(feature_data)
+    #plt.colorbar(scalarmappaple)
+    return ax
 
 
 def plot_eRegulon(scplus_obj: SCENICPLUS,
