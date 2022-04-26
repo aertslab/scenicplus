@@ -1,7 +1,7 @@
 """export eRegulons to eGRN network and plot.
-
 """
 
+import json
 import pandas as pd
 from typing import Union, Dict, Sequence, Optional, List
 import anndata
@@ -12,6 +12,7 @@ import matplotlib.cm as cm
 import networkx as nx
 from matplotlib.colors import to_rgba, to_hex
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def _format_df_nx(df, key, var):
@@ -203,9 +204,17 @@ def _format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, tran
             norm = plt.Normalize(v_min, v_max)
             x = norm(transparency_var)
             x[x < min_alpha] = min_alpha
-            color[:, -1] = x
+            for i in range(0, len(color)):
+                c = list(color[i])
+                c[-1] = x[i]
+                color[i] = tuple(c)
+            #color[:, -1] = x
         else:
-            color[:, -1] = [transparency_by[table_id]['fixed_alpha']]
+            for i in range(0, len(color)):
+                c = list(color[i])
+                c[-1] = transparency_by[table_id]['fixed_alpha']
+                color[i] = tuple(c)
+
 
     # Size/Width
     if table_id in size_by.keys():
@@ -295,11 +304,25 @@ def _format_nx_table_internal(nx_tables, table_type, table_id, color_by={}, tran
                            label_color_var]).T.reset_index(drop=True)
 
     dt = pd.concat([dt1, dt2], axis=1)
+    color = dt.iloc[:,2]
+    dt['color_rgb'] = [to_hex(to_rgba(x)) for x in color]
+    dt['color_alpha'] = [to_rgba(x)[3] for x in color]
+    scaler = MinMaxScaler(feature_range=(200,255))
+    dt['color_alpha'] = scaler.fit_transform(np.array(dt['color_alpha']).reshape(-1,1))
+    if len(set(dt['color_alpha'])) == 1:
+        dt['color_alpha'] = [255]*dt.shape[0]
     if table_type == 'Edge':
-        dt.columns = ['source', 'target', 'color', 'width']
+        dt.columns = ['source', 'target', 'color', 'width', 'color_rgb', 'color_alpha']
     else:
+        color = dt.iloc[:,6]
+        dt['font_color_rgb'] = [to_hex(to_rgba(x)) for x in color]
+        dt['font_color_alpha'] = [to_rgba(x)[3] for x in color]
+        dt['font_color_alpha'] = scaler.fit_transform(np.array(dt['font_color_alpha']).reshape(-1,1))
+        if len(set(dt['font_color_alpha'])) == 1:
+            dt['font_color_alpha'] = [255]*dt.shape[0]
         dt.columns = ['group', 'label', 'color',
-                      'size', 'shape', 'font_size', 'font_color']
+                      'size', 'shape', 'font_size', 'font_color', 'color_rgb', 'color_alpha',
+                      'font_color_rgb', 'font_color_alpha']
     return dt
 
 
@@ -410,14 +433,15 @@ def create_nx_graph(nx_tables: Dict,
     # Create graph
     edge_tables = pd.concat([_format_nx_table_internal(
         nx_tables, 'Edge', x, color_edge_by, transparency_edge_by, width_edge_by, {}) for x in use_edge_tables])
+    edge_tables.dropna(axis = 0, how = 'any', inplace = True)
     G = nx.from_pandas_edgelist(edge_tables, edge_attr=True)
     # Add node tables
     node_tables = pd.concat([_format_nx_table_internal(nx_tables, 'Node', x, color_node_by, transparency_node_by,
                             size_node_by, shape_node_by, label_size_by, label_color_by) for x in use_node_tables])
     node_tables.index = node_tables['label']
+    node_tables.dropna(axis = 0, how = 'any', inplace = True)
     node_tables_d = node_tables.to_dict()
     for key in node_tables_d.keys():
-        if 'font' not in key:
             nx.set_node_attributes(G, node_tables_d[key], name=key)
     nx.set_node_attributes(G, node_tables_d['label'], name='title')
     font_nt_d = node_tables[['font_size', 'font_color']]
@@ -429,8 +453,8 @@ def create_nx_graph(nx_tables: Dict,
     else:
         pos = nx.kamada_kawai_layout(G)
         
-    x_pos_dict = {x:pos[x][0]*scale_position_by for x in pos.keys()}
-    y_pos_dict = {x:pos[x][1]*scale_position_by for x in pos.keys()}
+    x_pos_dict = {x:pos[x][0]*scale_position_by for x in pos.keys() if not np.isnan(pos[x][0])}
+    y_pos_dict = {x:pos[x][1]*scale_position_by for x in pos.keys() if not np.isnan(pos[x][0])}
     fixed_dict = {x:{'fixed.x': True, 'fixed.y': True} for x in pos.keys()}
     nx.set_node_attributes(G, x_pos_dict, name='x')
     nx.set_node_attributes(G, y_pos_dict, name='y')
@@ -621,12 +645,16 @@ def concentrical_layout(G,
     pos_TF = {}
     for TF in TF_nodes:
         # get regions targetted by this TF and their position
-        regions = source_target_dict[TF]
+        if TF in source_target_dict.keys():
+            regions = source_target_dict[TF]
+        else:
+            regions = []
         if all([r in regions_targetting_TFs for r in regions]):
             additional_genes_to_position.append(TF)
             continue
         pos_regions_TF = np.array(
             [pos_regions[r] for r in regions if r not in regions_targetting_TFs])
+
         if len(regions) > 1:
             # get the positions which are furthest apart and "draw" a line through them
             pairwise_distances = _pairwise_distance(pos_regions_TF)
@@ -670,3 +698,24 @@ def concentrical_layout(G,
     ) if k in regions_targetting_TFs}
 
     return {**pos_TF, **pos_regions, **pos_genes, **pos_add, **pos_regions_TF}
+    
+def export_to_cytoscape(G, pos, out_file, pos_scaling_factor=200, size_scaling_factor=1):
+    """
+    A function to export to cytoscape
+    """
+    cy = nx.cytoscape_data(G)
+    for n in cy["elements"]["nodes"]:
+        for k, v in n.items():
+            v["label"] = v.pop("value")
+    for n, p in zip(cy["elements"]["nodes"], pos.values()):
+        if not np.isnan(p[0]) and not np.isnan(p[1]):
+            n["position"] = {"x": int(p[0] * pos_scaling_factor), "y": int(p[1] * pos_scaling_factor)}
+        else: 
+            n["position"] = {"x": 0, "y": 0}
+    for n in cy["elements"]["nodes"]:
+        n['data']['font_size'] = int(n['data']['font_size'])
+        n['data']['size'] = n['data']['size']*size_scaling_factor
+        n['data']['shape'] = n['data']['shape'].capitalize()
+    json_string = json.dumps(cy, indent = 2)
+    with open(out_file, 'w') as outfile:
+        outfile.write(json_string) 
