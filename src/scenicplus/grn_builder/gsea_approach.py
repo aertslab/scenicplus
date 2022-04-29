@@ -114,6 +114,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
               region_to_gene_key='region_to_gene',
               order_regions_to_genes_by='importance',
               order_TFs_to_genes_by='importance',
+              add_TF_to_first_place_of_ranking = True,
               gsea_n_perm=1000,
               quantiles=(0.85, 0.90),
               top_n_regionTogenes_per_gene=(5, 10, 15),
@@ -249,6 +250,7 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             TF2G_adj = TF_to_TF_adj_d[TF]
         else:
             TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
+            TF2G_adj.index = TF2G_adj['target']
             TF_to_TF_adj_d[TF] = TF2G_adj
         if rho_dichotomize_tf2g:
             TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho']
@@ -256,59 +258,63 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho']
                                                < -rho_threshold]
 
-            TF2G_adj_activating.index = TF2G_adj_activating['target']
-            TF2G_adj_repressing.index = TF2G_adj_repressing['target']
+            TF2G_adj_activating_ranking = pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(ascending=False)
+            TF2G_adj_repressing_ranking = pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(ascending=False)
 
-            if len(TF2G_adj_activating) > 0:
+            if add_TF_to_first_place_of_ranking:
+                TF2G_adj_activating_ranking[TF] = max(TF2G_adj_activating_ranking) + 1
+                TF2G_adj_activating_ranking = TF2G_adj_activating_ranking.sort_values(ascending = False)
+                TF2G_adj_repressing_ranking[TF] = max(TF2G_adj_repressing_ranking) + 1
+                TF2G_adj_repressing_ranking = TF2G_adj_repressing_ranking.sort_values(ascending = False)
+
+            if len(TF2G_adj_activating_ranking) > 0:
                 if ray_n_cpu is None:
                     new_e_modules.append(
                         _run_gsea_for_e_module(
                             e_module,
-                            pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
-                                ascending=False),
+                            TF2G_adj_activating_ranking,
                             gsea_n_perm,
                             frozenset(['positive tf2g'])))
                 else:
                     jobs.append(
                         _ray_run_gsea_for_e_module.remote(
                             e_module,
-                            pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(
-                                ascending=False),
+                            TF2G_adj_activating_ranking,
                             gsea_n_perm,
                             frozenset(['positive tf2g'])))
 
-            if len(TF2G_adj_repressing) > 0:
+            if len(TF2G_adj_repressing_ranking) > 0:
                 if ray_n_cpu is None:
                     new_e_modules.append(
                         _run_gsea_for_e_module(
                             e_module,
-                            pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
-                                ascending=False),
+                            TF2G_adj_repressing_ranking,
                             gsea_n_perm,
                             frozenset(['negative tf2g'])))
                 else:
                     jobs.append(
                         _ray_run_gsea_for_e_module.remote(
                             e_module,
-                            pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(
-                                ascending=False),
+                            TF2G_adj_repressing_ranking,
                             gsea_n_perm,
                             frozenset(['negative tf2g'])))
         else:
+            TF2G_adj_ranking = pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(ascending=False)
+            if add_TF_to_first_place_of_ranking:
+                TF2G_adj_ranking[TF] = max(TF2G_adj_ranking) + 1
+                TF2G_adj_ranking = TF2G_adj_ranking.sort_values(ascending = False)
             if ray_n_cpu is None:
                 new_e_modules.append(
                     _run_gsea_for_e_module(
                         e_module,
-                        pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
-                            ascending=False),
+                        TF2G_adj_ranking,
                         gsea_n_perm,
                         frozenset([''])))
             else:
                 jobs.append(
                     _ray_run_gsea_for_e_module.remote(
                         e_module,
-                        pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(
-                            ascending=False),
+                        TF2G_adj_ranking,
                         gsea_n_perm,
                         frozenset([''])))
     if ray_n_cpu is not None:

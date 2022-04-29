@@ -155,6 +155,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     if 'eRegulons' not in scplus_obj.uns.keys():
         log.info('Build eGRN')
         build_grn(scplus_obj,
+                 add_TF_to_first_place_of_ranking = True,
                  min_target_genes = 10,
                  adj_pval_thr = 1,
                  min_regions_per_gene = 0,
