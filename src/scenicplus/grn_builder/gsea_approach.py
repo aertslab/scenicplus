@@ -61,7 +61,6 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('GSEA')
 
-
 def _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
     """
     Helper function to run gsea for single e_module
@@ -262,10 +261,12 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
             TF2G_adj_repressing_ranking = pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(ascending=False)
 
             if add_TF_to_first_place_of_ranking:
-                TF2G_adj_activating_ranking[TF] = max(TF2G_adj_activating_ranking) + 1
-                TF2G_adj_activating_ranking = TF2G_adj_activating_ranking.sort_values(ascending = False)
-                TF2G_adj_repressing_ranking[TF] = max(TF2G_adj_repressing_ranking) + 1
-                TF2G_adj_repressing_ranking = TF2G_adj_repressing_ranking.sort_values(ascending = False)
+                if len(TF2G_adj_activating_ranking) > 0:
+                    TF2G_adj_activating_ranking[TF] = max(TF2G_adj_activating_ranking) + 1
+                    TF2G_adj_activating_ranking = TF2G_adj_activating_ranking.sort_values(ascending = False)
+                if len(TF2G_adj_repressing_ranking) > 0:
+                    TF2G_adj_repressing_ranking[TF] = max(TF2G_adj_repressing_ranking) + 1
+                    TF2G_adj_repressing_ranking = TF2G_adj_repressing_ranking.sort_values(ascending = False)
 
             if len(TF2G_adj_activating_ranking) > 0:
                 if ray_n_cpu is None:
@@ -301,22 +302,24 @@ def build_grn(SCENICPLUS_obj: SCENICPLUS,
         else:
             TF2G_adj_ranking = pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(ascending=False)
             if add_TF_to_first_place_of_ranking:
-                TF2G_adj_ranking[TF] = max(TF2G_adj_ranking) + 1
-                TF2G_adj_ranking = TF2G_adj_ranking.sort_values(ascending = False)
-            if ray_n_cpu is None:
-                new_e_modules.append(
-                    _run_gsea_for_e_module(
-                        e_module,
-                        TF2G_adj_ranking,
-                        gsea_n_perm,
-                        frozenset([''])))
-            else:
-                jobs.append(
-                    _ray_run_gsea_for_e_module.remote(
-                        e_module,
-                        TF2G_adj_ranking,
-                        gsea_n_perm,
-                        frozenset([''])))
+                if len(TF2G_adj_ranking) > 0:
+                    TF2G_adj_ranking[TF] = max(TF2G_adj_ranking) + 1
+                    TF2G_adj_ranking = TF2G_adj_ranking.sort_values(ascending = False)
+            if len(TF2G_adj_ranking) > 0:
+                if ray_n_cpu is None:
+                    new_e_modules.append(
+                        _run_gsea_for_e_module(
+                            e_module,
+                            TF2G_adj_ranking,
+                            gsea_n_perm,
+                            frozenset([''])))
+                else:
+                    jobs.append(
+                        _ray_run_gsea_for_e_module.remote(
+                            e_module,
+                            TF2G_adj_ranking,
+                            gsea_n_perm,
+                            frozenset([''])))
     if ray_n_cpu is not None:
         def to_iterator(obj_ids):
             while obj_ids:

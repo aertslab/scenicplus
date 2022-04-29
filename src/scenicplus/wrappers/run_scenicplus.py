@@ -25,7 +25,7 @@ from scenicplus.enhancer_to_gene import export_to_UCSC_interact
 from scenicplus.utils import format_egrns, export_eRegulons
 from scenicplus.eregulon_enrichment import *
 from scenicplus.TF_to_gene import *
-from scenicplus.grn_builder.gsea_approach import build_grn
+from ..grn_builder.gsea_approach import build_grn
 from scenicplus.dimensionality_reduction import *
 from scenicplus.RSS import *
 from scenicplus.diff_features import *
@@ -34,6 +34,7 @@ from typing import Dict, List, Mapping, Optional, Sequence
 import os
 import dill
 import time
+
 
 def run_scenicplus(scplus_obj: 'SCENICPLUS',
     variable: List[str],
@@ -111,6 +112,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     logging.basicConfig(level=level, format=log_format, handlers=handlers)
     log = logging.getLogger('SCENIC+_wrapper')
     
+    log.info('--!RUNNING IN DEVELOPMENT MODE!--')
+
     start_time = time.time()
     
     check_folder = os.path.isdir(save_path)
