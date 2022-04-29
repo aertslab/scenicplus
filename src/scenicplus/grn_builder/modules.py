@@ -601,8 +601,8 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
                     continue
                 regions_enriched_for_TF_motif = coord_to_region_names(
                     cistrome_to_regions_d[cistrome_name])
-                r2g_df_enriched_for_TF_motif = r2g_df.loc[set(
-                    regions_enriched_for_TF_motif) & set(r2g_df.index)]
+                r2g_df_enriched_for_TF_motif = r2g_df.loc[list(set(
+                    regions_enriched_for_TF_motif) & set(r2g_df.index))]
                 if len(r2g_df_enriched_for_TF_motif) > 0:
                     transcription_factor = cistrome_name.split('_')[0]
                     relevant_tfs.append(transcription_factor)
