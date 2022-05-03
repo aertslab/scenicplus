@@ -36,6 +36,45 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('TF2G')
 
+def _inject_TF_as_its_own_target(
+    scplus_obj: SCENICPLUS = None,
+    TF2G_adj: pd.DataFrame = None, 
+    ex_mtx: pd.DataFrame = None,
+    rho_threshold = RHO_THRESHOLD, 
+    TF2G_key = 'TF2G_adj', 
+    out_key = 'TF2G_adj',
+    inplace = True,
+    increase_importance_by = 0.00001) -> pd.DataFrame:
+    if scplus_obj is None and TF2G_adj is None:
+        raise ValueError('Either provide a SCENIC+ object of a pd.DataFrame with TF to gene adjecencies!')
+    if scplus_obj is not None and TF2G_adj is not None:
+        raise ValueError('Either provide a SCENIC+ object of a pd.DataFrame with TF to gene adjecencies! Not both!')
+
+    log.info(f"Warning: adding TFs as their own target to adjecencies matrix. Importance values will be max + {increase_importance_by}")
+    
+    origin_TF2G_adj = scplus_obj.uns[TF2G_key] if scplus_obj is not None else TF2G_adj
+    ex_mtx = scplus_obj.to_df(layer='EXP') if scplus_obj is not None else ex_mtx
+
+    origin_TF2G_adj = origin_TF2G_adj.sort_values('TF')
+    max_importances = origin_TF2G_adj.groupby('TF').max()['importance']
+
+    TFs_in_adj = list(set(origin_TF2G_adj['TF'].to_list()))
+    TF_to_TF_adj = pd.DataFrame(
+                    data = {"TF": TFs_in_adj,
+                            "target": TFs_in_adj,
+                            "importance": max_importances.loc[TFs_in_adj] + increase_importance_by})
+    TF_to_TF_adj = _add_correlation(
+            adjacencies=TF_to_TF_adj,
+            ex_mtx = ex_mtx,
+            rho_threshold=rho_threshold)
+
+    new_TF2G_adj = pd.concat([origin_TF2G_adj, TF_to_TF_adj]).reset_index(drop = True)
+    if inplace:
+        scplus_obj.uns[out_key] = new_TF2G_adj
+        return None
+    else:
+        return new_TF2G_adj
+
 
 def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
                             f_adj: str,
@@ -67,13 +106,16 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
     idx_to_keep = np.logical_and(np.array([tf in SCENICPLUS_obj.gene_names for tf in df_TF_gene_adj['TF']]),
                                  np.array([gene in SCENICPLUS_obj.gene_names for gene in df_TF_gene_adj['target']]))
     df_TF_gene_adj_subset = df_TF_gene_adj.loc[idx_to_keep]
-
     if not COLUMN_NAME_CORRELATION in df_TF_gene_adj_subset.columns:
         log.info(f'Adding correlation coefficients to adjacencies.')
         df_TF_gene_adj_subset = _add_correlation(
             adjacencies=df_TF_gene_adj_subset,
             ex_mtx=SCENICPLUS_obj.to_df(layer='EXP'),
             rho_threshold=rho_threshold)
+    df_TF_gene_adj_subset = _inject_TF_as_its_own_target(
+        TF2G_adj=df_TF_gene_adj_subset, 
+        inplace = False, 
+        ex_mtx = SCENICPLUS_obj.to_df(layer='EXP'))
     if not COLUMN_NAME_SCORE_1 in df_TF_gene_adj_subset.columns:
         log.info(f'Adding importance x rho scores to adjacencies.')
         df_TF_gene_adj_subset[COLUMN_NAME_SCORE_1] = df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION] * \
@@ -285,6 +327,10 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     ex_matrix = pd.DataFrame(
         scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
     adj = _add_correlation(adj, ex_matrix)
+    adj = _inject_TF_as_its_own_target(
+        TF2G_adj=adj, 
+        inplace = False, 
+        ex_mtx = scplus_obj.to_df(layer='EXP'))
     log.info(f'Adding importance x rho scores to adjacencies.')
     adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION] * \
         adj[COLUMN_NAME_WEIGHT]
