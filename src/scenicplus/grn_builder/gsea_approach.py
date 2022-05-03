@@ -61,8 +61,6 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('GSEA')
 
-print('Hi!!!')
-
 def _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
     """
     Helper function to run gsea for single e_module
