@@ -117,6 +117,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
         name = 'mmusculus_gene_ensembl'
     elif species == 'drosophila_melanogaster':
         name = 'dmelanogaster_gene_ensembl'
+    elif species == 'gallus_gallus':
+        name = 'ggallus_gene_ensembl'
     dataset = pbm.Dataset(name=name,  host=biomart_host)
     annot = dataset.query(attributes=['chromosome_name', 'transcription_start_site', 'strand', 'external_gene_name', 'transcript_biotype'])
     annot.columns = ['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
