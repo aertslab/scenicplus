@@ -21,7 +21,8 @@ ASM_SYNONYMS = {
     'mm9': 'MGSCv37',
     'mm10': 'GRCm38',
     'mm39': 'GRCm39',
-    'dm6': 'BDGP6'}
+    'dm6': 'BDGP6',
+    'galGal6': 'GRCg6a'}
 
 
 def flatten_list(t): return [item for sublist in t for item in sublist]
