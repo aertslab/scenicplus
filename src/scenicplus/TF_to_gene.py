@@ -20,6 +20,8 @@ from tqdm import tqdm
 from .scenicplus_class import SCENICPLUS
 from .utils import _create_idx_pairs, masked_rho4pairs
 
+import scipy.sparse
+
 COLUMN_NAME_TARGET = "target"
 COLUMN_NAME_WEIGHT = "importance"
 COLUMN_NAME_REGULATION = "regulation"
@@ -283,12 +285,16 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     tf_matrix, tf_matrix_gene_names = to_tf_matrix(
         ex_matrix, gene_names, tf_names)
     
-       #convert ex_matrix, tf_matrix to np.array if necessary
+    #convert ex_matrix, tf_matrix to np.array if necessary
     if isinstance(ex_matrix, np.matrix):
         ex_matrix = np.array(ex_matrix)
-    
+    elif scipy.sparse.issparse(ex_matrix):
+        ex_matrix = ex_matrix.toarray()
+        
     if isinstance(tf_matrix, np.matrix):
         tf_matrix = np.array(tf_matrix)
+    elif scipy.sparse.issparse(tf_matrix):
+       tf_matrix = tf_matrix.toarray()
 
     ray.init(num_cpus=ray_n_cpu, **kwargs)
     log.info(f'Calculating TF to gene correlation, using {method} method')
