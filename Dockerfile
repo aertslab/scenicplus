@@ -21,7 +21,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # install dependencies:
 COPY pycisTopic/requirements.txt /tmp/
 RUN pip install --no-cache-dir --upgrade pip wheel && \
-    pip install --no-cache-dir Cython numpy && \
+    pip install --no-cache-dir Cython numpy==1.20.3 && \
     pip install --no-cache-dir fitsne && \
     pip install --no-cache-dir papermill && \
     pip install --no-cache-dir igv_jupyterlab && \
