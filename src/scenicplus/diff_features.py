@@ -37,7 +37,8 @@ def get_differential_features(scplus_obj: SCENICPLUS,
                               use_hvg: Optional[bool] = True,
                               contrast_type: Optional[List] = ['DARs', 'DEGs'],
                               adjpval_thr: Optional[float] = 0.05,
-                              log2fc_thr: Optional[float] = np.log2(1.5)
+                              log2fc_thr: Optional[float] = np.log2(1.5),
+                              min_cells: Optional[int] = 2
                               ):
     """
     Get DARs of DEGs given reference variable. 
@@ -75,6 +76,13 @@ def get_differential_features(scplus_obj: SCENICPLUS,
                 index=scplus_obj.cell_names), var=pd.DataFrame(index=scplus_obj.region_names))
             min_disp = 0.05
         adata.obs = scplus_obj.metadata_cell
+
+        # remove annotations with less than 'min_cells'
+        label_count = adata.obs[variable].value_counts()
+        keeplabels = [label for label, count in zip(label_count.index, label_count.values) if count >= min_cells]
+        keepcellids = [cellid for cellid in adata.obs.index if adata.obs[variable][cellid] in keeplabels]
+        adata = adata[keepcellids]
+        
         sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
         if use_hvg:
@@ -84,7 +92,8 @@ def get_differential_features(scplus_obj: SCENICPLUS,
             )
             adata = adata[:, var_features]
             log.info('There are ' + str(len(var_features)) +
-                     ' variable features')
+                     ' variable features')        
+        
         sc.tl.rank_genes_groups(
             adata, variable, method='wilcoxon', corr_method='bonferroni')
         groups = adata.uns['rank_genes_groups']['names'].dtype.names
