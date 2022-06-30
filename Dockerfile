@@ -38,11 +38,11 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
     pip install --no-cache-dir scanpy==1.8.2 && \
     pip install --no-cache-dir -r /tmp/requirements.txt 
     
-# install ctxcore from local copy:
-COPY ctxcore /tmp/ctxcore
-RUN  cd /tmp/ctxcore && \
+# install pyscenic from local copy:
+COPY pySCENIC /tmp/pySCENIC
+RUN  cd /tmp/pySCENIC && \
      pip install . && \
-     cd .. && rm -rf ctxcore
+     cd .. && rm -rf pySCENIC
     
 # install pycisTopic from local copy:
 COPY pycisTopic /tmp/pycisTopic
@@ -70,6 +70,10 @@ COPY scenicplus /tmp/scenicplus
 RUN cd /tmp/scenicplus && \
     pip install . && \
     cd .. && rm -rf scenicplus
+
+RUN pip install polars
+
+RUN pip install black
 
 FROM python:3.8-slim AS build-image
 
