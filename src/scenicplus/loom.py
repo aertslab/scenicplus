@@ -12,7 +12,7 @@ import scipy.sparse as sparse
 import sys
 from loomxpy.loomxpy import SCopeLoom
 from loomxpy.utils import compress_encode
-from pyscenic.genesig import Regulon
+from ctxcore.genesig import Regulon
 from typing import Dict, List, Mapping, Optional, Sequence
 from multiprocessing import cpu_count
 from collections import OrderedDict
