@@ -43,6 +43,12 @@ COPY pySCENIC /tmp/pySCENIC
 RUN  cd /tmp/pySCENIC && \
      pip install . && \
      cd .. && rm -rf pySCENIC
+
+# install loomxpy from local copy:
+COPY LoomXpy /tmp/LoomXpy
+RUN  cd /tmp/LoomXpy && \
+     pip install . && \
+     cd .. && rm -rf LoomXpy
     
 # install pycisTopic from local copy:
 COPY pycisTopic /tmp/pycisTopic
