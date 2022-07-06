@@ -3,6 +3,7 @@ import anndata
 import scanpy as sc
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from pygam import LinearGAM,s
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import math
@@ -16,7 +17,7 @@ from tqdm import tqdm
 from scipy.spatial.distance import jensenshannon
 from math import ceil, floor
 from adjustText import adjust_text
-from .RSS import _plot_rss_internal
+from scenicplus.RSS import _plot_rss_internal
 
 def get_embedding_dpt(adata, group_var, root_group, embedding_key='X_umap', n_dcs=2, figsize=(12,8)):
     adata_h = anndata.AnnData(X=pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index))
@@ -197,9 +198,9 @@ def calculate_arrows(df, penal=0.03):
     rg_g.columns = ['region_to_gene_match', 'region_to_gene_length']
     
     arrow_map = pd.concat([df, tf_rg, tf_g, rg_g], axis=1)
-    arrow_map['tf_to_region_match'] =  [arrow_map['tf_to_region_match'][i] if not math.isnan(float(arrow_map['tf_to_region_match'][i])) else arrow_map.index[i] for i in range(arrow_map.shape[0]) ]
-    arrow_map['tf_to_gene_match'] =  [arrow_map['tf_to_gene_match'][i] if not math.isnan(float(arrow_map['tf_to_gene_match'][i])) else arrow_map.index[i] for i in range(arrow_map.shape[0]) ]
-    arrow_map['region_to_gene_match'] =  [arrow_map['region_to_gene_match'][i] if not math.isnan(float(arrow_map['region_to_gene_match'][i])) else arrow_map.index[i] for i in range(arrow_map.shape[0]) ]
+    arrow_map['tf_to_region_match'] =  [arrow_map['tf_to_region_match'][i] if not isnan(arrow_map['tf_to_region_match'][i]) else arrow_map.index[i] for i in range(arrow_map.shape[0]) ]
+    arrow_map['tf_to_gene_match'] =  [arrow_map['tf_to_gene_match'][i] if not isnan(arrow_map['tf_to_gene_match'][i]) else arrow_map.index[i] for i in range(arrow_map.shape[0]) ]
+    arrow_map['region_to_gene_match'] =  [arrow_map['region_to_gene_match'][i] if not isnan(arrow_map['region_to_gene_match'][i]) else arrow_map.index[i] for i in range(arrow_map.shape[0]) ]
     arrow_map = arrow_map.fillna(0) 
     
     # Clean up
@@ -254,12 +255,13 @@ def calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_gr
 
     return grid_xy, uv, mask, tf_expr
 
-
+def isnan(string):
+    return string != string
 
 def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=1,
              plot_type='tf_to_gene', gam_smooth = True, use_ranked_dpt = False, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
              n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
-             figsize =(10, 10), colormap = cm.Greys, return_data = False):
+             figsize =(10, 10), colormap = cm.Greys, plot_streamplot=True, vmax_streamplot=0.25, linewidth_streamplot=0.5, arrowsize_streamplot=2, density_streamplot=10, return_data = False):
     tf_name = tf.split('_')[0]
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     u_list = []
@@ -273,8 +275,9 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', wind
         embedding = pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index, columns=['x', 'y'])
         embedding.iloc[:,0] = embedding.iloc[:,0]+abs(min(embedding.iloc[:,0]))
         embedding.iloc[:,1] = embedding.iloc[:,1]+abs(min(embedding.iloc[:,1]))
+        embedding = embedding.loc[df.index]
         df = pd.concat([arrow_map, embedding], axis=1)
-        df[plot_type+'_match'] =  [df[plot_type+'_match'][i] if not math.isnan(float(df[plot_type+'_match'][i])) else df.index[i] for i in range(df.shape[0]) ]
+        df[plot_type+'_match'] =  [df[plot_type+'_match'][i] if not isnan(df[plot_type+'_match'][i]) else df.index[i] for i in range(df.shape[0]) ]
         df[plot_type+'_match'] =  [df[plot_type+'_match'][i] if df.iloc[i,0] > tf_traj_thr else df.index[i] for i in range(df.shape[0]) ]
         df[plot_type+'_match'] =  [df[plot_type+'_match'][i] if df.iloc[i,3] > tf_expr_thr else df.index[i] for i in range(df.shape[0]) ]
         df = df.loc[:,['x', 'y', plot_type+'_match', tf_name+'_all_paths']].dropna()
@@ -300,7 +303,20 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', wind
     from matplotlib.pyplot import rc_context
     with rc_context({'figure.figsize': figsize}):
         sc.pl.embedding(adata, embedding_key, color=[color_var], zorder=0, return_fig=True, title=tf) 
-    plt.quiver(grid_xy[mask, 0], grid_xy[mask, 1], uv[mask, 0], uv[mask, 1], zorder=1, color=colormap(color[mask]), scale=scale)
+    if plot_streamplot is True:
+        distances = np.sqrt((uv**2).sum(1))
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=vmax_streamplot, clip=True)
+        mapper = cm.ScalarMappable(norm=norm, cmap=colormap)
+        scale = lambda X: [(x - min(X)) / (max(X) - min(X)) for x in X]
+        uv[~mask] = np.nan
+        plt.streamplot(
+                grid_xy.reshape(n_grid_cols,n_grid_cols, 2)[:, :, 0],
+                grid_xy.reshape(n_grid_cols,n_grid_cols, 2)[:, :, 1],
+                uv.reshape(n_grid_cols,n_grid_cols, 2)[:, :, 0],
+                uv.reshape(n_grid_cols,n_grid_cols, 2)[:, :, 1], density = density_streamplot, color = np.array(scale(distances)).reshape(n_grid_cols,n_grid_cols), cmap = colormap, zorder = 1, norm = norm,
+                linewidth = linewidth_streamplot, arrowsize=arrowsize_streamplot)
+    else:    
+        plt.quiver(grid_xy[mask, 0], grid_xy[mask, 1], uv[mask, 0], uv[mask, 1], zorder=1, color=colormap(color[mask]), scale=scale)
     if return_data == True:
         return df
         
