@@ -261,7 +261,7 @@ def isnan(string):
 def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=1,
              plot_type='tf_to_gene', gam_smooth = True, use_ranked_dpt = False, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
              n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
-             figsize =(10, 10), colormap = cm.Greys, plot_streamplot=True, vmax_streamplot=0.25, linewidth_streamplot=0.5, arrowsize_streamplot=2, density_streamplot=10, return_data = False):
+             figsize =(10, 10), colormap = cm.Greys, plot_streamplot=True, vmax_streamplot=0.25, linewidth_streamplot=0.5, arrowsize_streamplot=2, density_streamplot=10, return_data = False, **kwargs):
     tf_name = tf.split('_')[0]
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     u_list = []
@@ -302,7 +302,7 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', wind
     grid_xy, uv, mask, color = calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_grid_cols, n_grid_rows, n_neighbors, n_cpu)
     from matplotlib.pyplot import rc_context
     with rc_context({'figure.figsize': figsize}):
-        sc.pl.embedding(adata, embedding_key, color=[color_var], zorder=0, return_fig=True, title=tf) 
+        sc.pl.embedding(adata, embedding_key, color=[color_var], zorder=0, return_fig=True, title=tf, **kwargs) 
     if plot_streamplot is True:
         distances = np.sqrt((uv**2).sum(1))
         norm = matplotlib.colors.Normalize(vmin=0, vmax=vmax_streamplot, clip=True)
