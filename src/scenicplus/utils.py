@@ -14,6 +14,7 @@ from numba import njit, float64, int64, prange
 from pycisTopic.utils import region_names_to_coordinates
 import subprocess
 import os
+import re
 
 ASM_SYNONYMS = {
     'hg38': 'GRCh38',
@@ -765,6 +766,7 @@ def format_egrns(scplus_obj,
     scplus_obj.uns[key_added] = egrn_metadata
 
 
+
 def export_eRegulons(scplus_obj: 'SCENICPLUS',
                     out_file: str,
                     assembly: str,
@@ -796,9 +798,8 @@ def export_eRegulons(scplus_obj: 'SCENICPLUS',
     l_eRegulons = signatures
     direct_eRegulons = [e for e in l_eRegulons if not 'extended' in e]
     extended_eRegulons = [e for e in l_eRegulons if  'extended' in e]
-    direct_TFs = [x.split('_')[0] for x in direct_eRegulons]
-    extended_TFs = [x.split('_')[0] for x in extended_eRegulons]
-    extended_TFs_not_in_direct_TFs = np.isin(extended_TFs, direct_TFs, invert = True)
+    extended_eRegulons_simplified = [re.sub('_extended', '', x) for x in extended_eRegulons]
+    extended_TFs_not_in_direct_TFs = np.isin(extended_eRegulons_simplified, direct_eRegulons, invert = True)
     extended_eRegulons_to_keep = np.array(extended_eRegulons)[extended_TFs_not_in_direct_TFs]
     eRegulons_to_keep = [*direct_eRegulons, *extended_eRegulons_to_keep]
 
