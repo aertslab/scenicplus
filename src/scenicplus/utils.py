@@ -798,8 +798,10 @@ def export_eRegulons(scplus_obj: 'SCENICPLUS',
     l_eRegulons = signatures
     direct_eRegulons = [e for e in l_eRegulons if not 'extended' in e]
     extended_eRegulons = [e for e in l_eRegulons if  'extended' in e]
-    extended_eRegulons_simplified = [re.sub('_extended', '', x) for x in extended_eRegulons]
-    extended_TFs_not_in_direct_TFs = np.isin(extended_eRegulons_simplified, direct_eRegulons, invert = True)
+    direct_eRegulons_ng = [x.split('_(')[0] for x in direct_eRegulons]
+    extended_eRegulons_ng = [x.split('_(')[0] for x in extended_eRegulons]
+    extended_eRegulons_simplified = [re.sub('_extended', '', x) for x in extended_eRegulons_ng]
+    extended_TFs_not_in_direct_TFs = np.isin(extended_eRegulons_simplified, direct_eRegulons_ng, invert = True)
     extended_eRegulons_to_keep = np.array(extended_eRegulons)[extended_TFs_not_in_direct_TFs]
     eRegulons_to_keep = [*direct_eRegulons, *extended_eRegulons_to_keep]
 
