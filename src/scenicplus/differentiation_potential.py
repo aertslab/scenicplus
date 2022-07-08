@@ -18,6 +18,8 @@ from scipy.spatial.distance import jensenshannon
 from math import ceil, floor
 from adjustText import adjust_text
 from scenicplus.RSS import _plot_rss_internal
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 def get_embedding_dpt(adata, group_var, root_group, embedding_key='X_umap', n_dcs=2, figsize=(12,8)):
     adata_h = anndata.AnnData(X=pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index))
@@ -261,7 +263,7 @@ def isnan(string):
 def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=1,
              plot_type='tf_to_gene', gam_smooth = True, use_ranked_dpt = False, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
              n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
-             figsize =(10, 10), colormap = cm.Greys, plot_streamplot=True, vmax_streamplot=0.25, linewidth_streamplot=0.5, arrowsize_streamplot=2, density_streamplot=10, return_data = False, **kwargs):
+             figsize =(10, 10), colormap = cm.Greys, plot_streamplot=True, vmax_streamplot=0.25, linewidth_streamplot=0.5, arrowsize_streamplot=2, density_streamplot=10, return_data = False, save=None, **kwargs):
     tf_name = tf.split('_')[0]
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     u_list = []
@@ -317,6 +319,8 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', wind
                 linewidth = linewidth_streamplot, arrowsize=arrowsize_streamplot)
     else:    
         plt.quiver(grid_xy[mask, 0], grid_xy[mask, 1], uv[mask, 0], uv[mask, 1], zorder=1, color=colormap(color[mask]), scale=scale)
+    if save is not None:
+        plt.savefig(save)
     if return_data == True:
         return df
         
