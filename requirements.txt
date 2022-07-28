@@ -20,3 +20,6 @@ gseapy
 networkx
 ctxcore
 seaborn
+nbsphinx
+nbsphinx-link
+numpydoc
