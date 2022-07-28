@@ -26,4 +26,7 @@ setuptools.setup(
          "License :: OSI Approved :: MIT License",
          "Operating System :: OS Independent",
      ],
+     dependency_links = [
+	"https://github.com/aertslab/pycisTopic@master#egg=pycisTopic",
+	"https://github.com/aertslab/pycistarget@master#egg=pycistarget"]
  )
