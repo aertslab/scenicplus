@@ -14,8 +14,8 @@ scipy
 pybiomart
 requests
 arboreto
-pycisTopic
-pycistarget
+git+https://github.com/aertslab/pycisTopic@master#egg=pycisTopic
+git+https://github.com/aertslab/pycistarget@master#egg=pycistarget
 gseapy
 networkx
 ctxcore
