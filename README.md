@@ -24,6 +24,8 @@ To build a Docker image, and then create a Singularity image from this:
 
 ```bash
 # Clone repositories 
+git clone https://github.com/aertslab/pySCENIC.git
+git clone https://github.com/aertslab/LoomXpy.git
 git clone https://github.com/aertslab/pycisTopic.git
 git clone https://github.com/aertslab/pycistarget.git
 git clone https://github.com/aertslab/scenicplus.git
