@@ -132,8 +132,3 @@ Export to loom
 .. automodule:: scenicplus.loom
    :members:
 
-Export to hdf5
-^^^^^^^^^^^^^^
-
-.. automodule:: scenicplus.hdf5
-   :members:
