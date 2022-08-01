@@ -81,6 +81,8 @@ RUN pip install polars
 
 RUN pip install black
 
+RUN pip install pyfaidx 
+
 FROM python:3.8-slim AS build-image
 
 RUN mkdir -p /usr/share/man/man1 && \
