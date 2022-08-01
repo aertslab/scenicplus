@@ -55,9 +55,9 @@ import scenicplus
 scenicplus.__version__
 ```
 
-## Tutorials
+## Documentation
 
-Coming soon
+Documentation is available at [read the docs](https://scenicplus.readthedocs.io).
 
 
 ## References
