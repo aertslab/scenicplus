@@ -57,7 +57,7 @@ scenicplus.__version__
 
 ## Documentation
 
-Documentation is available at: scenicplus.readthedocs.io
+Documentation is available at [read the docs](https://scenicplus.readthedocs.io).
 
 
 ## References
