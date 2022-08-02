@@ -19,7 +19,7 @@ def get_eRegulons_as_signatures(scplus_obj: SCENICPLUS,
     ----------
     scplus_obj: `class::SCENICPLUS`
         A SCENICPLUS object with eRegulons metadata computed.
-    eRegulons_metadata_key: str, optional
+    eRegulon_metadata_key: str, optional
         Key where the eRegulon metadata is stored (in `scplus_obj.uns`)
     key_added: str, optional
         Key where formated signatures will be stored (in `scplus_obj.uns`)
@@ -118,6 +118,7 @@ def make_rankings(scplus_obj: SCENICPLUS,
 
 def score_eRegulons(scplus_obj: SCENICPLUS,
                     ranking: CistopicImputedFeatures,
+                    inplace: bool = True,
                     eRegulon_signatures_key: str = 'eRegulon_signatures',
                     key_added: str = 'eRegulon_AUC',
                     enrichment_type: str = 'region',
@@ -131,8 +132,10 @@ def score_eRegulons(scplus_obj: SCENICPLUS,
     ----------
     scplus_obj: `class::SCENICPLUS`
         A SCENICPLUS object with formatted eRegulons.
-    eRegulons_metadata_key: `class::CistopicImputedFeatures`
-        Precomputed region/gene ranking.
+    ranking: `class::CistopicImputedFeatures`
+        A CistopicImputedFeatures object containing rankings, generated using the function make_rankings.
+    inplace: bool, optional
+        If set to True store result in scplus_obj, otherwise it is returned.
     eRegulon_signatures_key: str, optional
         Key where formated signatures are stored (in `scplus_obj.uns`)
     key_added: str, optional
@@ -153,14 +156,20 @@ def score_eRegulons(scplus_obj: SCENICPLUS,
         key = 'Region_based'
     if enrichment_type == 'gene':
         key = 'Gene_based'
-
-    scplus_obj.uns[key_added][key] = signature_enrichment(ranking,
-                                                          scplus_obj.uns[eRegulon_signatures_key][key],
-                                                          enrichment_type='gene',
-                                                          auc_threshold=auc_threshold,
-                                                          normalize=normalize,
-                                                          n_cpu=n_cpu)
-
+    if inplace:
+        scplus_obj.uns[key_added][key] = signature_enrichment(ranking,
+                                                            scplus_obj.uns[eRegulon_signatures_key][key],
+                                                            enrichment_type='gene',
+                                                            auc_threshold=auc_threshold,
+                                                            normalize=normalize,
+                                                            n_cpu=n_cpu)
+    else:
+        return signature_enrichment(ranking,
+                                    scplus_obj.uns[eRegulon_signatures_key][key],
+                                    enrichment_type='gene',
+                                    auc_threshold=auc_threshold,
+                                    normalize=normalize,
+                                    n_cpu=n_cpu)
 
 def binarize_AUC(scplus_obj: SCENICPLUS,
                  auc_key: Optional[str] = 'eRegulon_AUC',
@@ -174,7 +183,7 @@ def binarize_AUC(scplus_obj: SCENICPLUS,
     ----------
     scplus_obj: `class::SCENICPLUS`
         A SCENICPLUS object with eRegulons AUC.
-        auc_key: str, optional
+    auc_key: str, optional
         Key where the AUC values are stored
     out_key: str, optional
         Key where the AUCell thresholds will be stored (in `scplus_obj.uns`)

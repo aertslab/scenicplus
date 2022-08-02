@@ -245,7 +245,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
 
     Parameters
     ----------
-    SCENICPLUS_obj
+    scplus_obj
         An instance of :class:`~scenicplus.scenicplus_class.SCENICPLUS`
     tf_file
         Path to a file specifying with genes are TFs

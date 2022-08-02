@@ -104,8 +104,8 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
                      pr_chromsizes=None,
                      predefined_boundaries=None,
                      use_gene_boundaries=False,
-                     upstream=[1000, 100000],
-                     downstream=[1000, 100000],
+                     upstream=[1000, 150000],
+                     downstream=[1000, 150000],
                      extend_tss=[10, 10],
                      remove_promoters=False,
                      biomart_host='http://www.ensembl.org',
@@ -146,6 +146,12 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
         Space around the TSS consider as promoter. Default: [10,10]
     remove_promoters: bool, optional
         Whether to remove promoters from the search space or not. Default: False
+    biomart_host: str, optional
+        Biomart host to use to download TSS annotation. Please make sure this host matches the expression data (i.e. matching gene names) otherwise a lot of genes are potentially lost.
+    inplace: bool, optional
+        If set to True, store results into scplus_obj, otherwise return results.
+    key_added: str, optional
+        Key under which to add the results under scplus.uns.
     implode_entries: bool, optional
         When a gene has multiple start/end sites it has multiple distances and gene width. 
         If this parameter is set to True these multiple entries per region and gene will be put in a list, generating a single entry.
@@ -746,7 +752,7 @@ def export_to_UCSC_interact(SCENICPLUS_obj: SCENICPLUS,
     bigbed_outfile:str = None
         Path to which to write the bigbed output.
     path_bedToBigBed: str= None
-        Path to bedToBigBed program, used to convert bed file to bigbed format.
+        Path to bedToBigBed program, used to convert bed file to bigbed format. Can be downloaded from http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed
     assembly: str = None
         String identifying the assembly of your dataset (e.g. hg39).
     ucsc_track_name: str = 'region_to_gene'
