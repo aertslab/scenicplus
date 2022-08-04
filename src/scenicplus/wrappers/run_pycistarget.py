@@ -125,7 +125,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     annot['Chromosome'] = annot['Chromosome'].astype('str')
     filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT')
     annot = annot[~filterf]
-    annot['Chromosome'] = annot['Chromosome'].str.replace(r'(\b\S)', r'chr\1')
+    annot['Chromosome'] = annot['Chromosome'].replace(r'(\b\S)', r'chr\1')
     annot = annot[annot.Transcript_type == 'protein_coding']
     annot = annot.dropna(subset = ['Chromosome', 'Start'])
     # Check if chromosomes have chr
