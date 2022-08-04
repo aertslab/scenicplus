@@ -21,6 +21,18 @@ Depending on your pip version, you may need to run this pip command instead:
 
     pip install -e .
 
+Installing in a conda environment (recommended)
+===============================================
+
+.. code-block:: bash
+    
+    conda create --name scenicplus python=3.8
+    conda activate scenicplus
+    git clone https://github.com/aertslab/scenicplus
+    cd scenicplus
+    pip install -e .
+
+
 Creating a Docker/Singularity image
 ===================================
 

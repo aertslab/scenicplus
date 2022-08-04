@@ -1,7 +1,5 @@
 """Gene expression simulation from SCENIC+ results
 """
-
-from multiprocessing.sharedctypes import Value
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from tqdm import tqdm
 import numpy as np
@@ -9,13 +7,15 @@ from velocyto.estimation import colDeltaCorpartial
 from scipy import sparse
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import norm as normal
+
+from .eregulon_enrichment import score_eRegulons
 from .dimensionality_reduction import plot_metadata_given_ax
 import matplotlib.pyplot as plt
 import logging
 import sys
-import ray
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import List, Optional
 import pandas as pd
+
 
 
 RF_KWARGS = {
@@ -42,7 +42,7 @@ DEFAULT_REGRESSOR_PARAMS = {
 
 def _do_one_round_of_simulation(original_matrix, perturbed_matrix, regressors):
     new_exp_mtx = perturbed_matrix.copy()
-    for gene in tqdm(regressors.keys(), total = len(regressors.keys())):
+    for gene in tqdm(regressors.keys(), total = len(regressors.keys()), leave = False):
         gene_regressor = regressors[gene][-1]
         TF_original_exp = original_matrix[regressors[gene][0: len(regressors[gene]) -1]].to_numpy()
         TF_perturbed_exp = perturbed_matrix[regressors[gene][0: len(regressors[gene]) -1]].to_numpy()
@@ -54,6 +54,38 @@ def _do_one_round_of_simulation(original_matrix, perturbed_matrix, regressors):
         else:
             continue
     return new_exp_mtx
+
+from pycisTopic.diff_features import *
+from pycisTopic.signature_enrichment import *
+#probably better to move this function out to somewhere general (so it is not duplicated across eregulon_enrichment.py and here)
+def _make_rankings(X, seed = 123):
+        rng = np.random.default_rng(seed=seed)
+        # Function to make rankings per array
+        def rank_scores_and_assign_random_ranking_in_range_for_ties(
+                scores_with_ties_for_motif_or_track_numpy: np.ndarray
+        ) -> np.ndarray:
+                #
+                # Create random permutation so tied scores will have a different ranking each time.
+                random_permutations_to_break_ties_numpy = rng.permutation(
+                scores_with_ties_for_motif_or_track_numpy.shape[0]
+                )
+                ranking_with_broken_ties_for_motif_or_track_numpy = random_permutations_to_break_ties_numpy[
+                (-scores_with_ties_for_motif_or_track_numpy)[
+                    random_permutations_to_break_ties_numpy].argsort()
+                ].argsort().astype(imputed_acc_obj_ranking_db_dtype)
+
+                return ranking_with_broken_ties_for_motif_or_track_numpy
+        imputed_acc_ranking = CistopicImputedFeatures(
+                np.zeros((len(X.columns), len(X.index))),
+                            X.columns,
+                            X.index,
+                            'Ranking')
+        imputed_acc_obj_ranking_db_dtype = 'uint32'
+        mtx = X.T.to_numpy()
+        for col_idx in range(len(imputed_acc_ranking.cell_names)):
+                imputed_acc_ranking.mtx[:, col_idx] = rank_scores_and_assign_random_ranking_in_range_for_ties(
+                        mtx[:, col_idx].toarray().flatten() if sparse.issparse(mtx) else mtx[:, col_idx].flatten())
+        return imputed_acc_ranking
 
 def train_gene_expression_models(
     scplus_obj: 'SCENICPLUS', 
@@ -100,13 +132,16 @@ def train_gene_expression_models(
     #subset eRegulon_metadata for selected eRegulons (only these will be used as predictors)
     if eRegulons_to_use is not None:
         idx_to_keep = np.isin(
-            [x.split('_(')[0] for x in eRegulon_metadata['Region_signature_name']], 
+            ['_'.join(x.split('_')[0:2]) for x in eRegulon_metadata['Gene_signature_name']], 
             [x.split('_(')[0] for x in eRegulons_to_use])
         eRegulon_metadata = eRegulon_metadata.loc[idx_to_keep]
     regressors = {}
     for gene in tqdm(genes, total = len(genes)):
         regressor = SKLEARN_REGRESSOR_FACTORY[regressor_type](**regressor_kwargs)
         predictor_TF = list(set(eRegulon_metadata.query("Gene == @gene")["TF"]))
+        #remove gene itself as predictor
+        if gene in predictor_TF:
+            predictor_TF.remove(gene)
         if len(predictor_TF) == 0:
             continue
         predictor_TF_exp_v = df_EXP[predictor_TF].to_numpy()
@@ -203,17 +238,23 @@ def permute_rows_nsign(A: np.ndarray) -> None:
         np.random.shuffle(A[i, :])
         A[i, :] = A[i, :] * np.random.choice(plmi, size=A.shape[1])
 
-def _project_perturbation_in_embedding(scplus_obj, perturbed_matrix, reduction_name, sigma_corr = 0.05, n_cpu = 1):
+def _project_perturbation_in_embedding(
+    scplus_obj, 
+    original_matrix, 
+    perturbed_matrix, 
+    reduction_name, 
+    sigma_corr = 0.05, n_cpu = 1):
     #based on celloracle/velocyto code
     if reduction_name not in scplus_obj.dr_cell.keys():
         raise ValueError(f'Embbeding "{reduction_name}" not found!')
-    original_matrix = scplus_obj.to_df('EXP').copy().to_numpy().astype('double')
-    delta_matrix = original_matrix - perturbed_matrix.to_numpy().astype('double')
+    if original_matrix is None:
+        original_matrix = scplus_obj.to_df('EXP').copy().to_numpy().astype('double')
+    delta_matrix = perturbed_matrix.to_numpy().astype('double') - original_matrix.to_numpy().astype('double')
     delta_matrix_random =  delta_matrix.copy()
     permute_rows_nsign(delta_matrix_random)
 
     embedding = scplus_obj.dr_cell[reduction_name].to_numpy()
-    n_neighbors = int(original_matrix.shape[0] / 5) #default from cell oracle
+    n_neighbors = int(perturbed_matrix.shape[0] / 5) #default from cell oracle
     nn = NearestNeighbors(n_neighbors = n_neighbors + 1, n_jobs = n_cpu)
     nn.fit(embedding)
     embedding_knn = nn.kneighbors_graph(mode = 'connectivity')
@@ -240,7 +281,7 @@ def _project_perturbation_in_embedding(scplus_obj, perturbed_matrix, reduction_n
                                         shape=(neigh_ixs.shape[0],
                                                 neigh_ixs.shape[0]))
 
-    corrcoef = colDeltaCorpartial(original_matrix.T, delta_matrix.T, neigh_ixs,  threads = n_cpu)
+    corrcoef = colDeltaCorpartial(perturbed_matrix.T, delta_matrix.T, neigh_ixs,  threads = n_cpu)
     corrcoef[np.isnan(corrcoef)] = 1
     np.fill_diagonal(corrcoef, 0)
 
@@ -295,13 +336,24 @@ def _calculate_grid_arrows(embedding, delta_embedding, offset_frac, n_grid_cols,
 
 def plot_perturbation_effect_in_embedding(
     scplus_obj: 'SCENICPLUS', 
-    perturbed_matrix: pd.DataFrame, 
     reduction_name: str, 
-    grid_offset_frac: Optional[float] = 0.01,
-    grid_n_cols: Optional[int] = 50,
-    grid_n_rows: Optional[int] = 50,
-    grid_n_neighbors: Optional[int] = 1000,
-    arrow_scale: Optional[float] = 3,
+    variable: str,
+    calculate_perturbed_auc_values: bool = True,
+    AUC_key: str = 'eRegulon_AUC',
+    perturbed_matrix: pd.DataFrame = None, 
+    perturbation: dict = None, 
+    eRegulon_metadata_key: Optional[str] = 'eRegulon_metadata',
+    eRegulon_signatures_key: str = 'eRegulon_signatures',
+    n_iter: Optional[int] = 5, 
+    regressors: Optional[dict] = None, 
+    genes_to_use: Optional[List] = None, 
+    regressor_type: Optional[str] = 'GBM',
+    regressor_kwargs: Optional[dict] = None, 
+    eRegulons_to_use: Optional[List] = None, 
+    grid_offset_frac: Optional[float] = 0.005,
+    grid_n_cols: Optional[int] = 25,
+    grid_n_rows: Optional[int] = 25,
+    grid_n_neighbors: Optional[int] = 25,
     n_cpu: Optional[int] = 1,
     figsize: Optional[tuple] = (6.4, 4.8),
     save: Optional[str] = None,
@@ -313,10 +365,38 @@ def plot_perturbation_effect_in_embedding(
     ----------
     scplus_obj: `class::SCENICPLUS`
         A SCENICPLUS object.
-    perturbed_matrix: pd.DataFrame
-        A pandas dataframe with the perturbed gene expression values, as generated by simulate_perturbation
     reduction_name: str
-        name of the cellular dimensionality reduction to use
+        Name of the dimensionality reduction on which to plot the perturbation effect.
+        Should be included in scplus_obj.dr.keys()
+    variable: str
+        Categorical variable by which to color cells by.
+    calculate_perturbed_auc_values: bool, optional
+        Specify wether eRegulon AUC values should be calculated using the perturbed matrix.
+    AUC_key: str, optional
+        In case calculate_perturbed_auc_values is set to True, key under which to find non-perturbed AUC values.
+    perturbed_matrix: pd.DataFrame, optional
+        Perturbed gene expression matrix, calculated using the simulate_perturbation function. 
+        If set to None, this will be calculated.
+    perturbation: dict, optional
+        Dictionary specifying perturbation to simulate, has to be provided when perturbed_matrix is set to None.
+        Example: {"SOX10": 0}.
+    eRegulon_metadata_key: str, optional
+        Key in scplus_obj.uns.keys() under which to find the eRegulon metadata.
+    eRegulon_signatures_key: str, optional
+        Key in scplus_obj.uns.keys() under which to find the eRegulon signatures.
+    n_iter: int
+        Number of itertions to simulate. Default is 5
+    regressors: dict
+        Dictionary of regressors as generated by train_gene_expression_models. 
+        If set to None, this dictionary will be generated internally.
+    genes: List
+        List of genes for which to train the regression models. Default uses all genes.
+    regressor_type: str
+        Method to use for regression, options are GBM (Gradient Boosting Machine) and RF (Random Forrest).
+    regressor_kwargs: dict
+        Keyword arguments containing parameters to use for training the regression model.
+    eRegulons_to_use: List
+        List of eRegulons to consider as predictors. Default uses all eRegulons in scplus_obj.uns[eRegulon_metadata_key]
     grid_offset_frac: float
         Fraction of whitespace to use surounding the plot for plotting the arrows.
     grid_n_cols: int
@@ -339,12 +419,41 @@ def plot_perturbation_effect_in_embedding(
     handlers = [logging.StreamHandler(stream=sys.stdout)]
     logging.basicConfig(level=level, format=format, handlers=handlers)
     log = logging.getLogger('perturbation')
+    if perturbed_matrix is None:
+        if perturbation is None:
+            raise ValueError("Please provide a perturbation, by setting the perturbation parameter to {<TF>: <new_expression_value>}")
+        log.info(f'Caclulating perturbation matrix for: {perturbation} over {n_iter} iterations.')
+        perturbed_matrix = simulate_perturbation(
+            scplus_obj = scplus_obj,
+            perturbation = perturbation, 
+            eRegulon_metadata_key = eRegulon_metadata_key,
+            n_iter = n_iter, 
+            regressors = regressors, 
+            genes = genes_to_use, 
+            regressor_type = regressor_type,
+            regressor_kwargs = regressor_kwargs, 
+            eRegulons_to_use = eRegulons_to_use, 
+            keep_intermediate = False)
+    
+    if calculate_perturbed_auc_values:
+        log.info('Generating ranking based on perturbed matrix.')
+        perturbed_ranking = _make_rankings(perturbed_matrix)
+        log.info('Scoring eRegulons.')
+        perturbed_matrix = score_eRegulons(
+            scplus_obj = scplus_obj,
+            ranking = perturbed_ranking,
+            eRegulon_signatures_key = eRegulon_signatures_key,
+            enrichment_type = 'gene',
+            inplace = False,
+            n_cpu = n_cpu)
 
     log.info(f'Projecting perturbation effect in embedding: {reduction_name}')
     delta_embedding = _project_perturbation_in_embedding(
-        scplus_obj=scplus_obj,
-        perturbed_matrix=perturbed_matrix,
-        reduction_name=reduction_name,
+        scplus_obj = scplus_obj, 
+        original_matrix = scplus_obj.uns[AUC_key]['Gene_based'] if calculate_perturbed_auc_values else scplus_obj.to_df('EXP'), 
+        perturbed_matrix = perturbed_matrix, 
+        reduction_name = reduction_name, 
+        sigma_corr = 0.05, 
         n_cpu = n_cpu)
 
     log.info('Calculating grid of arrows')
@@ -357,16 +466,29 @@ def plot_perturbation_effect_in_embedding(
         n_grid_rows=grid_n_rows,
         n_neighbors=grid_n_neighbors,
         n_cpu=n_cpu)
-
+    distances = np.sqrt((uv**2).sum(1))
+    norm = matplotlib.colors.Normalize(vmin=0.15, vmax=0.5, clip=True)
+    scale = lambda X: [(x - min(X)) / (max(X) - min(X)) for x in X]
+    uv[np.logical_or(~mask, np.array(scale(distances)) < 0.15)] = np.nan
     log.info('Plotting')
     fig, ax = plt.subplots(figsize=figsize)
     ax = plot_metadata_given_ax(
         scplus_obj=scplus_obj,
         reduction_name=reduction_name,
         ax = ax,
-        **kwargs
-    )
-    ax.quiver(grid_xy[mask, 0], grid_xy[mask, 1], uv[mask, 0], uv[mask, 1], scale = arrow_scale)
+        variable = variable,
+        **kwargs)
+    ax.streamplot(
+            grid_xy.reshape(grid_n_cols,grid_n_rows, 2)[:, :, 0],
+            grid_xy.reshape(grid_n_cols,grid_n_rows, 2)[:, :, 1],
+            uv.reshape(grid_n_cols,grid_n_rows, 2)[:, :, 0],
+            uv.reshape(grid_n_cols,grid_n_rows, 2)[:, :, 1], 
+            density = 3, 
+            color = np.array(scale(distances)).reshape(grid_n_cols, grid_n_rows),
+            cmap = 'Greys', 
+            zorder = 10, 
+            norm = norm,
+            linewidth = 0.5)
     if save is not None:
         fig.savefig(save)
     else:
