@@ -123,7 +123,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     annot = dataset.query(attributes=['chromosome_name', 'transcription_start_site', 'strand', 'external_gene_name', 'transcript_biotype'])
     annot.columns = ['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
     annot['Chromosome'] = annot['Chromosome'].astype('str')
-    filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT')
+    filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT|KI')
     annot = annot[~filterf]
     annot['Chromosome'] = annot['Chromosome'].replace(r'(\b\S)', r'chr\1')
     annot = annot[annot.Transcript_type == 'protein_coding']
@@ -132,6 +132,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     check = region_sets[list(region_sets.keys())[0]]
     if not any(['chr' in c for c in check[list(check.keys())[0]].df['Chromosome']]):
         annot.Chromosome = annot.Chromosome.str.replace('chr', '')
+    if not any(['chr' in x for x in annot.Chromosome]):
+        annot.Chromosome = [f'chr{x}' for x in annot.Chromosome]
     annot_dem=annot.copy()
     # Define promoter space
     annot['End'] = annot['Start'].astype(int)+promoter_space
