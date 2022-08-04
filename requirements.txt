@@ -13,7 +13,7 @@ scipy
 pybiomart
 requests
 arboreto
-gseapy
+gseapy==0.10.8
 networkx
 ctxcore
 seaborn
