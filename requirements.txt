@@ -1,5 +1,5 @@
 pandas
-numpy==1.20.3
+numpy
 tqdm
 ray
 attr
