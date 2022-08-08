@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from itertools import combinations
 
 from ..scenicplus_class import SCENICPLUS
+from ..utils import p_adjust_bh, flatten_list
 
 
 def correlation_heatmap(scplus_obj: SCENICPLUS,
@@ -131,8 +132,25 @@ def _jaccard(signature1, signature2):
     union = len(s_signature1) + len(s_signature2) - intersect
     return intersect / union
 
+def _intersect_norm_by_one(signature1, signature2):
+    s_signature1 = set(signature1)
+    s_signature2 = set(signature2)
+    intersect = len(s_signature1 & s_signature2)
+    return intersect / len(s_signature1)
+
+from scipy.stats import fisher_exact
+def _fisher_exact_sign(signature1, signature2, total):
+    overlap = len(signature1 & signature2)
+    contingency_table = np.array(
+        [
+            [total - len(signature1) - len(signature2), len(signature1) - overlap],
+            [len(signature2) - overlap,                 overlap]
+        ])
+    return fisher_exact(contingency_table, alternative = 'greater')
+
 
 def jaccard_heatmap(scplus_obj: SCENICPLUS,
+                    method: str = 'jaccard',
                     gene_or_region_based: str = 'Gene_based',
                     signature_key: Optional[str] = 'eRegulon_signatures',
                     selected_regulons: Optional[List[int]] = None,
@@ -145,7 +163,8 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
                     use_plotly: Optional[int] = True,
                     figsize: Optional[Tuple[int, int]] = (20, 20),
                     vmin=None,
-                    vmax=None
+                    vmax=None,
+                    return_data = False
                     ):
     """
     Plot jaccard index of regions/genes
@@ -154,6 +173,8 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
     ---------
     scplus_obj: `class::SCENICPLUS`
         A SCENICPLUS object with eRegulon signatures.
+    method: str
+        Wether to use Jaccard (jaccard) or normalized intersection (intersect) as metric
     gene_or_region_based: str
         Gene_based or Region_based eRegulon signatures to use.
     signature_key: List, optional
@@ -176,6 +197,9 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
         Use plotly or seaborn to generate the image
     figsize: tupe, optional
         Matplotlib figsize, used only if use_plotly == False
+    return_data: boolean, optional
+        Return data
+    plot_dendrogram: boolean, optional
     """
     signatures = scplus_obj.uns[signature_key][gene_or_region_based]
     if selected_regulons is not None:
@@ -189,13 +213,19 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
     for signature_1, signature_2 in sign_combinations:
         idx_1 = signatures_names.index(signature_1)
         idx_2 = signatures_names.index(signature_2)
-        jaccards[idx_1, idx_2] = _jaccard(
-            signatures[signature_1], signatures[signature_2])
-        jaccards[idx_2, idx_1] = _jaccard(
-            signatures[signature_1], signatures[signature_2])
+        if method == 'jaccard':
+            jaccards[idx_1, idx_2] = _jaccard(
+                signatures[signature_1], signatures[signature_2])
+            jaccards[idx_2, idx_1] = _jaccard(
+                signatures[signature_2], signatures[signature_1])
+        elif method == 'intersect':
+            jaccards[idx_1, idx_2] = _intersect_norm_by_one(
+                signatures[signature_1], signatures[signature_2])
+            jaccards[idx_2, idx_1] = _intersect_norm_by_one(
+                signatures[signature_2], signatures[signature_1])
     np.fill_diagonal(jaccards, 1)
     similarity = 1 - jaccards
-    Z = linkage(squareform(similarity), linkage_method)
+    Z = linkage(similarity, linkage_method)
     # Clusterize the data
     labels = fcluster(Z, fcluster_threshold)
     # Keep the indices to sort labels
@@ -219,7 +249,7 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
         sns.heatmap(
             data=clustered_jaccard_df,
             cmap=cmap,
-            square=True,
+            square=False,
             ax=ax,
             robust=True,
             cbar_kws={"shrink": .50, 'label': 'Jaccard'},
@@ -231,3 +261,143 @@ def jaccard_heatmap(scplus_obj: SCENICPLUS,
             fig.savefig(save)
         plt.show()
         plt.close(fig)
+    if return_data:
+        return clustered_jaccard_df, Z
+
+
+from scipy.stats import fisher_exact
+def _fisher_exact_sign(signature1, signature2, total):
+    overlap = len(signature1 & signature2)
+    contingency_table = np.array(
+        [
+            [total - len(signature1) - len(signature2), len(signature1) - overlap],
+            [len(signature2) - overlap,                 overlap]
+        ])
+    return fisher_exact(contingency_table, alternative = 'greater')
+
+
+def fisher_exact_test_heatmap(
+    scplus_obj,
+    gene_or_region_based: str = 'Gene_based',
+    signature_key: Optional[str] = 'eRegulon_signatures',
+    selected_regulons: Optional[List[int]] = None,
+    linkage_method: Optional[str] = 'average',
+    fcluster_threshold: Optional[float] = 0.1,
+    cmap: Optional[str] = 'viridis',
+    plotly_height: Optional[int] = 1000,
+    fontsize: Optional[int] = 3,
+    save: Optional[str] = None,
+    use_plotly: Optional[int] = True,
+    figsize: Optional[Tuple[int, int]] = (20, 20),
+    vmin=None,
+    vmax=None,
+    return_data = False):
+    """
+    Plot jaccard index of regions/genes
+
+    Parameters
+    ---------
+    scplus_obj: `class::SCENICPLUS`
+        A SCENICPLUS object with eRegulon signatures.
+    method: str
+        Wether to use Jaccard (jaccard) or normalized intersection (intersect) as metric
+    gene_or_region_based: str
+        Gene_based or Region_based eRegulon signatures to use.
+    signature_key: List, optional
+        Key to extract eRegulon signatures from
+    selected_regulons: list, optional
+        A list with selected regulons to be used for clustering. Default: None (use all regulons)
+    linkage_method: str, optional
+        Linkage method to use for clustering. See `scipy.cluster.hierarchy.linkage`.
+    fcluster_threshold: float, optional
+        Threshold to use to divide hierarchical clustering into clusters. See `scipy.cluster.hierarchy.fcluster`.
+    cmap: str or 'matplotlib.cm', optional
+        For continuous variables, color map to use for the legend color bar. Default: cm.viridis
+    plotly_height: int, optional
+        Height of the plotly plot. Width will be adjusted accordingly
+    fontsize: int, optional
+        Labels fontsize
+    save: str, optional
+        Path to save heatmap as file
+    use_plotly: bool, optional
+        Use plotly or seaborn to generate the image
+    figsize: tupe, optional
+        Matplotlib figsize, used only if use_plotly == False
+    return_data: boolean, optional
+        Return data
+    plot_dendrogram: boolean, optional
+    """
+    signatures = scplus_obj.uns[signature_key][gene_or_region_based]
+    if selected_regulons is not None:
+        signatures = {k: signatures[k]
+                      for k in signatures.keys() if k in selected_regulons}
+    signatures_names = list(signatures.keys())
+    sign_combinations = list(combinations(signatures_names, 2))
+    n_signatures = len(signatures_names)
+    fisher_exact_values = np.zeros((n_signatures, n_signatures))
+    fisher_exact_pvalues =  np.ones((n_signatures, n_signatures))
+
+
+    total_elements = len(set(flatten_list(scplus_obj.uns[signature_key][gene_or_region_based].values())))
+    
+    for signature_1, signature_2 in sign_combinations:
+        idx_1 = signatures_names.index(signature_1)
+        idx_2 = signatures_names.index(signature_2)
+        test_result = _fisher_exact_sign(set(signatures[signature_1]), set(signatures[signature_2]), total_elements)
+        fisher_exact_values[idx_1, idx_2] = test_result[0]
+        fisher_exact_values[idx_2, idx_1] = test_result[0]
+        fisher_exact_pvalues[idx_1, idx_2] = test_result[1]
+        fisher_exact_pvalues[idx_2, idx_1] = test_result[1]
+    
+    pvals = fisher_exact_pvalues[np.triu_indices(fisher_exact_pvalues.shape[0], k = 1)]
+    p_adj = p_adjust_bh(pvals)
+    p_adj_mat = np.zeros((fisher_exact_pvalues.shape[0],fisher_exact_pvalues.shape[0]))
+    p_adj_mat[np.triu_indices(p_adj_mat.shape[0], k = 1)] = p_adj
+    p_adj_mat = p_adj_mat + p_adj_mat.T
+    
+    similarity = 1 - (fisher_exact_values - fisher_exact_values.min()) / (fisher_exact_values.max() - fisher_exact_values.min())
+    Z = linkage(similarity, linkage_method)
+    # Clusterize the data
+    labels = fcluster(Z, fcluster_threshold)
+    # Keep the indices to sort labels
+    labels_order = np.argsort(labels)
+    clustered_jaccard_df = pd.DataFrame(
+        fisher_exact_values, index=signatures_names, columns=signatures_names).iloc[labels_order, labels_order]
+    p_adj_df = pd.DataFrame(
+        p_adj_mat, index = signatures_names, columns=signatures_names).iloc[labels_order, labels_order]
+    if use_plotly:
+        fig = px.imshow(clustered_jaccard_df, color_continuous_scale=cmap)
+        fig.update_layout(
+            height=plotly_height,  # Added parameter
+            legend={'itemsizing': 'trace'},
+            plot_bgcolor='rgba(0,0,0,0)',
+            yaxis=dict(tickfont=dict(size=fontsize)),
+            xaxis=dict(tickfont=dict(size=fontsize)),
+        )
+        if save is not None:
+            fig.write_image(save)
+        fig.show()
+    else:
+        fig, ax = plt.subplots(figsize=figsize)
+        sns.heatmap(
+            data=clustered_jaccard_df,
+            cmap=cmap,
+            square=False,
+            ax=ax,
+            robust=True,
+            cbar_kws={"shrink": .50, 'label': 'Jaccard'},
+            xticklabels=False,
+            vmin=vmin,
+            vmax=vmax)
+        if save is not None:
+            fig.tight_layout()
+            fig.savefig(save)
+        plt.show()
+        plt.close(fig)
+    if return_data:
+        return clustered_jaccard_df,p_adj_df, Z
+
+
+    
+
+
