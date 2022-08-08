@@ -127,11 +127,11 @@ def apply_std_filtering_to_eRegulons(scplus_obj):
                     ),
                     scplus_obj.uns['eRegulon_metadata_filtered']['is_extended'] == "False")]
     
-    scplus_obj.uns['eRegulon_metadata_filtered']['Gene_signature_name'] = [remove_second_sign(x) for x in scplus_obj.uns['eRegulon_metadata_filtered']['Gene_signature_name']]
-    scplus_obj.uns['eRegulon_metadata_filtered']['Region_signature_name'] = [remove_second_sign(x) for x in scplus_obj.uns['eRegulon_metadata_filtered']['Region_signature_name']]
     print("Getting signatures...")
     get_eRegulons_as_signatures(scplus_obj,
                                 eRegulon_metadata_key='eRegulon_metadata_filtered',
                                 key_added='eRegulon_signatures_filtered')
     print("Simplifying eRegulons ...")
     simplify_eregulon(scplus_obj, 'eRegulon_signatures_filtered')
+    scplus_obj.uns['eRegulon_metadata_filtered']['Gene_signature_name'] = [remove_second_sign(x) for x in scplus_obj.uns['eRegulon_metadata_filtered']['Gene_signature_name']]
+    scplus_obj.uns['eRegulon_metadata_filtered']['Region_signature_name'] = [remove_second_sign(x) for x in scplus_obj.uns['eRegulon_metadata_filtered']['Region_signature_name']]
