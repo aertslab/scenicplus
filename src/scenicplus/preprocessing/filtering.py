@@ -3,6 +3,7 @@
 """
 
 from ..scenicplus_class import SCENICPLUS
+from ..eregulon_enrichment import get_eRegulons_as_signatures
 import numpy as np
 import logging
 import sys
@@ -80,3 +81,46 @@ def filter_regions(SCENICPLUS_obj: SCENICPLUS,
         return SCENICPLUS_obj.subset(regions=regions_to_keep, return_copy=return_copy)
     else:
         SCENICPLUS_obj.subset(regions=regions_to_keep, return_copy=return_copy)
+
+def simplify_eregulon(scplus_obj, eRegulon_signatures_key):
+    md = scplus_obj.uns[eRegulon_signatures_key]['Gene_based']
+    names = list(set([x.split('_(')[0][:len(x.split('_(')[0]) - 2] for x in md.keys()]))
+    scplus_obj.uns[eRegulon_signatures_key]['Gene_based'] = {x:list(set(sum([value for key, value in md.items() if key.startswith(x)], []))) for x in names}
+    scplus_obj.uns[eRegulon_signatures_key]['Gene_based'] = {x+'_('+str(len(scplus_obj.uns[eRegulon_signatures_key]['Gene_based'][x]))+'g)': scplus_obj.uns[eRegulon_signatures_key]['Gene_based'][x] for x in scplus_obj.uns[eRegulon_signatures_key]['Gene_based'].keys()}
+    md = scplus_obj.uns[eRegulon_signatures_key]['Region_based']
+    names = list(set([x.split('_(')[0][:len(x.split('_(')[0]) - 2] for x in md.keys()]))
+    scplus_obj.uns[eRegulon_signatures_key]['Region_based'] = {x:list(set(sum([value for key, value in md.items() if key.startswith(x)], []))) for x in names}
+    scplus_obj.uns[eRegulon_signatures_key]['Region_based'] = {x+'_('+str(len(scplus_obj.uns[eRegulon_signatures_key]['Region_based'][x]))+'r)': scplus_obj.uns[eRegulon_signatures_key]['Region_based'][x] for x in scplus_obj.uns[eRegulon_signatures_key]['Region_based'].keys()}
+
+
+def apply_std_filtering_to_eRegulons(scplus_obj):
+    ## only keep positive R2G
+    print("Only keeping positive R2G")
+    scplus_obj.uns['eRegulon_metadata_filtered'] = scplus_obj.uns['eRegulon_metadata'].query('R2G_rho > 0')
+    ## only keep extended if no direct
+    print("Only keep extended if not direct")
+    scplus_obj.uns['eRegulon_metadata_filtered']['Consensus_name'] = scplus_obj.uns['eRegulon_metadata_filtered'].apply(lambda x: f"{x.TF}_{'+' if x.TF2G_rho > 0 else '-'}_{'+' if x.R2G_rho > 0 else '-'}", axis = 1)
+    eRegulons_direct = set(
+            scplus_obj.uns['eRegulon_metadata_filtered'].loc[
+                    scplus_obj.uns['eRegulon_metadata_filtered']['is_extended'] == "False",
+                    'Consensus_name'
+            ])
+    eRegulons_extended = set(
+            scplus_obj.uns['eRegulon_metadata_filtered'].loc[
+                    scplus_obj.uns['eRegulon_metadata_filtered']['is_extended'] == "True",
+                    'Consensus_name'
+            ])
+    extended_not_direct = list(eRegulons_extended - eRegulons_direct)
+    scplus_obj.uns['eRegulon_metadata_filtered'] = scplus_obj.uns['eRegulon_metadata_filtered'].loc[
+            np.logical_or(
+                    np.logical_and(
+                            scplus_obj.uns['eRegulon_metadata_filtered']['is_extended'] == "True",
+                            np.isin(scplus_obj.uns['eRegulon_metadata_filtered']['Consensus_name'], extended_not_direct)
+                    ),
+                    scplus_obj.uns['eRegulon_metadata_filtered']['is_extended'] == "False")]
+    print("Getting signatures...")
+    get_eRegulons_as_signatures(scplus_obj,
+                                eRegulon_metadata_key='eRegulon_metadata_filtered',
+                                key_added='eRegulon_signatures_filtered')
+    print("Simplifying eRegulons ...")
+    simplify_eregulon(scplus_obj, 'eRegulon_signatures_filtered')
