@@ -93,6 +93,14 @@ def simplify_eregulon(scplus_obj, eRegulon_signatures_key):
     scplus_obj.uns[eRegulon_signatures_key]['Region_based'] = {x+'_('+str(len(scplus_obj.uns[eRegulon_signatures_key]['Region_based'][x]))+'r)': scplus_obj.uns[eRegulon_signatures_key]['Region_based'][x] for x in scplus_obj.uns[eRegulon_signatures_key]['Region_based'].keys()}
 
 
+def remove_second_sign(x):
+        if 'extended' not in x:
+                TF, first, second, n = x.split('_')
+                return f'{TF}_{first}_{n}'
+        else:
+                TF, extended, first, second, n = x.split('_')
+                return f'{TF}_{extended}_{first}_{n}'
+
 def apply_std_filtering_to_eRegulons(scplus_obj):
     ## only keep positive R2G
     print("Only keeping positive R2G")
@@ -118,6 +126,9 @@ def apply_std_filtering_to_eRegulons(scplus_obj):
                             np.isin(scplus_obj.uns['eRegulon_metadata_filtered']['Consensus_name'], extended_not_direct)
                     ),
                     scplus_obj.uns['eRegulon_metadata_filtered']['is_extended'] == "False")]
+    
+    scplus_obj.uns['eRegulon_metadata_filtered']['Gene_signature_name'] = [remove_second_sign(x) for x in scplus_obj.uns['eRegulon_metadata_filtered']['Gene_signature_name']]
+    scplus_obj.uns['eRegulon_metadata_filtered']['Region_signature_name'] = [remove_second_sign(x) for x in scplus_obj.uns['eRegulon_metadata_filtered']['Region_signature_name']]
     print("Getting signatures...")
     get_eRegulons_as_signatures(scplus_obj,
                                 eRegulon_metadata_key='eRegulon_metadata_filtered',
