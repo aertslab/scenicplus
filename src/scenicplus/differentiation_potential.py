@@ -1,5 +1,6 @@
 import pandas as pd
 import anndata
+from anndata import AnnData
 import scanpy as sc
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,26 +19,83 @@ from scipy.spatial.distance import jensenshannon
 from math import ceil, floor
 from adjustText import adjust_text
 from scenicplus.RSS import _plot_rss_internal
+from typing import Dict, List, Tuple
+from typing import Optional, Union
+
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-def get_embedding_dpt(adata, group_var, root_group, embedding_key='X_umap', n_dcs=2, figsize=(12,8)):
+def get_embedding_dpt(adata: AnnData,
+                      group_var: str,
+                      root_group: str,
+                      embedding_key: Optional[str] = 'X_umap',
+                      n_dcs: Optional[int] = 2, 
+                      figsize: Optional[Tuple[float, float]] = (12,8),
+                      palette: Optional[Dict] = None,
+                      cmap: Optional[str] = 'viridis'):
+    """
+    Get embedding-based diffusion pseudotime.
+    
+    Parameters
+    ---------
+    adata: `class::AnnData`
+        AnnData containing eRegulon AUC values and the desired embedding.
+    group_var: str
+        Variable to color plots by.
+    embedding_key: str, optional
+        Name of the key of the desired embedding.
+    n_dcs: int, optional
+        Number of diffussion components to use to calculate pseudotime.
+    figsize: tuple, optional
+        Size of the figure
+    palette: Dict, optional
+        Color palette to color variable plot by.
+    cmap: str, optional
+        Color map to color diffussion pseudotime.
+    """
     adata_h = anndata.AnnData(X=pd.DataFrame(adata.obsm[embedding_key], index=adata.obs.index))
     adata_h.obs = adata.obs.copy()
     sc.pp.neighbors(adata_h)
     adata_h.obs['clusters'] = adata_h.obs[group_var] 
-    sc.tl.diffmap(adata_h, random_state=5)
+    sc.tl.diffmap(adata_h, random_state=555)
     adata_h.uns['iroot'] = np.flatnonzero(adata_h.obs[group_var]  == root_group)[0]
     sc.tl.dpt(adata_h, n_dcs=n_dcs)
     adata_h.obs['distance'] = adata_h.obs['dpt_pseudotime']
-    sc.pl.diffmap(adata_h, color=['clusters', 'distance'], legend_loc='on data', projection='2d')
+    sc.pl.diffmap(adata_h, color=['clusters', 'distance'], legend_loc='on data', projection='2d', palette=palette)
     adata.obs['dpt_pseudotime'] = adata_h.obs['dpt_pseudotime'].copy()
     adata.obs['distance'] = adata.obs['dpt_pseudotime']
     adata.obs['clusters'] = adata.obs[group_var] 
-    sc.pl.embedding(adata, embedding_key, color=['clusters', 'distance'], legend_loc='on data', cmap='viridis')
+    sc.pl.embedding(adata, embedding_key, color=['clusters', 'distance'], legend_loc='on data', cmap=cmap, palette=palette)
 
 
-def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = True):
+def get_path_matrix(adata: AnnData,
+                    dpt_var: str,
+                    path_var: str,
+                    path: List,
+                    features: List,
+                    split_groups: Optional[bool] = True):
+    """
+    Get matrix with TF expression, target region accessibility and target gene expression along a differentiation branch.
+    
+    Parameters
+    ---------
+    adata: `class::AnnData`
+        AnnData containing eRegulon AUC values and the desired embedding with pseudotime.
+    dpt_var: str
+        Name of the variable in which pseudotime values per cell are given in the cell metadata.
+    path_var: str
+        Name of the variable in which the groups specified in the path are given for each cell in the cell metadata.
+    path: List
+        List with tuples specifying the name of the branch and the members (in order).
+    features: list
+        Features that should be included in the matrix.
+    split_groups: bool, optional
+        Whether cells should be ordered only based on pseudotime (False) or by group and by pseudotime within each group (True).
+        
+    Return
+    ---------
+        A dataframe with cells (ordered by pseudotime) and selected features.
+    """
     mat_list = []
     if split_groups == True:
         for group in path:
@@ -62,18 +120,46 @@ def get_path_matrix(adata, dpt_var, path_var, path, features, split_groups = Tru
         mat[dpt_var] = path_adata.obs.loc[:,dpt_var]
     return mat
 
-
-def fitgam(x,y, feature_range=(0, 1)):
-    x = x.reshape(-1,1)
-    gam = LinearGAM(s(0)).gridsearch(x, y, progress=False)
-    yhat=gam.partial_dependence(term=0, X=x)
-    scaler = MinMaxScaler(feature_range=feature_range)
-    yhat = scaler.fit_transform(yhat.reshape(-1, 1))
-    pval = gam.statistics_['p_values']
-    return yhat, pval[0]
-
-def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True,
-                   return_data=False, gam_smooth=True, dpt_var='distance', use_ranked_dpt=False):    
+def plot_potential(adata: AnnData,
+                   paths_cascades: Dict,
+                   path: str,
+                   tf: str,
+                   window: Optional[int] = 1,
+                   show_plot: Optional[bool] = True,
+                   return_data: Optional[bool] = False,
+                   gam_smooth:Optional[bool] = True,
+                   dpt_var: Optional[str] = 'distance',
+                   use_ranked_dpt: Optional[bool]=False):   
+    """
+    Generate GAM fitted models of the TF expression, target regions accessibility and target genes expression and plot.
+    
+    Parameters
+    ---------
+    adata: `class::AnnData`
+        AnnData containing eRegulon AUC values and the desired embedding with pseudotime.
+    path_cascades: Dict
+        A dictionary containing TF, Gene and Region as keys and matrices per branch with TF expression, target regions accessibility (AUC) and target gene expression (AUC).
+    path: str
+        Name of the differentiation branch to plot.
+    tf: str
+        Name of the TF/regulon to plot.
+    window: int, optional
+        Window to smooth the data using a rolling mean.
+    show_plot: bool, optional
+        Whether to show the plot.
+    return_data: bool, optional
+        Whether to return the GAM curve values as a dataframe.
+    gam_smooth: bool, optional
+        Whether to use GAM smoothing for the curves.
+    dpt_var: str, optional
+        Name of the variable in the cell metadata where the pseudotime order is stored.
+    use_ranked_dpt: bool, optional
+        Whether to use pseudotime alone for ordering or order by the groups in the branch and then each group by pseudotime.
+        
+    Return
+    ---------
+        A dataframe with the GAM curves and a plot (when specified)
+    """ 
     gene_data = paths_cascades['Gene'][path]
     region_data = paths_cascades['Region'][path]
     tf_data = paths_cascades['TF'][path]
@@ -98,8 +184,6 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True,
     if '_' in tf:
         tf = tf.split('_')[0]
     tf_data = tf_data[tf]
-    
-    
     
     tf_name = tf.split('_')[0]
     scaler = MinMaxScaler()
@@ -149,41 +233,12 @@ def plot_potential(adata, paths_cascades, path, tf, window=1, show_plot=True,
         df.index = index
         df.columns = columns   
         return df
-    
-def pairwise(iterable):
-    from itertools import tee
 
-    a, b = tee(iterable)
-    _ = next(b, None)
-    yield from zip(a, b)
-
-
-def get_intersections(a, b):    
-    intersections = []
-    for x1, y1 in enumerate(a):
-        x2 = len(b)
-        y2 = y1
-        for x3, (y3, y4) in enumerate(pairwise(b)):
-            x4 = x3 + 1
-
-            try:
-                t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
-                u = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
-            except ZeroDivisionError:
-                continue
-            if 0 <= t <= 1.0 and 0 <= u <= 1.0:
-                px, py = x1 + t * (x2 - x1), y1 + t * (y2 - y1)
-                #intersections.append((x1, int(px), a.index[x1], b.index[int(px)]))
-                intersections.append((a.index[x1], b.index[int(px)], int(px)-x1))
-                break
-    inter = pd.DataFrame(intersections)
-    inter.index = inter.iloc[:,0]
-    inter = inter.iloc[:,1:3]
-    inter.index.name = None
-    inter.columns = ['Match', 'Length']
-    return inter
-
-def calculate_arrows(df, penal=0.03):
+def calculate_arrows(df: pd.DataFrame, 
+                    penal: Optional[float] = 0.03):
+    """
+    Internal function to calculate the arrows given the GAM curve values.
+    """
     tf = df.iloc[:,0]
     rg = df.iloc[:,1]
     g = df.iloc[:,2]
@@ -218,7 +273,17 @@ def calculate_arrows(df, penal=0.03):
             arrow_map['region_to_gene_match'][i] = new_name       
     return arrow_map
 
-def calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_grid_cols, n_grid_rows, n_neighbors, n_cpu):
+def calculate_grid_arrows(embedding: pd.DataFrame,
+                          delta_embedding: pd.DataFrame, 
+                          tf_expr: List,
+                          offset_frac: float,
+                          n_grid_cols: int,
+                          n_grid_rows: int,
+                          n_neighbors: int,
+                          n_cpu: int):
+    """
+    Internal function to calculate the arrows in the embedding using a grid.
+    """
     #prepare grid
     min_x = min(embedding[:, 0])
     max_x = max(embedding[:, 0])
@@ -257,13 +322,100 @@ def calculate_grid_arrows(embedding, delta_embedding, tf_expr, offset_frac, n_gr
 
     return grid_xy, uv, mask, tf_expr
 
-def isnan(string):
-    return string != string
-
-def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', window=1,
-             plot_type='tf_to_gene', gam_smooth = True, use_ranked_dpt = False, tf_traj_thr=0.7, tf_expr_thr=0.2, penalization = 0.03, n_grid_cols = 50,
-             n_grid_rows = 50, n_neighbors = 10, offset_frac = 0.1, scale=100, n_cpu = 1,
-             figsize =(10, 10), colormap = cm.Greys, plot_streamplot=True, vmax_streamplot=0.25, linewidth_streamplot=0.5, arrowsize_streamplot=2, density_streamplot=10, return_data = False, save=None, **kwargs):
+def plot_map(adata: AnnData,
+             paths_cascade: Dict,
+             tf: str,
+             color_var: str,
+             embedding_key: Optional[str] = 'X_umap', 
+             window: Optional[int] = 1,
+             plot_type: Optional[str] = 'tf_to_gene',
+             gam_smooth: Optional[bool] = True,
+             use_ranked_dpt: Optional[bool] = False,
+             tf_traj_thr: Optional[float] = 0.7,
+             tf_expr_thr: Optional[float] = 0.2,
+             penalization: Optional[float] = 0.03,
+             n_grid_cols: Optional[int] = 50,
+             n_grid_rows: Optional[int] = 50,
+             n_neighbors: Optional[int] = 10, 
+             offset_frac: Optional[float] = 0.1,
+             scale: Optional[int] = 100, 
+             n_cpu: Optional[int] = 1,
+             figsize: Optional[Tuple[float, float]] = (10, 10),
+             colormap = cm.Greys,
+             plot_streamplot: Optional[bool] = True,
+             vmax_streamplot: Optional[float] = 0.25,
+             linewidth_streamplot: Optional[float] = 0.5,
+             arrowsize_streamplot: Optional[float] = 2,
+             density_streamplot: Optional[float] = 10,
+             return_data: Optional[bool] = False,
+             save: Optional[str] = None,
+             **kwargs):
+    """
+    Generate GAM fitted models of the TF expression, target regions accessibility and target genes expression and plot.
+    
+    Parameters
+    ---------
+    adata: `class::AnnData`
+        AnnData containing eRegulon AUC values and the desired embedding with pseudotime.
+    path_cascades: Dict
+        A dictionary containing TF, Gene and Region as keys and matrices per branch with TF expression, target regions accessibility (AUC) and target gene expression (AUC).
+    tf: str
+        Name of the TF/regulon to plot.
+    color_var: str
+        Name of the variable to color the plot by.
+    embedding_key: str, optional
+        Name of the key where the embedding to use is found.
+    window: int, optional
+        Window to smooth the data using a rolling mean.
+    plot_type: str, optional
+        Type of arrows to plot. It can be 'tf_to_gene' (default), 'tf_to_region' or 'region_to_gene'.
+    gam_smooth: bool, optional
+        Whether to use GAM smoothing for the curves.
+    use_ranked_dpt: bool, optional
+        Whether to use pseudotime alone for ordering or order by the groups in the branch and then each group by pseudotime.
+    tf_traj_thr: float, optional
+        Threshold in the branch curve to consider drawing arrows. If below for the cell, no arrows will be drawn (length 0).
+    tf_expr_thr: float, optional
+        Threshold in the global curve to consider drawing arrows. If below for the cell, no arrows will be drawn (length 0).
+    penalization: float, optional
+        Minimum distance between the branch curva and the global curve for a cell. If the distance is higher than this number, no arrows will be drawn (length 0).
+    n_grid_cols: int, optional
+        Number of columns in the grid for streamplot.
+    n_rows_cols: int, optional
+        Number of rows in the grid for streamplot.
+    n_neighbours: int, optional
+        Number of neighbours for collapsing the cells signal in the grid.
+    offset_frac: float, optional
+        Offset for plotting the arrow grid.
+    scale: int, optional
+        Scale arrows for streamplot.
+    n_cpu: int, optional
+        Number of cores for generating grid.
+    figsize: tuple, optional
+        Figure size.
+    colormap: colormap, optional
+        Colormap used to plot arrows (represents length)
+    plot_streamplot: bool, optional
+        Whether to use streamplot for plotting (otherwise quiver will be used)
+    vmax_stramplot: float, optional
+        Upper limit for arrow color
+    linewidth_streamplot: float,optional
+        Line width.
+    arrowsize_streamplot: float, optional
+        Size of the head of the arrow.
+    density_streamplot: float, optional
+        Density of arrows to plot.
+    return_data: bool, optional
+        Whether to arrow map df (with arrow length per cell and matching cell).
+    save: str, optional
+        Path to save plot.
+    **kwargs
+        Additional parameters for scanpy.pl.embedding.
+        
+    Return
+    ---------
+        A dataframe with the arrow map (each cell with arrow length and matching cell).
+    """ 
     tf_name = tf.split('_')[0]
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     u_list = []
@@ -323,18 +475,53 @@ def plot_map(adata, paths_cascade, tf, color_var, embedding_key = 'X_umap', wind
         plt.savefig(save)
     if return_data == True:
         return df
-        
-def select_regulons(tf, selected_features):
-    gene_regulon_name = [x for x in selected_features['Gene'] if x.startswith(tf+'_')]
-    if len(gene_regulon_name) > 1:
-        gene_regulon_name = [x for x in gene_regulon_name if 'extended' not in x]
-    region_regulon_name = [x for x in selected_features['Region'] if x.startswith(tf+'_')]
-    if len(region_regulon_name) > 1:
-        region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
-    return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
     
-def cell_forces(adata, paths_cascade, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
-                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05, n_cpu = 1, **kwargs):
+def cell_forces(adata: AnnData,
+                paths_cascade: Dict,
+                plot_type: Optional[str] = 'tf_to_gene',
+                window: Optional[int] = 1,
+                gam_smooth: Optional[bool] = True,
+                use_ranked_dpt: Optional[bool] = False,
+                tf_traj_thr: Optional[float] = 0.7,
+                tf_expr_thr: Optional[float] = 0.2, 
+                selected_eGRNs: Optional[List] = None,
+                penalization: Optional[float] = 0.05,
+                n_cpu: Optional[int] = 1,
+                **kwargs):
+    """
+    Get arrow forces for each regulon in each cell.
+    
+    Parameters
+    ---------
+    adata: `class::AnnData`
+        AnnData containing eRegulon AUC values and the desired embedding with pseudotime.
+    path_cascades: Dict
+        A dictionary containing TF, Gene and Region as keys and matrices per branch with TF expression, target regions accessibility (AUC) and target gene expression (AUC).
+    plot_type: str, optional
+        Type of arrows to plot. It can be 'tf_to_gene' (default), 'tf_to_region' or 'region_to_gene'.
+    window: int, optional
+        Window to smooth the data using a rolling mean.
+    gam_smooth: bool, optional
+        Whether to use GAM smoothing for the curves.
+    use_ranked_dpt: bool, optional
+        Whether to use pseudotime alone for ordering or order by the groups in the branch and then each group by pseudotime.
+    tf_traj_thr: float, optional
+        Threshold in the branch curve to consider drawing arrows. If below for the cell, no arrows will be drawn (length 0).
+    tf_expr_thr: float, optional
+        Threshold in the global curve to consider drawing arrows. If below for the cell, no arrows will be drawn (length 0).
+    selected_eGRNs: List, optional
+        List containing selected regulons to calculate arrows for.
+    penalization: float, optional
+        Minimum distance between the branch curva and the global curve for a cell. If the distance is higher than this number, no arrows will be drawn (length 0).
+    n_cpu: int, optional
+        Number of cores for computing cell forces
+    **kwargs
+        Additional parameters for ray.init()
+        
+    Return
+    ---------
+        A dataframe with the cell forces (regulons as rows, cells as columns and arrow length as value).
+    """ 
     ke = list(paths_cascade[list(paths_cascade.keys())[0]].keys())
     df_list=[]
     if selected_eGRNs is None:
@@ -375,13 +562,39 @@ def cell_forces(adata, paths_cascade, plot_type='tf_to_gene', window=1, gam_smoo
         return None
 
 @ray.remote
-def cell_forces_per_tf_ray(adata, paths_cascade, tf, ke, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
-                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
+def cell_forces_per_tf_ray(adata: AnnData,
+                           paths_cascade: Dict,
+                           tf: str,
+                           ke: str, 
+                           plot_type: Optional[str] ='tf_to_gene', 
+                           window: Optional[int] = 1,
+                           gam_smooth: Optional[bool] = True,
+                           use_ranked_dpt: Optional[bool] = False,
+                           tf_traj_thr: Optional[float] = 0.7, 
+                           tf_expr_thr: Optional[float] = 0.2,
+                           selected_eGRNs: Optional[List] = None, 
+                           penalization: Optional[float] = 0.05):
+    """
+    Ray function for parallel cell forces.
+    """
     return cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type, window, gam_smooth, use_ranked_dpt,
                 tf_traj_thr, tf_expr_thr, selected_eGRNs, penalization)
     
-def cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type='tf_to_gene', window=1, gam_smooth=True, use_ranked_dpt=False,
-                tf_traj_thr=0.7, tf_expr_thr=0.2, selected_eGRNs=None, penalization=0.05):
+def cell_forces_per_tf(adata: AnnData,
+                       paths_cascade: Dict,
+                       tf: str, 
+                       ke: str, 
+                       plot_type: Optional[str] = 'tf_to_gene',
+                       window: Optional[int] = 1, 
+                       gam_smooth: Optional[bool] = True, 
+                       use_ranked_dpt: Optional[bool] = False,
+                       tf_traj_thr: Optional[float] = 0.7, 
+                       tf_expr_thr: Optional[float] = 0.2, 
+                       selected_eGRNs: Optional[List] = None, 
+                       penalization: Optional[float] = 0.05):
+    """
+    Internal function to calculate cell forces for one TF.
+    """
     flag = True
     df_list_TF = []
     for k in ke:
@@ -408,7 +621,25 @@ def cell_forces_per_tf(adata, paths_cascade, tf, ke, plot_type='tf_to_gene', win
     else:
         return None
     
-def forces_rss(adata, df,  variable):
+def forces_rss(adata: AnnData,
+               df: pd.DataFrame,
+               variable: str):
+    """
+    Compute RSS values from the cell forces dataframe.
+    
+    Parameters
+    ---------
+    adata: `class::AnnData`
+        AnnData containing eRegulon AUC values and the desired embedding with pseudotime.
+    df: pd.DataFrame
+        Cell forces dataframe
+    variable: str
+        Name of the variable with the froups to calculate RSS values by.
+
+    Return
+    ---------
+        A dataframe with groups, regulons and RSS values per group an regulon.
+    """
     data_mat = df
     cell_data_series = adata.obs.loc[data_mat.index, variable]
     cell_data = list(cell_data_series.unique())
@@ -430,13 +661,33 @@ def forces_rss(adata, df,  variable):
         data=rss_values, index=cell_data, columns=regulons)
     return rss_values
     
-def plot_forces_rss(rss_values,
-             top_n = 5,
-             selected_groups = None,
-             num_columns = 1,
-             figsize = (6.4, 4.8),
-             fontsize = 12,
-             save = None):
+def plot_forces_rss(rss_values: pd.DataFrame,
+             top_n: Optional[int] = 5,
+             selected_groups: Optional[List] = None,
+             num_columns: Optional[int] = 1,
+             figsize: Optional[Tuple[float, float]] = (6.4, 4.8),
+             fontsize: Optional[int] = 12,
+             save: Optional[str] = None):
+    """
+    Plot RSS values given dataframe
+    
+    Parameters
+    ---------
+    rss_values: pd.DataFrame
+        DataFrame with groups and regulons and RSS values per group and regulon.
+    top_n: int, optional
+        Number of regulons to highlight.
+    selected_groups: list, optional
+        Groups to use for plotting.
+    num_columns: int, optional
+        Number of columns to use in the plot.
+    figsize: tuple, optional
+        Figure size.
+    fontsize: int, optional
+        Font size to use in the figure.
+    save: str, optional
+        Path to save plot
+    """
     data_mat = rss_values
     if selected_groups is None:
         cats = sorted(data_mat.index.tolist())
@@ -508,3 +759,74 @@ def plot_forces_rss(rss_values,
         plt.show()
     if (save is not None) & (num_columns == 1):
         pdf = pdf.close()
+        
+def fitgam(x: np.array,
+           y: np.array,
+           feature_range: Optional[Tuple[float, float]] = (0, 1)):
+    """
+    A helper function to fit the GAM models
+    """
+    x = x.reshape(-1,1)
+    gam = LinearGAM(s(0)).gridsearch(x, y, progress=False)
+    yhat=gam.partial_dependence(term=0, X=x)
+    scaler = MinMaxScaler(feature_range=feature_range)
+    yhat = scaler.fit_transform(yhat.reshape(-1, 1))
+    pval = gam.statistics_['p_values']
+    return yhat, pval[0]
+    
+def pairwise(iterable):
+    """
+    Internal function for pairwise intersections
+    """
+    from itertools import tee
+
+    a, b = tee(iterable)
+    _ = next(b, None)
+    yield from zip(a, b)
+
+
+def get_intersections(a: np.array, b: np.array): 
+    """
+    Internal function for pairwise intersections between curves
+    """   
+    intersections = []
+    for x1, y1 in enumerate(a):
+        x2 = len(b)
+        y2 = y1
+        for x3, (y3, y4) in enumerate(pairwise(b)):
+            x4 = x3 + 1
+
+            try:
+                t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
+                u = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
+            except ZeroDivisionError:
+                continue
+            if 0 <= t <= 1.0 and 0 <= u <= 1.0:
+                px, py = x1 + t * (x2 - x1), y1 + t * (y2 - y1)
+                #intersections.append((x1, int(px), a.index[x1], b.index[int(px)]))
+                intersections.append((a.index[x1], b.index[int(px)], int(px)-x1))
+                break
+    inter = pd.DataFrame(intersections)
+    inter.index = inter.iloc[:,0]
+    inter = inter.iloc[:,1:3]
+    inter.index.name = None
+    inter.columns = ['Match', 'Length']
+    return inter
+    
+def select_regulons(tf: str, selected_features: List):
+    """
+    Helper function to select all regulons for a given TF.
+    """
+    gene_regulon_name = [x for x in selected_features['Gene'] if x.startswith(tf+'_')]
+    if len(gene_regulon_name) > 1:
+        gene_regulon_name = [x for x in gene_regulon_name if 'extended' not in x]
+    region_regulon_name = [x for x in selected_features['Region'] if x.startswith(tf+'_')]
+    if len(region_regulon_name) > 1:
+        region_regulon_name = [x for x in region_regulon_name if 'extended' not in x]
+    return [tf.split('_')[0], region_regulon_name[0], gene_regulon_name[0]]
+    
+def isnan(string: str):
+    """
+    Helper function to chekc if a string is Nan.
+    """
+    return string != string
