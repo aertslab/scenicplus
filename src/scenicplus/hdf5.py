@@ -1,5 +1,6 @@
 """Write SCENIC+ object to hdf5 file.
 
+!depricated!
 """
 
 import h5py

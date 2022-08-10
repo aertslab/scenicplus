@@ -113,7 +113,7 @@ def find_clusters(scplus_obj: SCENICPLUS,
             Prefix to add to the clustering name when adding it to the correspondent metadata attribute. Default: ''
     selected_regulons: list, optional
             A list with selected regulons to be used for clustering. Default: None (use all regulons)
-    selected_cels: list, optional
+    selected_cells: list, optional
             A list with selected features cells to cluster. Default: None (use all cells)
     """
 
@@ -262,7 +262,7 @@ def run_eRegulons_umap(scplus_obj: SCENICPLUS,
             Seed parameter for running UMAP. Default: 555
     selected_regulons: list, optional
             A list with selected regulons to be used for clustering. Default: None (use all regulons)
-    selected_cels: list, optional
+    selected_cells: list, optional
             A list with selected features cells to cluster. Default: None (use all cells)
     **kwargs
             Parameters to pass to umap.UMAP.
@@ -332,8 +332,10 @@ def run_eRegulons_pca(scplus_obj: SCENICPLUS,
             Seed parameter for running UMAP. Default: 555
     selected_regulons: list, optional
             A list with selected regulons to be used for clustering. Default: None (use all regulons)
-    selected_cels: list, optional
+    selected_cells: list, optional
             A list with selected features cells to cluster. Default: None (use all cells)
+    n_pcs: int, optional
+            Number of principle components to calculate. Default: 50
     **kwargs
             Parameters to pass to umap.UMAP.
     """
@@ -372,9 +374,9 @@ def run_eRegulons_pca(scplus_obj: SCENICPLUS,
     scplus_obj.dr_cell[reduction_name] = dr
 
 def plot_metadata_given_ax(scplus_obj,
-                  ax,
+                  ax: matplotlib.axes,
                   reduction_name: str,
-                  variable: List[str],
+                  variable: str,
                   remove_nan: Optional[bool] = True,
                   show_label: Optional[bool] = True,
                   show_legend: Optional[bool] = False,
@@ -392,10 +394,12 @@ def plot_metadata_given_ax(scplus_obj,
     ---------
     scplus_obj: `class::SCENICPLUS`
             A SCENICPLUS object with dimensionality reductions.
+    ax: matplotlib.axes
+            Axes to which to plot metadata.
     reduction_name: str
             Name of the dimensionality reduction to use
-    variables: list
-            List of variables to plot. They should be included in `class::SCENICPLUS.metadata_cell`.
+    variable: Str
+            Variable to plot. It should be included in `class::SCENICPLUS.metadata_cell`.
     remove_nan: bool, optional
             Whether to remove data points for which the variable value is 'nan'. Default: True
     show_label: bool, optional
@@ -711,17 +715,45 @@ def subset_list(target_list, index_list):
     return X
 
 def plot_AUC_given_ax(
-    scplus_obj,
-    reduction_name,
-    feature,
-    ax,
-    auc_key = 'eRegulon_AUC',
-    signature_key = 'Gene_based',
-    cmap = cm.viridis,
-    dot_size = 10,
-    alpha = 1,
-    scale = False,
-    selected_cells = None):
+    scplus_obj: SCENICPLUS,
+    reduction_name: str,
+    feature: str,
+    ax: matplotlib.axes,
+    auc_key: str = 'eRegulon_AUC',
+    signature_key: str = 'Gene_based',
+    cmap: matplotlib.cm = cm.viridis,
+    dot_size: int = 10,
+    alpha: float = 1,
+    scale: bool = False,
+    selected_cells: List = None):
+    """
+    Plot eRegulon AUC values on dimmensionality reduction
+
+    Parameters
+    ----------
+    scplus_obj: `class::SCENICPLUS`
+        A SCENICPLUS object with dimensionality reductions.
+    reduction_name: str
+        Name of the dimensionality reduction to use.
+    feature: str
+        eRegulon to plot, should be included in scplus_obj.uns[auc_key][signature_key] matrix.
+    ax: matplotlib.axes
+        matplotlib axes to which to plot.
+    auc_key: str, optional
+        key in scplus_obj.uns under which the AUC values are stored
+    signature_key: str, optional
+        key in scplus_obj.uns[auc_key] to plot (usually Gene_based or Region_based)
+    cmap: matplotlib.cm, optional
+        color map to use for plotting.
+    dot_size: int, optional
+        Dot size in the plot. Default: 10
+    alpha: float, optional
+        Transparency value for the dots in the plot. Default: 1
+    scale: bool, optional
+        Wether to scale AUC values before plotting
+    selected_cells: List, optional
+        A list with selected cells to plot.
+    """
 
     embedding = scplus_obj.dr_cell[reduction_name].copy()
 
