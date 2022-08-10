@@ -205,7 +205,7 @@ def heatmap_dotplot(
     plotting_df['eRegulon_name'] = pd.Categorical(plotting_df['eRegulon_name'], categories = order)
     plotnine.options.figure_size = figsize
     if split_repressor_activator:
-        plotting_df['repressor_activator'] = ['activator' if '+' in n else 'repressor' for n in plotting_df['eRegulon_name']]
+        plotting_df['repressor_activator'] = ['activator' if '+' in n.split('_')[1] and 'extended' not in n or '+' in n.split('_')[2] and 'extended' in n  else 'repressor' for n in plotting_df['eRegulon_name']]
         if orientation == 'vertical':
             plot = (
                 ggplot(plotting_df, aes('index', 'eRegulon_name'))
