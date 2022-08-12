@@ -2,21 +2,24 @@ Welcome to SCENIC+'s documentation!
 ===================================
 
 SCENIC+ is a python package to build enhancer driven gene regulatory networks (GRNs) using combined or separate single-cell
-gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data
+gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
+
+SCENIC+ makes use of several python packages:
+
+* pycisTopic for enhancer candidate identification and topic modeling (`read the docs page <https://pycistopic.readthedocs.io/en/latest/>`_).
+* pycistarget for motif enrichment analysis in enhancer candidates (`read the docs page <https://pycistarget.readthedocs.io/en/latest/>`_).
+* create_cisTarget_databases for creating of custom cistarget databases (`github page <github.com/aertslab/create_cisTarget_databases>`_)
 
 .. warning::
 	SCENIC+ is still under development. It is currently a beta version. Functions in this package may change in a future release.
 	
-.. warning::
-	Detailed tutorials will be posted in the coming days. Stay tuned!
-
 .. toctree::
    :caption: Contents:
    :maxdepth: 1
 
    install
-   api
    tutorials
+   api
 
 
 SCENIC+ Flow chart
