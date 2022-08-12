@@ -70,7 +70,7 @@ class SCENICPLUS():
         region set names, which aren't topics, should be columns in the :attr:`metadata_cell` dataframe
     dr_cell: dict
         A Dict containing dimmensional reduction coordinates of cells.
-    dr_region: dct
+    dr_region: dict
         A Dict containing dimmensional reduction coordinates of regions.
 
     Attributes
