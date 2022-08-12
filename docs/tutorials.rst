@@ -13,8 +13,8 @@ Basic SCENIC+ analysis
 
 For getting started with SCENIC+, we recommend this tutorial covering the entire SCENIC+ workflow 
 including preprocessing steps. For this tutorial we make use of the 3k PBMCs multiome dataset publicly 
-available from 10x Genomics. We'll cover scRNA-seq and scATAC-seq preprocessing, topic modeling, motif enrichment 
-analysis, running SCENIC+ and basic downsream analysis.
+available from 10x Genomics. We'll cover scRNA-seq and scATAC-seq preprocessing, topic modelling, motif enrichment 
+analysis, running SCENIC+ and basic downstream analysis.
 
 Get started by clicking :ref:`here <Tutorial: 10x multiome pbmc>` 👈
 
@@ -34,9 +34,9 @@ Get started by clicking :ref:`here <Tutorial: SCENIC+ step-by-step in the human 
 .. image:: images/cerebellum_network.png
     :width: 500
 
-**SCENIC+ analysis on non-multiome data: seperate scATAC-seq and scRNA-seq on different cells of the same sample**
+**SCENIC+ analysis on non-multiome data: separate scATAC-seq and scRNA-seq on different cells of the same sample**
 
-It is possible to run the SCENIC+ workflow on samples for which you have seperate scATAC-seq and scRNA-seq
+It is possible to run the SCENIC+ workflow on samples for which you have separate scATAC-seq and scRNA-seq
 on different cells of the same samples. Here, we will generate pseudo-multiome data by sampling cells from
 the scRNA-seq and scATAC-seq experiment and combining them into *metacells*. This sampling happens within 
 the same celltype. So one prerequisite to be able to run the analysis is a good annotation of the scATAC-seq
@@ -74,8 +74,8 @@ Get started by clicking :ref:`here <Tutorial: Perturbation simulation>` 👈
 
 The predictions of SCENIC+ can be used to predict in which differentiation "direction" a certain TF will drive a certain cell.
 This is term which we call *GRN velocity* (inspired by RNA velocity). These predictions make use between the lag in the sequence of
-events between TF expression, region accessibility and target gene expression. In this tutorail this principle is showcased
-along an Unbranched differentiation trajectory, that of oligodendrocyte differentiation.
+events between TF expression, region accessibility and target gene expression. In this tutorial this principle is showcased
+along an unbranched differentiation trajectory, that of oligodendrocyte differentiation.
 
 Get started by clicking :ref:`here <Tutorial: Unbranched GRN velocity along oligodendrocytes differentiation>` 👈
 
@@ -86,8 +86,8 @@ Get started by clicking :ref:`here <Tutorial: Unbranched GRN velocity along olig
 
 The predictions of SCENIC+ can be used to predict in which differentiation "direction" a certain TF will drive a certain cell.
 This is term which we call *GRN velocity* (inspired by RNA velocity). These predictions make use between the lag in the sequence of
-events between TF expression, region accessibility and target gene expression. In this tutorail this principle is showcased
-along a branched differentiation trajectory, that of the eye entennal disk development in fly.
+events between TF expression, region accessibility and target gene expression. In this tutorial this principle is showcased
+along a branched differentiation trajectory, that of the eye-antennal disk development in fly.
 
 Get started by clicking :ref:`here <Tutorial: Branched differentiation trajectory of fly eye entennal disk>` 👈
 
