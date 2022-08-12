@@ -50,6 +50,7 @@ Get started by clicking :ref:`here <Tutorial: Mix of melanoma cell lines>` 👈
 
 .. toctree::
     :hidden:
+    :maxdepth: 3
     
     pbmc_multiome_tutorial.ipynb
     Scenicplus_step_by_step-RTD.ipynb
@@ -96,7 +97,8 @@ Get started by clicking :ref:`here <Tutorial: Branched differentiation trajector
 
 .. toctree::
     :hidden:
+    :maxdepth: 3
     
+    Perturbation_simulation.ipynb
     Differentiation_tutorial_unbranched_RTD.ipynb
     Differentiation_tutorial-branched_RTD.ipynb
-    Perturbation_simulation.ipynb
