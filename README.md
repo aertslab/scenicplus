@@ -11,7 +11,7 @@ SCENIC+ is a python package to build gene regulatory networks (GRNs) using combi
 
 ## Documentation
 
-Extensive documentation and tutorials is available at [read the docs](https://scenicplus.readthedocs.io).
+Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io).
 
 ## Installing
 
