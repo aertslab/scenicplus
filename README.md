@@ -1,11 +1,13 @@
+# SCENIC+
+
+SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
+
      ____   ____ _____ _   _ ___ ____      
     / ___| / ___| ____| \ | |_ _/ ___| _   
     \___ \| |   |  _| |  \| || | |   _| |_ 
      ___) | |___| |___| |\  || | |__|_   _|
     |____/ \____|_____|_| \_|___\____||_|  
                                         
-
-SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
 
 ## Documentation
 
@@ -18,14 +20,9 @@ To install SCENIC+:
 ```bash
 git clone https://github.com/aertslab/scenicplus
 cd scenicplus
-pip install .
-```
-
-Depending on your pip version, you may need to run this pip command instead:
-
-```bash
 pip install -e .
 ```
+
 
 ## Creating a Docker/Singularity Image
 
@@ -64,8 +61,13 @@ import scenicplus
 scenicplus.__version__
 ```
 
+## Questions?
+
+* If you have **technical questions or problems**, such as bug reports or ideas for new features, please open an issue under the issues tab.
+* If you have **questions about the interpretation of results or your analysis**, please start a Discussion under the Discussions tab.
+
 
 ## References
-1. Bravo Gonzalez-Blas, C. *et al.* (2020). Identification of genomic enhancers through spatial integration of single-cell transcriptomics and epigenomics. [Molecular Systems Biology](https://www.embopress.org/doi/full/10.15252/msb.20209438)
 
-2. Janssens, J., Aibar, S., Taskiran, I.I. *et al.* (2022) Decoding gene regulation in the fly brain. [Nature](https://www.nature.com/articles/s41586-021-04262-z)
+Bravo Gonzalez-Blas, C. & De Winter, S. *et al.* (2022). SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks [BioRxiv]
+
