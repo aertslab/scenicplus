@@ -13,14 +13,55 @@ from random import sample
 import seaborn as sns
 from scipy.stats import pearsonr
 from typing import List
-from .utils import region_names_to_coordinates, target_to_overlapping_query, p_adjust_bh
+from .utils import region_names_to_coordinates, target_to_overlapping_query, p_adjust_bh, Groupby, flatten_list
 
 from .scenicplus_class import SCENICPLUS
+
+def _signatures_to_iter(menr):
+    for x in menr.keys():
+        if isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM):
+            for y in menr[x].cistromes['Region_set'].keys():
+                for z in menr[x].cistromes['Region_set'][y]:
+                    yield x, y, z, menr[x].cistromes['Region_set'][y][z]
+        elif isinstance(menr[x], dict):
+            for y in menr[x].keys():
+                if not isinstance(menr[x][y], pycistarget.motif_enrichment_cistarget.cisTarget):
+                    raise ValueError(f'Only motif enrichment results from pycistarget or DEM are allowed, not {type(menr[x][y])}')
+                for z in menr[x][y].cistromes['Region_set']:
+                    yield x, y, z, menr[x][y].cistromes['Region_set'][z]
+        else:
+            raise ValueError(f'Only motif enrichment results from pycistarget or DEM are allowed, not {type(menr[x])}')
+
+def _get_signatures_as_dict(i):
+    return {z+'__'+x+'__'+y: regions for x, y, z, regions in i}
+
+def _merge_dict_of_signatures(d, suffix = ''):
+    arr_keys_signatures = np.array(list(d.keys()))
+    grouper = Groupby([x.split('_')[0] for x in arr_keys_signatures])
+    merged_signatures = {}
+    for TF, idx in zip(grouper.keys, grouper.indices):
+        merged_signatures[TF + suffix] = pr.PyRanges(
+            region_names_to_coordinates(set(flatten_list([d[x] for x in arr_keys_signatures[idx]]))))
+    return merged_signatures
+
+def _overlap_if_necessary(d, test_regions, regions_to_overlap):
+    d_overlap = {}
+    for k in d.keys():
+        s_query_regions = set(coord_to_region_names(d[k]))
+        #if the signature regions are already in the scplus_obj coordinate system, do nothing, otherwise overlap
+        if len(s_query_regions & test_regions) != len(s_query_regions):
+            signature_regions = target_to_overlapping_query(regions_to_overlap, d[k])
+        else:
+            signature_regions = d[k]
+        if len(signature_regions) != 0:
+            d_overlap[k] = signature_regions
+    return d_overlap
+
 
 def merge_cistromes(scplus_obj: SCENICPLUS,
                     cistromes_key: str = 'Unfiltered',
                     subset: pr.PyRanges = None):
-    r"""Generate cistromes from motif enrichment tables
+    """Generate cistromes from motif enrichment tables
 
     Parameters
     ---------
@@ -35,63 +76,36 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     """
     menr = scplus_obj.menr
     # Get signatures from Homer/Cistarget outputs
-    signatures = {z+'__'+x+'__'+y: menr[x][y].cistromes['Region_set'][z]
-                  for x in menr.keys()
-                  if not isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM)
-                  for y in menr[x].keys()
-                  for z in menr[x][y].cistromes['Region_set']
-                  }
-    # For DEM results dictionary structure is different
-    signatures_DEM = {z+'__'+x+'__'+y: menr[x].cistromes['Region_set'][y][z]
-                      for x in menr.keys()
-                      if isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM)
-                      for y in menr[x].cistromes['Region_set'].keys()
-                      for z in menr[x].cistromes['Region_set'][y]
-                      }
-    # Merge dictionaries
-    signatures = {**signatures, **signatures_DEM}
-    tfs = list(set([x.split('_')[0] for x in signatures.keys()]))
-    regions = pr.PyRanges(region_names_to_coordinates(scplus_obj.region_names))
-    # Merge signatures (Direct)
-    merged_signatures_direct = {x: list(set(sum([signatures[y] for y in [
-                                        name for name in [*signatures] if x + '_(' in name]], []))) for x in tfs}
-    merged_signatures_direct = {k: pr.PyRanges(region_names_to_coordinates(merged_signatures_direct[k])) for k in list(
-        merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
+    signatures = _get_signatures_as_dict(_signatures_to_iter(menr))
+
+    #split direct and indirect signatures
+    signatures_direct = {x: signatures[x] for x in signatures.keys() if not 'extended' in x}
+    signatures_extend = {x: signatures[x] for x in signatures.keys() if     'extended' in x}
+    
+    #merge regions by TF name
+    merged_signatures_direct = _merge_dict_of_signatures(signatures_direct, suffix = '')
+    merged_signatures_extend = _merge_dict_of_signatures(signatures_extend, suffix = '_extended')
+    
+    #overlap regions with scplus_regions
+    regions = set(scplus_obj.region_names)
+    pr_regions = pr.PyRanges(region_names_to_coordinates(regions))
     if subset is not None:
-        subset = target_to_overlapping_query(regions, subset)
-        merged_signatures_direct = {k: target_to_overlapping_query(
-            subset, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
-        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(
-            merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
+        #make sure subset is in scplus_regions coordinate system
+        regions_to_overlap = target_to_overlapping_query(pr_regions, subset)
     else:
-        merged_signatures_direct = {k: target_to_overlapping_query(
-            regions, merged_signatures_direct[k]) for k in list(merged_signatures_direct.keys())}
-        merged_signatures_direct = {k: merged_signatures_direct[k] for k in list(
-            merged_signatures_direct.keys()) if len(merged_signatures_direct[k]) != 0}
-    # Merge signatures (Extended)
-    merged_signatures_extended = {x: list(set(sum([signatures[y] for y in [
-                                          name for name in [*signatures] if x + '_extended' in name]], []))) for x in tfs}
-    merged_signatures_extended = {k + '_extended': pr.PyRanges(region_names_to_coordinates(
-        merged_signatures_extended[k])) for k in list(merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
-    if subset is not None:
-        subset = target_to_overlapping_query(regions, subset)
-        merged_signatures_extended = {k: target_to_overlapping_query(
-            subset, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
-        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(
-            merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
-    else:
-        merged_signatures_extended = {k: target_to_overlapping_query(
-            regions, merged_signatures_extended[k]) for k in list(merged_signatures_extended.keys())}
-        merged_signatures_extended = {k: merged_signatures_extended[k] for k in list(
-            merged_signatures_extended.keys()) if len(merged_signatures_extended[k]) != 0}
+        regions_to_overlap = pr_regions
+    
+    merged_signatures_direct = _overlap_if_necessary(merged_signatures_direct, regions, regions_to_overlap)
+    merged_signatures_extend = _overlap_if_necessary(merged_signatures_extend, regions, regions_to_overlap)
+    
     # Sort alphabetically
     merged_signatures_direct = dict(
         sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()))
-    merged_signatures_extended = dict(
-        sorted(merged_signatures_extended.items(), key=lambda x: x[0].lower()))
+    merged_signatures_extend = dict(
+        sorted(merged_signatures_extend.items(), key=lambda x: x[0].lower()))
     # Combine
     merged_signatures = {**merged_signatures_direct,
-                         **merged_signatures_extended}
+                         **merged_signatures_extend}
     # Add number of regions
     merged_signatures = {
         x + '_(' + str(len(merged_signatures[x])) + 'r)': merged_signatures[x] for x in merged_signatures.keys()}
