@@ -8,7 +8,7 @@ SCENIC+ makes use of several python packages:
 
 * pycisTopic for enhancer candidate identification and topic modeling (`read the docs page <https://pycistopic.readthedocs.io/en/latest/>`_).
 * pycistarget for motif enrichment analysis in enhancer candidates (`read the docs page <https://pycistarget.readthedocs.io/en/latest/>`_).
-* create_cisTarget_databases for creating of custom cistarget databases (`github page <github.com/aertslab/create_cisTarget_databases>`_)
+* create_cisTarget_databases for creating of custom cistarget databases (`github page <https://github.com/aertslab/create_cisTarget_databases>`_)
 
 .. warning::
 	SCENIC+ is still under development. It is currently a beta version. Functions in this package may change in a future release.
