@@ -21,7 +21,8 @@ from scanpy import AnnData
 import warnings
 import logging
 import sys
-
+from anndata import AnnData
+from mudata import MuData
 from scenicplus.utils import Groupby
 
 # hardcoded variables
@@ -711,3 +712,64 @@ def create_SCENICPLUS_object(
         SCENICPLUS_obj.add_cell_data(cell_metadata)
 
     return SCENICPLUS_obj
+
+from ._io.methods import _traverse_dict_and_get_type, _traverse_list_and_get_type
+def _sanitize_dtypes(scplus_obj):
+    for k in scplus_obj.uns.keys():
+        if isinstance(scplus_obj.uns[k], dict):
+            t = _traverse_dict_and_get_type(scplus_obj.uns[k])
+        if isinstance(scplus_obj.uns[k], list):
+            t = _traverse_list_and_get_type(scplus_obj.uns[k])
+        else:
+            t = type(scplus_obj.uns[k])
+        if t == pd.DataFrame:
+            scplus_obj.uns[k] = scplus_obj.uns[k].convert_dtypes()
+        
+
+
+from ._io.methods import get_adata_compatible_uns
+def scenicplus_to_mudata(
+    scplus_obj: SCENICPLUS, 
+    auc_keys = ['eRegulon_AUC'],
+    validate = True):
+    #construct matrix like objects: gene expression, chromatin accessibility and AUC values
+    MuData_constructor_dict = {
+        'rna': AnnData(
+                scplus_obj.to_df('EXP'), dtype = np.float32, 
+                obs = scplus_obj.metadata_cell,
+                var = scplus_obj.metadata_genes),
+        'atac':AnnData(
+                scplus_obj.to_df('ACC').T, dtype = np.float32, #cells need to be on axis 0
+                obs = scplus_obj.metadata_cell,
+                var = scplus_obj.metadata_regions)}
+    for auc_key in auc_keys:
+        for auc_type in scplus_obj.uns[auc_key]:
+            MuData_constructor_dict[f'{auc_key}_{auc_type}'] = AnnData(
+                scplus_obj.uns[auc_key][auc_type], dtype = np.float32,
+                obs = scplus_obj.metadata_cell)
+    mdata = MuData(MuData_constructor_dict)
+
+    #add obsm ...
+
+    #add uns
+    #TODO:add check
+    scplus_obj.uns['search_space'] = scplus_obj.uns['search_space'].explode('Distance')
+    scplus_obj.uns['region_to_gene'] = scplus_obj.uns['region_to_gene'].explode('Distance')
+    _sanitize_dtypes(scplus_obj)
+
+    valid_uns = list(get_adata_compatible_uns(scplus_obj))
+    invalid_uns = set(scplus_obj.uns.keys()) - set(valid_uns)
+    if len(invalid_uns) > 0:
+        if validate:
+            raise ValueError(f'Following fields in scplus_obj.uns have no writer: {", ".join(invalid_uns)}')
+        else:
+            Warning(f'Following fields in scplus_obj.uns have no writer: {", ".join(invalid_uns)}')
+    if validate:
+        for key in set(valid_uns) - set(auc_keys):
+            mdata.uns[key] = scplus_obj.uns[key]
+    else:
+        for key in set(scplus_obj.uns.keys()) - set(auc_keys):
+            mdata.uns[key] = scplus_obj.uns[key]
+    #hack to avoild conversion of list to numpy array
+    mdata.uns['eRegulons'] = {", ".join(x.context) + x.cistrome_name: x for x in scplus_obj.uns['eRegulons']}
+    return mdata

@@ -25,6 +25,15 @@ SCORE_NAME_2 = "importance_x_abs_rho"
 REGIONS2GENES_HEADER = (TARGET_REGION_NAME, TARGET_GENE_NAME, IMPORTANCE_SCORE_NAME,
                         CORRELATION_COEFFICIENT_NAME, SCORE_NAME_1, SCORE_NAME_2)
 
+EREGULON_ATTRIBUTES = [
+    'transcription_factor',
+    'cistrome_name',
+    'is_extended',
+    'context',
+    'gsea_enrichment_score',
+    'gsea_pval',
+    'gsea_adj_pval'
+]
 
 @attr.s(repr=False)
 class eRegulon():
