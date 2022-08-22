@@ -14,11 +14,11 @@ SCENIC+ makes use of several python packages:
 	SCENIC+ is still under development. It is currently a beta version. Functions in this package may change in a future release.
 	
 .. toctree::
-   :caption: Contents:
-   :maxdepth: 1
+   :hidden:
 
    install
    tutorials
+   faqs
    api
 
 
