@@ -84,7 +84,8 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     
     #merge regions by TF name
     merged_signatures_direct = _merge_dict_of_signatures(signatures_direct, suffix = '')
-    merged_signatures_extend = _merge_dict_of_signatures(signatures_extend, suffix = '_extended')
+    if len(signatures_extend.keys()) > 0:
+        merged_signatures_extend = _merge_dict_of_signatures(signatures_extend, suffix = '_extended')
     
     #overlap regions with scplus_regions
     regions = set(scplus_obj.region_names)
@@ -96,16 +97,21 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
         regions_to_overlap = pr_regions
     
     merged_signatures_direct = _overlap_if_necessary(merged_signatures_direct, regions, regions_to_overlap)
-    merged_signatures_extend = _overlap_if_necessary(merged_signatures_extend, regions, regions_to_overlap)
+    if len(signatures_extend.keys()) > 0:
+        merged_signatures_extend = _overlap_if_necessary(merged_signatures_extend, regions, regions_to_overlap)
     
     # Sort alphabetically
     merged_signatures_direct = dict(
         sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()))
-    merged_signatures_extend = dict(
-        sorted(merged_signatures_extend.items(), key=lambda x: x[0].lower()))
+    if len(signatures_extend.keys()) > 0:
+        merged_signatures_extend = dict(
+            sorted(merged_signatures_extend.items(), key=lambda x: x[0].lower()))
     # Combine
-    merged_signatures = {**merged_signatures_direct,
-                         **merged_signatures_extend}
+    if len(signatures_extend.keys()) > 0:
+        merged_signatures = {**merged_signatures_direct,
+                             **merged_signatures_extend}
+    else:
+        merged_signatures = merged_signatures_direct
     # Add number of regions
     merged_signatures = {
         x + '_(' + str(len(merged_signatures[x])) + 'r)': merged_signatures[x] for x in merged_signatures.keys()}
