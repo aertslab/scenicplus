@@ -38,7 +38,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                  n_cpu : int = 1,
                  _temp_dir: str = None,
                  exclude_motifs: str = None,
-                 exclude_collection: List[str] = None):
+                 exclude_collection: List[str] = None,
+                 **kwargs):
     """
     Wrapper function for pycistarget
     
@@ -167,7 +168,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                    path_to_motif_annotations = path_to_motif_annotations,
                                    n_cpu = n_cpu,
                                    _temp_dir= _temp_dir,
-                                   annotation_version = annotation_version)
+                                   annotation_version = annotation_version,
+                                   **kwargs)
             out_folder = os.path.join(save_path,'CTX_'+key+'_All')
             check_folder = os.path.isdir(out_folder)
             if not check_folder:
@@ -200,7 +202,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                    path_to_motif_annotations = path_to_motif_annotations,
                                    n_cpu = n_cpu,
                                    _temp_dir= _temp_dir,
-                                   annotation_version = annotation_version)
+                                   annotation_version = annotation_version,
+                                   **kwargs)
                 out_folder = os.path.join(save_path,'CTX_'+key+'_No_promoters')
                 check_folder = os.path.isdir(out_folder)
                 if not check_folder:
@@ -240,7 +243,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                n_cpu = n_cpu,
                                annotation_version = annotation_version,
                                tmp_dir = save_path,
-                               _temp_dir= _temp_dir)
+                               _temp_dir= _temp_dir,
+                               **kwargs)
             out_folder = os.path.join(save_path,'DEM_'+key+'_All')
             check_folder = os.path.isdir(out_folder)
             if not check_folder:
@@ -275,7 +279,8 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                                n_cpu = n_cpu,
                                annotation_version = annotation_version,
                                tmp_dir = save_path,
-                               _temp_dir= _temp_dir)
+                               _temp_dir= _temp_dir,
+                               **kwargs)
                 out_folder = os.path.join(save_path,'DEM_'+key+'_No_promoters')
                 check_folder = os.path.isdir(out_folder)
                 if not check_folder:

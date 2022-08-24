@@ -55,7 +55,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     tree_structure: Sequence[str] = (),
     path_bedToBigBed: Optional[str] = None,
     n_cpu: Optional[int] = 1,
-    _temp_dir: Optional[str] = '/scratch/leuven/313/vsc31305/ray_spill'
+    _temp_dir: Optional[str] = '',
+    **kwargs
     ):
     """
     Wrapper to run SCENIC+
@@ -142,7 +143,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         ray_n_cpu = n_cpu, 
                         _temp_dir = _temp_dir,
                         importance_scoring_method = 'GBM',
-                        importance_scoring_kwargs = GBM_KWARGS)
+                        importance_scoring_kwargs = GBM_KWARGS,
+                        **kwargs)
                         
     if 'TF2G_adj' not in scplus_obj.uns.keys():
         log.info('Inferring TF to gene relationships')
@@ -151,7 +153,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         ray_n_cpu = n_cpu, 
                         method = 'GBM',
                         _temp_dir = _temp_dir,
-                        key= 'TF2G_adj')
+                        key= 'TF2G_adj',
+                        **kwargs)
                         
     if 'eRegulons' not in scplus_obj.uns.keys():
         log.info('Build eGRN')
@@ -175,7 +178,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                  cistromes_key = 'Unfiltered',
                  disable_tqdm = False, 
                  ray_n_cpu = n_cpu,
-                 _temp_dir = _temp_dir)
+                 _temp_dir = _temp_dir,
+                 **kwargs)
                  
     if 'eRegulon_metadata' not in scplus_obj.uns.keys():
         log.info('Formatting eGRNs')
