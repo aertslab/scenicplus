@@ -9,7 +9,8 @@ SCENIC+ is a python package to build gene regulatory networks (GRNs) using combi
     |____/ \____|_____|_| \_|___\____||_|  
                                         
 
-## Documentation
+## Documentation 
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=latest)](https://scenicplus.readthedocs.io/en/latest/?badge=latest)
 
 Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io).
 
@@ -69,5 +70,5 @@ scenicplus.__version__
 
 ## References
 
-Bravo Gonzalez-Blas, C. & De Winter, S. *et al.* (2022). SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks [BioRxiv]
+[Bravo Gonzalez-Blas, C. & De Winter, S. *et al.* (2022). SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks](https://www.biorxiv.org/content/10.1101/2022.08.19.504505v1)
 
