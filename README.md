@@ -1,9 +1,13 @@
-# SCENIC+
+![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=latest)](https://scenicplus.readthedocs.io/en/latest/?badge=latest)
+
+
+# SCENIC+ single-cell eGRN inference
 
 `SCENIC+` is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
 
 ## Documentation 
-[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=latest)](https://scenicplus.readthedocs.io/en/latest/?badge=latest)
+
 
 Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io).
 
