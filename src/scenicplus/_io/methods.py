@@ -37,6 +37,10 @@ def get_adata_compatible_uns(scplus_obj):
         else:
             print(t)
 
+"""
+Probably don't want to do this ... try to keep compatible with mudata file formated 
+So the object can also be loaded outside of scenicplus
+
 @_REGISTRY.register_write(H5Group, pr.PyRanges, IOSpec("pyranges", "0.2.0"))
 @_REGISTRY.register_write(ZarrGroup, pr.PyRanges, IOSpec("pyranges", "0.2.0"))
 def write_pyranges(f, key, pr, dataset_kwargs=MappingProxyType({})):
@@ -78,4 +82,4 @@ def write_categorical(f, k, s, dataset_kwargs=MappingProxyType({})):
     g = f.create_group(k)
     write_elem(g, 'values', s.astype(np.float32), dataset_kwargs=dataset_kwargs)
 
-
+"""
