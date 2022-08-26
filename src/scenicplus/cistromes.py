@@ -81,9 +81,13 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     #split direct and indirect signatures
     signatures_direct = {x: signatures[x] for x in signatures.keys() if not 'extended' in x}
     signatures_extend = {x: signatures[x] for x in signatures.keys() if     'extended' in x}
+
+    if len(signatures_direct.keys()) == 0 and len(signatures_extend.keys()) == 0:
+        raise ValueError("No cistromes found! Make sure that the motif enrichment results look good!")
     
     #merge regions by TF name
-    merged_signatures_direct = _merge_dict_of_signatures(signatures_direct, suffix = '')
+    if len(signatures_direct.keys()) > 0:
+        merged_signatures_direct = _merge_dict_of_signatures(signatures_direct, suffix = '')
     if len(signatures_extend.keys()) > 0:
         merged_signatures_extend = _merge_dict_of_signatures(signatures_extend, suffix = '_extended')
     
@@ -96,22 +100,26 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     else:
         regions_to_overlap = pr_regions
     
-    merged_signatures_direct = _overlap_if_necessary(merged_signatures_direct, regions, regions_to_overlap)
+    if len(signatures_direct.keys()) > 0:
+        merged_signatures_direct = _overlap_if_necessary(merged_signatures_direct, regions, regions_to_overlap)
     if len(signatures_extend.keys()) > 0:
         merged_signatures_extend = _overlap_if_necessary(merged_signatures_extend, regions, regions_to_overlap)
     
     # Sort alphabetically
-    merged_signatures_direct = dict(
-        sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()))
+    if len(signatures_direct.keys()) > 0:
+        merged_signatures_direct = dict(
+            sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()))
     if len(signatures_extend.keys()) > 0:
         merged_signatures_extend = dict(
             sorted(merged_signatures_extend.items(), key=lambda x: x[0].lower()))
     # Combine
-    if len(signatures_extend.keys()) > 0:
+    if len(signatures_direct.keys()) > 0 and len(signatures_extend.keys()) > 0:
         merged_signatures = {**merged_signatures_direct,
                              **merged_signatures_extend}
-    else:
+    elif len(signatures_direct.keys()) > 0 and len(signatures_extend.keys()) == 0:
         merged_signatures = merged_signatures_direct
+    elif len(signatures_extend.keys()) > 0 and len(signatures_direct.keys()) == 0:
+        merged_signatures = merged_signatures_extend
     # Add number of regions
     merged_signatures = {
         x + '_(' + str(len(merged_signatures[x])) + 'r)': merged_signatures[x] for x in merged_signatures.keys()}
