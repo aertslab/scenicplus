@@ -80,13 +80,13 @@ def make_rankings(scplus_obj: SCENICPLUS,
     if target == 'region':
         imputed_acc_ranking = CistopicImputedFeatures(
             np.zeros((len(scplus_obj.region_names),
-                     len(scplus_obj.cell_names))),
+                     len(scplus_obj.cell_names)), dtype=np.int32),
             scplus_obj.region_names,
             scplus_obj.cell_names,
             'Ranking')
     if target == 'gene':
         imputed_acc_ranking = CistopicImputedFeatures(
-            np.zeros((len(scplus_obj.gene_names), len(scplus_obj.cell_names))),
+            np.zeros((len(scplus_obj.gene_names), len(scplus_obj.cell_names)), dtype=np.int32),
             scplus_obj.gene_names,
             scplus_obj.cell_names,
             'Ranking')
