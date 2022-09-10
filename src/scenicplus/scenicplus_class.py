@@ -21,8 +21,10 @@ from scanpy import AnnData
 import warnings
 import logging
 import sys
-
 from scenicplus.utils import Groupby
+
+from mudata import MuData
+from anndata import AnnData
 
 # hardcoded variables
 TOPIC_FACTOR_NAME = 'topic'
@@ -711,3 +713,15 @@ def create_SCENICPLUS_object(
         SCENICPLUS_obj.add_cell_data(cell_metadata)
 
     return SCENICPLUS_obj
+
+
+def SCENICPLUS_obj_to_MuData(scplus_obj: SCENICPLUS):
+    gex_adata = AnnData(
+        X = scplus_obj.X_EXP,
+        vars = scplus_obj.metadata_genes,
+        obs = scplus_obj.metadata_cell
+    )
+    acc_adata = AnnData(
+        X = scplus_obj.X_ACC.T,
+        vars = scplus_obj.metadata_regions,
+        objs = scplus_obj.metadata_cell)
