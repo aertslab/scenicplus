@@ -111,7 +111,8 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
                      biomart_host='http://www.ensembl.org',
                      inplace=True,
                      key_added='search_space',
-                     implode_entries=True):
+                     implode_entries=True,
+                     extend_from_TSS=False):
     """
     Get search space surrounding genes to calculate enhancer to gene links
 
@@ -393,7 +394,13 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
                              'Gene_size_weight']].drop_duplicate_positions().copy()
         annot_nodup = pr.PyRanges(
             annot_nodup.df.drop_duplicates(subset="Gene", keep="first"))
-        extended_annot = extend_pyranges(annot, upstream[1], downstream[1])
+        if extend_from_TSS:
+            tmp_annot = annot.copy()
+            tmp_annot.Start = tmp_annot.Transcription_Start_Site.astype(np.int32)
+            tmp_annot.End = (tmp_annot.Transcription_Start_Site + 1).astype(np.int32)
+            extended_annot = extend_pyranges(tmp_annot, upstream[1], downstream[1])
+        else:
+            extended_annot = extend_pyranges(annot, upstream[1], downstream[1])
         extended_annot = extended_annot[[
             'Chromosome', 'Start', 'End', 'Strand', 'Gene', 'Gene_width', 'Gene_size_weight']]
 
