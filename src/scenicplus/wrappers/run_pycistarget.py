@@ -111,36 +111,47 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     else:
         log.info(save_path + " folder already exists.")
         
+    def get_species_annotation(species: str):
+        dataset = pbm.Dataset(name=species,  host=biomart_host)
+        annot = dataset.query(attributes=['chromosome_name', 'transcription_start_site', 'strand', 'external_gene_name', 'transcript_biotype'])
+        annot.columns = ['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
+        annot['Chromosome'] = annot['Chromosome'].astype('str')
+        filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT|KI')
+        annot = annot[~filterf]
+        annot['Chromosome'] = annot['Chromosome'].replace(r'(\b\S)', r'chr\1')
+        annot = annot[annot.Transcript_type == 'protein_coding']
+        annot = annot.dropna(subset = ['Chromosome', 'Start'])
+        # Check if chromosomes have chr
+        check = region_sets[list(region_sets.keys())[0]]
+        if not any(['chr' in c for c in check[list(check.keys())[0]].df['Chromosome']]):
+            annot.Chromosome = annot.Chromosome.str.replace('chr', '')
+        if not any(['chr' in x for x in annot.Chromosome]):
+            annot.Chromosome = [f'chr{x}' for x in annot.Chromosome]
+        annot_dem=annot.copy()
+        # Define promoter space
+        annot['End'] = annot['Start'].astype(int)+promoter_space
+        annot['Start'] = annot['Start'].astype(int)-promoter_space
+        annot = pr.PyRanges(annot[['Chromosome', 'Start', 'End']])
+        return annot, annot_dem
+        
     # Prepare annotation
     if species == 'homo_sapiens':
-        name = 'hsapiens_gene_ensembl'
+        annot, annot_dem = get_species_annotation('hsapiens_gene_ensembl')
     elif species == 'mus_musculus':
-        name = 'mmusculus_gene_ensembl'
+        annot, annot_dem = get_species_annotation('mmusculus_gene_ensembl')
     elif species == 'drosophila_melanogaster':
-        name = 'dmelanogaster_gene_ensembl'
+        annot, annot_dem = get_species_annotation('dmelanogaster_gene_ensembl')
     elif species == 'gallus_gallus':
-        name = 'ggallus_gene_ensembl'
-    dataset = pbm.Dataset(name=name,  host=biomart_host)
-    annot = dataset.query(attributes=['chromosome_name', 'transcription_start_site', 'strand', 'external_gene_name', 'transcript_biotype'])
-    annot.columns = ['Chromosome', 'Start', 'Strand', 'Gene', 'Transcript_type']
-    annot['Chromosome'] = annot['Chromosome'].astype('str')
-    filterf = annot['Chromosome'].str.contains('CHR|GL|JH|MT|KI')
-    annot = annot[~filterf]
-    annot['Chromosome'] = annot['Chromosome'].replace(r'(\b\S)', r'chr\1')
-    annot = annot[annot.Transcript_type == 'protein_coding']
-    annot = annot.dropna(subset = ['Chromosome', 'Start'])
-    # Check if chromosomes have chr
-    check = region_sets[list(region_sets.keys())[0]]
-    if not any(['chr' in c for c in check[list(check.keys())[0]].df['Chromosome']]):
-        annot.Chromosome = annot.Chromosome.str.replace('chr', '')
-    if not any(['chr' in x for x in annot.Chromosome]):
-        annot.Chromosome = [f'chr{x}' for x in annot.Chromosome]
-    annot_dem=annot.copy()
-    # Define promoter space
-    annot['End'] = annot['Start'].astype(int)+promoter_space
-    annot['Start'] = annot['Start'].astype(int)-promoter_space
-    annot = pr.PyRanges(annot[['Chromosome', 'Start', 'End']])
-        
+        annot, annot_dem = get_species_annotation('ggallus_gene_ensembl')
+    elif species == 'custom':
+        annot_dem = custom_annot
+        annot = annot_dem.copy()
+        # Define promoter space
+        annot['End'] = annot['Start'].astype(int)+promoter_space
+        annot['Start'] = annot['Start'].astype(int)-promoter_space
+        annot = pr.PyRanges(annot[['Chromosome', 'Start', 'End']])
+    else:
+        raise TypeError("Species not recognized")
 
     menr = {}
     for key in region_sets.keys():
