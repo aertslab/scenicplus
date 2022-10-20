@@ -169,13 +169,6 @@ def get_search_space(SCENICPLUS_obj: SCENICPLUS,
     logging.basicConfig(level=level, format=format, handlers=handlers)
     log = logging.getLogger('R2G')
 
-    # parameter validation
-    if ((species is None and assembly is None and pr_annot is None and pr_chromsizes is None)
-       or (species == assembly is None) and (pr_annot is None or pr_chromsizes is None)
-       or (pr_annot == pr_chromsizes is None) and (species is None or assembly is None)
-       or (species is not None and assembly is not None and pr_annot is not None and pr_chromsizes is not None)):
-        raise Exception('Either a name of a species and a name of an assembly or a pyranges object containing gene annotation and a pyranges object containing chromosome sizes should be provided!')
-
     # get regions
     pr_regions = pr.PyRanges(
         region_names_to_coordinates(SCENICPLUS_obj.region_names))
