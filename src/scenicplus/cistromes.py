@@ -81,6 +81,10 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     #split direct and indirect signatures
     signatures_direct = {x: signatures[x] for x in signatures.keys() if not 'extended' in x}
     signatures_extend = {x: signatures[x] for x in signatures.keys() if     'extended' in x}
+    
+    #Remove empty signature
+    signatures_direct = {k:v for k,v in signatures_direct.items() if v}
+    signatures_extend = {k:v for k,v in signatures_extend.items() if v}
 
     if len(signatures_direct.keys()) == 0 and len(signatures_extend.keys()) == 0:
         raise ValueError("No cistromes found! Make sure that the motif enrichment results look good!")
