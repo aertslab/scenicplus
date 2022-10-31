@@ -19,6 +19,7 @@ import time
 def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                  species: str,
                  save_path: str,
+                 custom_annot: pd.DataFrame = None,
                  save_partial: bool = False,
                  ctx_db_path: str = None,
                  dem_db_path: str = None,
@@ -48,9 +49,28 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
     region_sets: Mapping[str, pr.PyRanges]
          A dictionary of PyRanges containing region coordinates for the region sets to be analyzed.
     species: str
-        Species from which genomic coordinates come from, options are: homo_sapiens, mus_musculus and drosophila_melanogaster.
+        Species from which genomic coordinates come from, options are: homo_sapiens, mus_musculus, drosophila_melanogaster and gallus_gallus.
     save_path: str
         Directory in which to save outputs.
+    custom_annot: pd.DataFrame
+        pandas DataFrame with genome annotation for custom species (i.e. for a species other than homo_sapiens, mus_musculus, drosophila_melanogaster or gallus_gallus).
+        This DataFrame should (minimally) look like the example below, and only contains protein coding genes:
+        >>> custom_annot
+                Chromosome      Start  Strand     Gene Transcript_type
+            8053         chrY   22490397       1      PRY  protein_coding
+            8153         chrY   12662368       1    USP9Y  protein_coding
+            8155         chrY   12701231       1    USP9Y  protein_coding
+            8158         chrY   12847045       1    USP9Y  protein_coding
+            8328         chrY   22096007      -1     PRY2  protein_coding
+            ...           ...        ...     ...      ...             ...
+            246958       chr1  181483738       1  CACNA1E  protein_coding
+            246960       chr1  181732466       1  CACNA1E  protein_coding
+            246962       chr1  181776101       1  CACNA1E  protein_coding
+            246963       chr1  181793668       1  CACNA1E  protein_coding
+            246965       chr1  203305519       1     BTG2  protein_coding
+
+            [78812 rows x 5 columns]
+
     save_partial: bool=False
         Whether to save the individual analyses as pkl. Useful to run analyses in chunks or add new settings.
     ctx_db_path: str = None
