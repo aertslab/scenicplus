@@ -314,6 +314,93 @@ def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
         scplus_obj.uns['TF_cistrome_correlation'][out_key] = {}
     scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df
 
+def cistrome_correlation(scplus_obj: SCENICPLUS,
+                         variable: str = None,
+                         use_pseudobulk: bool = True,
+                         auc_key: str = 'Cistromes_AUC',
+                         signature_key1: str = 'Gene_based',
+                         signature_key2: str = 'Region_based',
+                         out_key: str = 'Unfiltered',
+                         subset: List[str] = None):
+        """
+        Get correlation between gene-based and region-based AUC
+
+        Parameters
+        ---------
+        scplus_obj: :class:`SCENICPLUS`
+            A :class:`SCENICPLUS` object with pseudobulk matrices (`scplus_obj.uns['Pseudobulk']`)
+        variable: str, optional
+            Variable used to create the pseudobulks. Must be a key in `scplus_obj.uns['Pseudobulk']`.
+            Only required if use_pseudobulk is False.
+        use_pseudobulk: bool, optional
+            Whether to use pseudobulk matrix or actual values.
+        auc_key: str, optional
+            Key to retrieve the pseudobulk matrices.  Cistrome AUCs will be retrieved from
+            `scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key][signature_key1]` and
+            gene expression from
+            `scplus_obj.uns['Pseudobulk'][variable]['Cistromes_AUC'][cistromes_key][signature_key2]`.
+        out_key : str, optional
+            Output key. Correlations will be stored at `scplus_obj.uns['cistrome_correlation'][variable][out_key]`.
+        subset: List, optional
+            Subset of cells to be used to calculate correlations. Default: None (All)
+        """
+        if use_pseudobulk:
+            gene_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key1]
+            region_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key2]
+        else:
+            gene_auc_agg = scplus_obj.uns[auc_key][signature_key1].copy().T
+            region_auc_agg = scplus_obj.uns[auc_key][signature_key2].copy().T
+
+        if subset is not None:
+            cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in gene_auc_agg.columns],
+                                     index=gene_auc_agg.columns).iloc[:, 0]
+            subset_cells = cell_data[cell_data.isin(subset)].index.tolist()
+            gene_auc_agg = gene_auc_agg.loc[:, subset_cells]
+            region_auc_agg = region_auc_agg.loc[:, subset_cells]
+
+        corr_df = pd.DataFrame(columns=['Signature1', 'Signature2', 'Rho', 'P-value'])
+
+        # cistrome naming includes number of genes/regions, so need to create matching names
+        # x.rsplit('_', 1) splits at first _ from the right
+        gene_auc_agg['cistrome_id_short'] = gene_auc_agg.index.map(lambda x: x.rsplit('_', 1)[0])
+        gene_auc_agg['cistrome_id'] = gene_auc_agg.index
+        gene_auc_agg = gene_auc_agg.set_index('cistrome_id_short')
+
+        region_auc_agg['cistrome_id_short'] = region_auc_agg.index.map(lambda x: x.rsplit('_', 1)[0])
+        region_auc_agg['cistrome_id'] = region_auc_agg.index
+        region_auc_agg = region_auc_agg.set_index('cistrome_id_short')
+
+        for tf in gene_auc_agg.index:
+            # I think all TFs should match, but just in case
+            if tf in region_auc_agg.index:
+                gene_auc_agg_tf = gene_auc_agg.loc[tf, gene_auc_agg.columns != 'cistrome_id']
+                region_auc_agg_tf = region_auc_agg.loc[tf, gene_auc_agg.columns != 'cistrome_id']
+
+                # record orginal cistrome name for results
+                signature1_id = gene_auc_agg.loc[tf, 'cistrome_id']
+                signature2_id = region_auc_agg.loc[tf, 'cistrome_id']
+                # Exception in case TF is only expressed in 1 cell
+                # TFs expressed in few cells could be filtered too
+                try:
+                    corr_1, _1 = pearsonr(gene_auc_agg_tf, region_auc_agg_tf)
+                    x = {'Signature1': signature1_id,
+                         'Signature2': signature2_id,
+                         'Rho': corr_1,
+                         'P-value': _1}
+                    corr_df = pd.concat([corr_df,
+                                         pd.DataFrame(data=x, index=[0])],
+                                        ignore_index=True)
+                except:
+                    continue
+        corr_df = corr_df.dropna()
+        corr_df['Adjusted_p-value'] = p_adjust_bh(corr_df['P-value'])
+
+        if not 'cistrome_correlation' in scplus_obj.uns.keys():
+            scplus_obj.uns['cistrome_correlation'] = {}
+        if not out_key in scplus_obj.uns['cistrome_correlation'].keys():
+            scplus_obj.uns['cistrome_correlation'][out_key] = {}
+        scplus_obj.uns['cistrome_correlation'][out_key] = corr_df
+
 
 def prune_plot(scplus_obj: SCENICPLUS,
                name: str,
