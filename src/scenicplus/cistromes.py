@@ -345,8 +345,8 @@ def cistrome_correlation(scplus_obj: SCENICPLUS,
             Subset of cells to be used to calculate correlations. Default: None (All)
         """
         if use_pseudobulk:
-            gene_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key1]
-            region_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key2]
+            gene_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key1].copy()
+            region_auc_agg = scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key2].copy()
         else:
             gene_auc_agg = scplus_obj.uns[auc_key][signature_key1].copy().T
             region_auc_agg = scplus_obj.uns[auc_key][signature_key2].copy().T
