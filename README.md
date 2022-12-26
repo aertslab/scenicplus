@@ -13,7 +13,7 @@ Extensive documentation and tutorials are available at [read the docs](https://s
 
 ## Installing
 
-To install SCENIC+:
+To install SCENIC+ (in a Linux environment):
 
 ```bash
 git clone https://github.com/aertslab/scenicplus
