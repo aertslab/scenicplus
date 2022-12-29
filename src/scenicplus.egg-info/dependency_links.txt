@@ -1,4 +1,0 @@
-git+https://github.com/aertslab/pycisTopic@master#egg=pycisTopic
-git+https://github.com/aertslab/pycistarget@master#egg=pycistarget
-git+https://github.com/aertslab/pySCENIC@master#egg=pyscenic
-git+https://github.com/aertslab/LoomXpy@main#egg=loomxpy
