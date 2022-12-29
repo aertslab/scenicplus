@@ -141,5 +141,5 @@ Export to loom
 Export to MuData
 ^^^^^^^^^^^^^^^^
 
-.. automodule:: scenicplus._io.object_converted
+.. automodule:: scenicplus.io.object_converted
    :members:
