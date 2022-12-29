@@ -1,21 +1,19 @@
-# SCENIC+
+![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=latest)](https://scenicplus.readthedocs.io/en/latest/?badge=latest)
 
-SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
 
-     ____   ____ _____ _   _ ___ ____      
-    / ___| / ___| ____| \ | |_ _/ ___| _   
-    \___ \| |   |  _| |  \| || | |   _| |_ 
-     ___) | |___| |___| |\  || | |__|_   _|
-    |____/ \____|_____|_| \_|___\____||_|  
-                                        
+# SCENIC+ single-cell eGRN inference
 
-## Documentation
+`SCENIC+` is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
+
+## Documentation 
+
 
 Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io).
 
 ## Installing
 
-To install SCENIC+:
+To install SCENIC+ (in a Linux environment):
 
 ```bash
 git clone https://github.com/aertslab/scenicplus
@@ -69,5 +67,4 @@ scenicplus.__version__
 
 ## References
 
-Bravo Gonzalez-Blas, C. & De Winter, S. *et al.* (2022). SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks [BioRxiv]
-
+[Bravo Gonzalez-Blas, C. & De Winter, S. *et al.* (2022). SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks](https://www.biorxiv.org/content/10.1101/2022.08.19.504505v1)
