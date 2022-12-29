@@ -330,8 +330,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     start_time = time.time()
     log.info(f'Adding correlation coefficients to adjacencies.')
     adj = pd.concat(tfs_to_genes).sort_values(by='importance', ascending=False)
-    ex_matrix = pd.DataFrame(
-        scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names)
+    ex_matrix = scplus_obj.to_df(layer = 'EXP') 
     adj = _add_correlation(adj, ex_matrix)
     adj = _inject_TF_as_its_own_target(
         TF2G_adj=adj, 
