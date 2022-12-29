@@ -99,6 +99,12 @@ eRegulon specificity score (eRSS)
 .. automodule:: scenicplus.RSS
    :members:
 
+Triplet score
+-------------
+
+.. automodule:: scenicplus.triplet_score
+   :members:
+
 Network
 -------
 
@@ -132,3 +138,8 @@ Export to loom
 .. automodule:: scenicplus.loom
    :members:
 
+Export to MuData
+^^^^^^^^^^^^^^^^
+
+.. automodule:: scenicplus._io.object_converted
+   :members:

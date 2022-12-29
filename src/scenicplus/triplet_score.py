@@ -1,3 +1,11 @@
+"""Calculate the TF-region-gene triplet ranking
+
+The triplet ranking is the aggregated ranking of TF-to-region scores, region-to-gene scores and TF-to-region scores. 
+The TF-to-gene and TF-to-region scores are defined as the feature importance scores for predicting gene expression from resp. TF expression and region accessibility.
+The TF-to-region score is defined as the maximum motif-score-rank for a certain region across all motifs annotated to the TF of interest.
+
+"""
+
 from scenicplus.scenicplus_class import SCENICPLUS
 from typing import List
 from pycistarget._io.object_converter import dict_motif_enrichment_results_to_mudata

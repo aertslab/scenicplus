@@ -1,3 +1,8 @@
+"""Convert from SCENIC+ class to MuData
+
+Given a SCENIC+ class this function will convert to a MuData object.
+
+"""
 from scenicplus.scenicplus_class import SCENICPLUS
 from mudata import MuData, AnnData
 from pycistarget._io import dict_motif_enrichment_results_to_mudata
