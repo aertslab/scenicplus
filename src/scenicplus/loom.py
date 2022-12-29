@@ -196,6 +196,10 @@ def export_to_loom(scplus_obj: SCENICPLUS,
 
     # Embeddings. Cell embeddings in this case
     embeddings = scplus_obj.dr_cell
+    
+    #only keep first two dimensions of embedding
+    for key in embeddings.keys():
+        embeddings[key] = embeddings[key][embeddings[key].columns[0:2]]
 
     # Add linked_gene information
     if signature_key == 'Gene_based':

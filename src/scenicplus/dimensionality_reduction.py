@@ -368,7 +368,7 @@ def run_eRegulons_pca(scplus_obj: SCENICPLUS,
     dr = pd.DataFrame(
         embedding,
         index=data_names,
-        columns=[f'PC_{i}' for i in range(n_pcs)])[['PC_0', 'PC_1']]
+        columns=[f'PC_{i}' for i in range(n_pcs)])
     if not hasattr(scplus_obj, 'dr_cell'):
         scplus_obj.dr_cell = {}
     scplus_obj.dr_cell[reduction_name] = dr
