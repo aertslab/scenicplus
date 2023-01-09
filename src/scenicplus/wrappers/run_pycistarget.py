@@ -213,7 +213,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 menr['CTX_'+key+'_All'][str(x)].motif_enrichment.to_html(open(out_file, 'w'), escape=False, col_space=80)
             if(save_partial):
                 with open(os.path.join(save_path,'CTX_'+key+'_All' + '.pkl'), 'wb') as f:
-                    dill.dump(menr['CTX_'+key+'_All'], f, protocol=-1)
+                    dill.dump(menr['CTX_'+key+'_All'], f, protocol=4)
 
             if run_without_promoters is True:
                 ## REMOVE PROMOTERS
@@ -248,7 +248,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 
                 if(save_partial):
                     with open(os.path.join(save_path,'CTX_'+key+'_No_promoters' + '.pkl'), 'wb') as f:
-                      dill.dump(menr['CTX_'+key+'_No_promoters'], f, protocol=-1)
+                      dill.dump(menr['CTX_'+key+'_No_promoters'], f, protocol=4)
         ## DEM
         if dem_db_path is not None:
             log.info('Running DEM for '+key)
@@ -288,7 +288,7 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                 menr['DEM_'+key+'_All'].motif_enrichment[str(x)].to_html(open(out_file, 'w'), escape=False, col_space=80)
             if(save_partial):
                 with open(os.path.join(save_path, 'DEM_'+key+'_All'+'.pkl'), 'wb') as f:
-                  dill.dump(menr['DEM_'+key+'_All'], f, protocol=-1)
+                  dill.dump(menr['DEM_'+key+'_All'], f, protocol=4)
                 
             if run_without_promoters is True:
                 log.info('Running DEM without promoters for '+key)
@@ -324,10 +324,10 @@ def run_pycistarget(region_sets: Dict[str, pr.PyRanges],
                     menr['DEM_'+key+'_No_promoters'].motif_enrichment[str(x)].to_html(open(out_file, 'w'), escape=False, col_space=80)
                 if(save_partial):
                     with open(os.path.join(save_path, 'DEM_'+key+'_No_promoters'+'.pkl'), 'wb') as f:
-                      dill.dump(menr['DEM_'+key+'_All'], f, protocol=-1)
+                      dill.dump(menr['DEM_'+key+'_All'], f, protocol=4)
                     
     log.info('Saving object')         
     with open(os.path.join(save_path,'menr.pkl'), 'wb') as f:
-        dill.dump(menr, f, protocol=-1)
+        dill.dump(menr, f, protocol=4)
 
     log.info('Finished! Took {} minutes'.format((time.time() - start_time)/60))  
