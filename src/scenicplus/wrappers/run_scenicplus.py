@@ -56,6 +56,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     path_bedToBigBed: Optional[str] = None,
     n_cpu: Optional[int] = 1,
     _temp_dir: Optional[str] = '',
+    save_partal: Optional[bool] = False,
     **kwargs
     ):
     """
@@ -145,7 +146,11 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         importance_scoring_method = 'GBM',
                         importance_scoring_kwargs = GBM_KWARGS,
                         **kwargs)
-                        
+    if save_partal:
+        log.info('Saving partial object')
+        with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
+            dill.dump(scplus_obj, f, protocol = -1)
+
     if 'TF2G_adj' not in scplus_obj.uns.keys():
         log.info('Inferring TF to gene relationships')
         calculate_TFs_to_genes_relationships(scplus_obj, 
@@ -155,6 +160,10 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         _temp_dir = _temp_dir,
                         key= 'TF2G_adj',
                         **kwargs)
+    if save_partal:
+        log.info('Saving partial object')
+        with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
+            dill.dump(scplus_obj, f, protocol = -1)
                         
     if 'eRegulons' not in scplus_obj.uns.keys():
         log.info('Build eGRN')
@@ -303,6 +312,11 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         log.info('Calculating DEGs/DARs')
         for var in variable:
             get_differential_features(scplus_obj, var, use_hvg = True, contrast_type = ['DEGs', 'DARs'])
+
+    if save_partal:
+        log.info('Saving partial object')
+        with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
+            dill.dump(scplus_obj, f, protocol = -1)
             
     if export_to_loom_file is True:
         log.info('Exporting to loom file')
