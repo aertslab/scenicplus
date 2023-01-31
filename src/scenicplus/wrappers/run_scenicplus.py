@@ -56,7 +56,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     path_bedToBigBed: Optional[str] = None,
     n_cpu: Optional[int] = 1,
     _temp_dir: Optional[str] = '',
-    save_partal: Optional[bool] = False,
+    save_partial: Optional[bool] = False,
     **kwargs
     ):
     """
@@ -146,7 +146,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         importance_scoring_method = 'GBM',
                         importance_scoring_kwargs = GBM_KWARGS,
                         **kwargs)
-    if save_partal:
+    if save_partial:
         log.info('Saving partial object')
         with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
             dill.dump(scplus_obj, f, protocol = -1)
@@ -160,7 +160,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         _temp_dir = _temp_dir,
                         key= 'TF2G_adj',
                         **kwargs)
-    if save_partal:
+    if save_partial:
         log.info('Saving partial object')
         with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
             dill.dump(scplus_obj, f, protocol = -1)
@@ -313,7 +313,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         for var in variable:
             get_differential_features(scplus_obj, var, use_hvg = True, contrast_type = ['DEGs', 'DARs'])
 
-    if save_partal:
+    if save_partial:
         log.info('Saving partial object')
         with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
             dill.dump(scplus_obj, f, protocol = -1)
