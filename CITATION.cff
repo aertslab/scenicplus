@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Bravo Gonzalez-Blas"
+  given-names: "Carmen"
+  orcid: "https://orcid.org/0000-0003-0973-9410"
+- family-names: "De Winter"
+  given-names: "Seppe"
+  orcid: "https://orcid.org/0000-0001-7907-1247"
+title: "SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks"
+doi: https://doi.org/10.1101/2022.08.19.504505
+date-released: 2022-08-19
+url: "https://www.biorxiv.org/content/10.1101/2022.08.19.504505v1"
