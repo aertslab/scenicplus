@@ -26,8 +26,7 @@ plotly
 kaleido
 pyvis
 pygam
-fa2
-scanpy==1.8.2
+scanpy~=1.9
 cython
 plotnine
 mudata
