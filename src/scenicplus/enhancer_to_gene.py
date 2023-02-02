@@ -7,26 +7,30 @@ and regions which are infered to have a negative influence on gene expression (i
 
 """
 
-import pandas as pd
-import numpy as np
-import ray
 import logging
-import time
-import sys
 import os
 import subprocess
-import pyranges as pr
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
-from scipy.stats import pearsonr, spearmanr
-from tqdm import tqdm
-from matplotlib import cm
-from matplotlib.colors import Normalize
+import sys
+import time
 from typing import List
 
-from .utils import extend_pyranges, extend_pyranges_with_limits, reduce_pyranges_with_limits_b
-from .utils import calculate_distance_with_limits_join, reduce_pyranges_b, calculate_distance_join
-from .utils import coord_to_region_names, region_names_to_coordinates, ASM_SYNONYMS, Groupby, flatten_list
-from .scenicplus_class import SCENICPLUS
+import numpy as np
+import pandas as pd
+import pyranges as pr
+import ray
+from matplotlib import cm
+from matplotlib.colors import Normalize
+from scipy.stats import pearsonr, spearmanr
+from sklearn.ensemble import (ExtraTreesRegressor, GradientBoostingRegressor,
+                              RandomForestRegressor)
+from tqdm import tqdm
+
+from scenicplus.scenicplus_class import SCENICPLUS
+from scenicplus.utils import (ASM_SYNONYMS, Groupby, calculate_distance_join,
+                    calculate_distance_with_limits_join, coord_to_region_names,
+                    extend_pyranges, extend_pyranges_with_limits, flatten_list,
+                    reduce_pyranges_b, reduce_pyranges_with_limits_b,
+                    region_names_to_coordinates)
 
 RANDOM_SEED = 666
 
@@ -472,6 +476,7 @@ def _score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type,
     """
     if regressor_type in SKLEARN_REGRESSOR_FACTORY.keys():
         from arboreto import core as arboreto_core
+
         # fit model
         fitted_model = arboreto_core.fit_model(regressor_type=regressor_type,
                                                regressor_kwargs=regressor_kwargs,
