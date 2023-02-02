@@ -139,8 +139,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     if 'region_to_gene' not in scplus_obj.uns.keys():
         log.info('Inferring region to gene relationships')
         calculate_regions_to_genes_relationships(scplus_obj, 
-                        ray_n_cpu = n_cpu, 
-                        _temp_dir = _temp_dir,
+                        n_cpu = n_cpu, 
                         importance_scoring_method = 'GBM',
                         importance_scoring_kwargs = GBM_KWARGS)
                         
@@ -148,9 +147,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         log.info('Inferring TF to gene relationships')
         calculate_TFs_to_genes_relationships(scplus_obj, 
                         tf_file = tf_file,
-                        ray_n_cpu = n_cpu, 
+                        n_cpu = n_cpu, 
                         method = 'GBM',
-                        _temp_dir = _temp_dir,
                         key= 'TF2G_adj')
                         
     if 'eRegulons' not in scplus_obj.uns.keys():
