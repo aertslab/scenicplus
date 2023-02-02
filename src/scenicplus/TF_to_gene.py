@@ -8,19 +8,26 @@ and TFs which are infered to have a negative influence on gene expression (i.e. 
 """
 
 
-import pandas as pd
-import numpy as np
-import ray
 import logging
-import time
+import os
+import shutil
 import sys
+import tempfile
+import time
+from datetime import datetime
 
+import joblib
+import numpy as np
+import pandas as pd
+import scipy.sparse
+from arboreto.algo import _prepare_input
+from arboreto.core import (EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS,
+                           infer_partial_network, to_tf_matrix)
+from arboreto.utils import load_tf_names
 from tqdm import tqdm
 
-from .scenicplus_class import SCENICPLUS
-from .utils import _create_idx_pairs, masked_rho4pairs
-
-import scipy.sparse
+from scenicplus.scenicplus_class import SCENICPLUS
+from scenicplus.utils import _create_idx_pairs, masked_rho4pairs, timestamp
 
 COLUMN_NAME_TARGET = "target"
 COLUMN_NAME_WEIGHT = "importance"
@@ -108,8 +115,8 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
     idx_to_keep = np.logical_and(np.array([tf in SCENICPLUS_obj.gene_names for tf in df_TF_gene_adj['TF']]),
                                  np.array([gene in SCENICPLUS_obj.gene_names for gene in df_TF_gene_adj['target']]))
     df_TF_gene_adj_subset = df_TF_gene_adj.loc[idx_to_keep]
-    if not COLUMN_NAME_CORRELATION in df_TF_gene_adj_subset.columns:
-        log.info(f'Adding correlation coefficients to adjacencies.')
+    if COLUMN_NAME_CORRELATION not in df_TF_gene_adj_subset.columns:
+        log.info('Adding correlation coefficients to adjacencies.')
         df_TF_gene_adj_subset = _add_correlation(
             adjacencies=df_TF_gene_adj_subset,
             ex_mtx=SCENICPLUS_obj.to_df(layer='EXP'),
@@ -118,12 +125,12 @@ def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
         TF2G_adj=df_TF_gene_adj_subset, 
         inplace = False, 
         ex_mtx = SCENICPLUS_obj.to_df(layer='EXP'))
-    if not COLUMN_NAME_SCORE_1 in df_TF_gene_adj_subset.columns:
-        log.info(f'Adding importance x rho scores to adjacencies.')
+    if COLUMN_NAME_SCORE_1 not in df_TF_gene_adj_subset.columns:
+        log.info('Adding importance x rho scores to adjacencies.')
         df_TF_gene_adj_subset[COLUMN_NAME_SCORE_1] = df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION] * \
             df_TF_gene_adj_subset[COLUMN_NAME_WEIGHT]
-    if not COLUMN_NAME_SCORE_2 in df_TF_gene_adj_subset.columns:
-        log.info(f'Adding importance x |rho| scores to adjacencies.')
+    if COLUMN_NAME_SCORE_2 not in df_TF_gene_adj_subset.columns:
+        log.info('Adding importance x |rho| scores to adjacencies.')
         df_TF_gene_adj_subset[COLUMN_NAME_SCORE_2] = abs(
             df_TF_gene_adj_subset[COLUMN_NAME_CORRELATION]) * abs(df_TF_gene_adj_subset[COLUMN_NAME_WEIGHT])
 
@@ -187,59 +194,12 @@ def _add_correlation(
         }
     )
 
-
-def _run_infer_partial_network(target_gene_name,
-                              gene_names,
-                              ex_matrix,
-                              method_params,
-                              tf_matrix,
-                              tf_matrix_gene_names):
-    """
-    A function to call arboreto 
-    """
-    from arboreto import core as arboreto_core
-
-    target_gene_name_index = _get_position_index([target_gene_name], gene_names)
-    target_gene_expression = ex_matrix[:, target_gene_name_index].ravel()
-
-    n = arboreto_core.infer_partial_network(
-        regressor_type=method_params[0],
-        regressor_kwargs=method_params[1],
-        tf_matrix=tf_matrix,
-        tf_matrix_gene_names=tf_matrix_gene_names,
-        target_gene_name=target_gene_name,
-        target_gene_expression=target_gene_expression,
-        include_meta=False,
-        early_stop_window_length=arboreto_core.EARLY_STOP_WINDOW_LENGTH,
-        seed=666)
-    return(n)
-
-
-@ray.remote
-def _run_infer_partial_network_ray(target_gene_name,
-                                  gene_names,
-                                  ex_matrix,
-                                  method_params,
-                                  tf_matrix,
-                                  tf_matrix_gene_names):
-    """
-    A function to call arboreto with ray
-    """
-
-    return _run_infer_partial_network(target_gene_name,
-                                     gene_names,
-                                     ex_matrix,
-                                     method_params,
-                                     tf_matrix,
-                                     tf_matrix_gene_names)
-
-
 def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
                                          tf_file: str,
                                          method: str = 'GBM',
-                                         ray_n_cpu: int = 1,
+                                         n_cpu: int = 1,
                                          key: str = 'TF2G_adj',
-                                         **kwargs):
+                                         temp_dir = None):
     """
     A function to calculate TF to gene relationships using arboreto and correlation
 
@@ -251,7 +211,7 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
         Path to a file specifying with genes are TFs
     method
         Whether to use Gradient Boosting Machines (GBM) or random forest (RF)
-    ray_n_cpu
+    n_cpu
         Number of cpus to use
     key
         String specifying where in the .uns slot to store the adjacencies matrix in :param:`SCENICPLUS_obj`
@@ -259,10 +219,6 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     **kwargs
         Parameters to pass to ray.init
     """
-    from arboreto.utils import load_tf_names
-    from arboreto.algo import _prepare_input
-    from arboreto.core import SGBM_KWARGS, RF_KWARGS
-    from arboreto.core import to_tf_matrix
 
     if(method == 'GBM'):
         method_params = [
@@ -275,8 +231,9 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
             RF_KWARGS   # regressor_kwargs
         ]
 
-    gene_names = scplus_obj.gene_names
-    cell_names = scplus_obj.cell_names
+    gene_names = list(scplus_obj.gene_names)
+    if len(set(gene_names)) != len(gene_names):
+        raise ValueError("scplus_obj contains duplicate gene names!")
     ex_matrix = scplus_obj.X_EXP
 
     tf_names = load_tf_names(tf_file)
@@ -294,61 +251,74 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     if isinstance(tf_matrix, np.matrix):
         tf_matrix = np.array(tf_matrix)
     elif scipy.sparse.issparse(tf_matrix):
-       tf_matrix = tf_matrix.toarray()
+        tf_matrix = tf_matrix.toarray()
 
-    ray.init(num_cpus=ray_n_cpu, **kwargs)
-    log.info(f'Calculating TF to gene correlation, using {method} method')
+    log.info('Calculating TF-to-gene importance')
     start_time = time.time()
+
+    if temp_dir is None:
+        if os.access('/dev/shm', os.W_OK):
+            temp_dir = '/dev/shm'
+        else:
+            temp_dir = tempfile.gettempdir()
+
+    dt = datetime.now()
+    joblib.dump(
+        ex_matrix, 
+        os.path.join(temp_dir, f'scenicplus_ex_matrix_{timestamp(dt)}'))
+    joblib.dump(
+        tf_matrix,
+        os.path.join(temp_dir, f'scenicplus_tf_matrix_{timestamp(dt)}'))
+    ex_matrix_memmap = joblib.load(
+        os.path.join(temp_dir, f'scenicplus_ex_matrix_{timestamp(dt)}'),
+        mmap_mode = 'r')
+    tf_matrix_memmap = joblib.load(
+        os.path.join(temp_dir, f'scenicplus_tf_matrix_{timestamp(dt)}'),
+        mmap_mode = 'r')
+        
+    def pf_inter_partial_network(target_gene_name):
+        return infer_partial_network(
+            target_gene_name = target_gene_name,
+            target_gene_expression = ex_matrix_memmap[
+                :, gene_names.index(target_gene_name)],
+            regressor_type = method_params[0],
+            regressor_kwargs = method_params[1],
+            tf_matrix = tf_matrix_memmap,
+            tf_matrix_gene_names = tf_matrix_gene_names,
+            include_meta = False,
+            early_stop_window_length = EARLY_STOP_WINDOW_LENGTH,
+            seed = 666)
+    def clean_shared_memory():
+        os.remove(os.path.join(temp_dir, f'scenicplus_ex_matrix_{timestamp(dt)}'))
+        os.remove(os.path.join(temp_dir, f'scenicplus_tf_matrix_{timestamp(dt)}'))
+        
     try:
-        jobs = []
-        for gene in tqdm(gene_names, total=len(gene_names), desc='initializing'):
-            jobs.append(_run_infer_partial_network_ray.remote(gene,
-                                                             gene_names,
-                                                             ex_matrix,
-                                                             method_params,
-                                                             tf_matrix,
-                                                             tf_matrix_gene_names))
-        # add progress bar, adapted from: https://github.com/ray-project/ray/issues/8164
-
-        def to_iterator(obj_ids):
-            while obj_ids:
-                finished_ids, obj_ids = ray.wait(obj_ids)
-                for finished_id in finished_ids:
-                    yield ray.get(finished_id)
-        tfs_to_genes = []
-        for adj in tqdm(to_iterator(jobs),
-                        total=len(jobs),
-                        desc=f'Running using {ray_n_cpu} cores',
-                        smoothing=0.1):
-            tfs_to_genes.append(adj)
+        TF_to_genes = joblib.Parallel(
+            n_jobs = n_cpu)(
+                joblib.delayed(pf_inter_partial_network)(gene)
+                for gene in tqdm(
+                    gene_names, 
+                    total=len(gene_names), 
+                    desc=f'Running using {n_cpu} cores'))
     except Exception as e:
-        print(e)
+        clean_shared_memory()
+        raise Exception(e)
     finally:
-        ray.shutdown()
-
+        clean_shared_memory()
+    adj = pd.concat(TF_to_genes).sort_values(by='importance', ascending=False)
     log.info('Took {} seconds'.format(time.time() - start_time))
     start_time = time.time()
-    log.info(f'Adding correlation coefficients to adjacencies.')
-    adj = pd.concat(tfs_to_genes).sort_values(by='importance', ascending=False)
+    log.info('Adding correlation coefficients to adjacencies.')
     ex_matrix = scplus_obj.to_df(layer = 'EXP') 
     adj = _add_correlation(adj, ex_matrix)
     adj = _inject_TF_as_its_own_target(
         TF2G_adj=adj, 
         inplace = False, 
         ex_mtx = scplus_obj.to_df(layer='EXP'))
-    log.info(f'Adding importance x rho scores to adjacencies.')
+    log.info('Adding importance x rho scores to adjacencies.')
     adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION] * \
         adj[COLUMN_NAME_WEIGHT]
     adj[COLUMN_NAME_SCORE_2] = abs(
         adj[COLUMN_NAME_CORRELATION]) * abs(adj[COLUMN_NAME_WEIGHT])
     log.info('Took {} seconds'.format(time.time() - start_time))
     scplus_obj.uns[key] = adj
-
-
-def _get_position_index(query_list, target_list):
-    """
-    Helper function to grep an instance in a list
-    """
-    d = {k: v for v, k in enumerate(target_list)}
-    index = (d[k] for k in query_list)
-    return list(index)
