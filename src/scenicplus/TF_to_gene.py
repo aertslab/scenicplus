@@ -10,7 +10,6 @@ and TFs which are infered to have a negative influence on gene expression (i.e. 
 
 import logging
 import os
-import shutil
 import sys
 import tempfile
 import time
