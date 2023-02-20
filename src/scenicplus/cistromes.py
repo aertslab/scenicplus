@@ -297,6 +297,93 @@ def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
     scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df
 
 
+def eregulon_correlation(scplus_obj: SCENICPLUS,
+                         auc_key: str = 'eRegulon_AUC',
+                         signature_key1: str = 'Gene_based',
+                         signature_key2: str = 'Region_based',
+                         nSignif: int = 3,
+                         out_key: str = 'Unfiltered',
+                         subset_cellids: List[str] = None
+                        ):
+        """
+        Get correlation between gene-based and region-based eRegulon AUC
+
+        Parameters
+        ---------
+        scplus_obj: :class:`SCENICPLUS`
+            A :class:`SCENICPLUS` object
+        auc_key: str, optional
+            Name of the AUC matrix used to calculate the correlation, normally 'eRegulon_AUC'. 
+            Must be a key in `scplus_obj.uns.keys()`.
+        signature_key1: str, optional
+            Variable used to calculate the correlation, normally 'Gene_based'. 
+            Must be a key in `scplus_obj.uns[auc_key].keys()`.
+        signature_key2: str, optional
+            Variable used to calculate the correlation, normally 'Region_based'. 
+            Must be a key in `scplus_obj.uns[auc_key].keys()`.
+        nSignif: str, optional
+            Number of digits to save.
+        out_key : str, optional
+            Ouput key. Correlations will be stored at `scplus_obj.uns['eRegulon_correlation'][out_key]`.
+        subset_cellids: List, optional
+            Subset of cells to be used to calculate correlations. Default: None (All)
+        """
+
+        gene_auc = scplus_obj.uns[auc_key][signature_key1].copy().T
+        region_auc = scplus_obj.uns[auc_key][signature_key2].copy().T
+
+        if subset_cellids is not None:
+            cell_data = pd.DataFrame([x.rsplit('_', 1)[0] for x in gene_auc.columns],
+                                     index=gene_auc.columns).iloc[:, 0]
+            subset_cells = cell_data[cell_data.isin(subset_cellids)].index.tolist()
+            gene_auc = gene_auc.loc[:, subset_cells]
+            region_auc = region_auc.loc[:, subset_cells]
+
+        # cistrome naming includes number of genes/regions, so need to create matching names
+        # x.rsplit('_', 1) splits at first _ from the right
+        gene_auc['id_short'] = gene_auc.index.map(lambda x: x.rsplit('_', 1)[0])
+        gene_auc['id_full'] = gene_auc.index
+        gene_auc = gene_auc.set_index('id_short')
+
+        region_auc['id_short'] = region_auc.index.map(lambda x: x.rsplit('_', 1)[0])
+        region_auc['id_full'] = region_auc.index
+        region_auc = region_auc.set_index('id_short')
+
+        corr_df = pd.DataFrame(columns=['id', signature_key1, signature_key2, 'Rho', 'P-value'])
+
+        for tf in gene_auc.index:
+            # All TFs should match, but just in case
+            if tf in region_auc.index:
+                # record orginal cistrome name for results
+                signature1_id = gene_auc.loc[tf, 'id_full']
+                signature2_id = region_auc.loc[tf, 'id_full']
+                # Exception in case TF is only expressed in 1 cell
+                # TFs expressed in few cells could be filtered too
+                try:
+                    corr_1, _1 = pearsonr(gene_auc.loc[tf, gene_auc.columns != 'id_full'],
+                                          region_auc.loc[tf, gene_auc.columns != 'id_full'])
+                    x = {'id': tf,
+                         signature_key1: signature1_id,
+                         signature_key2: signature2_id,
+                         'Rho': round(corr_1,nSignif),
+                         'P-value': _1}
+                    corr_df = pd.concat([corr_df,
+                                         pd.DataFrame(data=x, index=[0])],
+                                        ignore_index=True)
+                except:
+                    continue
+        corr_df = corr_df.dropna()
+        corr_df['Adjusted_pValue'] = p_adjust_bh(corr_df['P-value'])
+        corr_df['Abs_rho'] = abs(corr_df['Rho'])
+        corr_df.sort_values('Abs_rho', ascending=False, inplace=True)
+
+        if not 'eRegulon_correlation' in scplus_obj.uns.keys():
+            scplus_obj.uns['eRegulon_correlation'] = {}
+        if not out_key in scplus_obj.uns['eRegulon_correlation'].keys():
+            scplus_obj.uns['eRegulon_correlation'][out_key] = {}
+        scplus_obj.uns['eRegulon_correlation'][out_key] = corr_df
+
+
 def prune_plot(scplus_obj: SCENICPLUS,
                name: str,
                pseudobulk_variable: str = None,
