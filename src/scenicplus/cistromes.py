@@ -5,62 +5,151 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pycistarget
-from pycistarget.motif_enrichment_dem import *
-from pycisTopic.diff_features import *
-from pycisTopic.signature_enrichment import *
-import pyranges as pr
+from pycistarget.utils import get_TF_list, get_motifs_per_TF
 from random import sample
 import seaborn as sns
 from scipy.stats import pearsonr
-from typing import List
-from .utils import region_names_to_coordinates, target_to_overlapping_query, p_adjust_bh, Groupby, flatten_list
+from typing import List, Dict, Set, Iterable
+from scenicplus.utils import p_adjust_bh
+from scenicplus.scenicplus_class import SCENICPLUS
+import numpy as np
+import pandas as pd
+from dataclasses import dataclass
+import anndata
+from scipy import sparse
 
-from .scenicplus_class import SCENICPLUS
+@dataclass
+class Cistrome:
+    """
+    Dataclass for intermediate use
+    """
+    tf_name: str
+    target_regions: Set[str]
+    extended: bool
 
 def _signatures_to_iter(menr):
     for x in menr.keys():
         if isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM):
-            for y in menr[x].cistromes['Region_set'].keys():
-                for z in menr[x].cistromes['Region_set'][y]:
-                    yield x, y, z, menr[x].cistromes['Region_set'][y][z]
+            for y in menr[x].motif_enrichment.keys():
+                yield menr[x].motif_enrichment[y], menr[x].motif_hits["Region_set"][y]
         elif isinstance(menr[x], dict):
             for y in menr[x].keys():
                 if not isinstance(menr[x][y], pycistarget.motif_enrichment_cistarget.cisTarget):
                     raise ValueError(f'Only motif enrichment results from pycistarget or DEM are allowed, not {type(menr[x][y])}')
-                for z in menr[x][y].cistromes['Region_set']:
-                    yield x, y, z, menr[x][y].cistromes['Region_set'][z]
+                yield menr[x][y].motif_enrichment, menr[x][y].motif_hits["Region_set"]
         else:
             raise ValueError(f'Only motif enrichment results from pycistarget or DEM are allowed, not {type(menr[x])}')
 
-def _get_signatures_as_dict(i):
-    return {z+'__'+x+'__'+y: regions for x, y, z, regions in i}
+def _get_cistromes(
+        motif_enrichment_table: pd.DataFrame,
+        motif_hits: Dict[str, str],
+        scplus_regions: Set[str],
+        direct_annotation: List[str],
+        extended_annotation: List[str]) -> List[Cistrome]:
+    """
+    Helper function to get region TF target regions based on motif hits
 
-def _merge_dict_of_signatures(d, suffix = ''):
-    arr_keys_signatures = np.array(list(d.keys()))
-    grouper = Groupby([x.split('_')[0] for x in arr_keys_signatures])
-    merged_signatures = {}
-    for TF, idx in zip(grouper.keys, grouper.indices):
-        merged_signatures[TF + suffix] = pr.PyRanges(
-            region_names_to_coordinates(set(flatten_list([d[x] for x in arr_keys_signatures[idx]]))))
-    return merged_signatures
+    Parameters
+    ----------
+        motif_enrichment_table: 
+            Pandas DataFrame containing motif enrichment data
+        motif_hits: 
+            dict of motif hits (mapping motifs to regions)
+        scplus_regions:
+            set of regions in the scplus_obj
+        direct_annotation: 
+            list of annotations to use as 'direct'
+        extended_annotation: 
+            list of annotations to use as 'extended'
+            
+    Returns
+    -------
+        List of cistromes
+    """
+    tfs_direct = get_TF_list(
+        motif_enrichment_table = motif_enrichment_table,
+        annotation = direct_annotation)
+    tfs_extended = get_TF_list(
+        motif_enrichment_table = motif_enrichment_table,
+        annotation = extended_annotation)
+    cistromes = []
+    for tf_name in tfs_direct:
+        motifs_annotated_to_tf = get_motifs_per_TF(
+            motif_enrichment_table = motif_enrichment_table,
+            tf = tf_name,
+            motif_column = "Index",
+            annotation = direct_annotation)
+        target_regions_motif: Set[str] = set()
+        for motif in motifs_annotated_to_tf:
+            if motif in motif_hits.keys():
+                target_regions_motif.update(motif_hits[motif])
+            else:
+                raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
+        cistromes.append(
+            Cistrome(
+                tf_name = tf_name,
+                target_regions = target_regions_motif & scplus_regions,
+                extended = False))
+    for tf_name in tfs_extended:
+        motifs_annotated_to_tf = get_motifs_per_TF(
+            motif_enrichment_table = motif_enrichment_table,
+            tf = tf_name,
+            motif_column = "Index",
+            annotation = extended_annotation)
+        target_regions_motif: Set[str] = set()
+        for motif in motifs_annotated_to_tf:
+            if motif in motif_hits.keys():
+                target_regions_motif.update(motif_hits[motif])
+            else:
+                raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
+        cistromes.append(
+            Cistrome(
+                tf_name = tf_name,
+                target_regions = target_regions_motif & scplus_regions,
+                extended = True))
+    return cistromes
 
-def _overlap_if_necessary(d, test_regions, regions_to_overlap):
-    d_overlap = {}
-    for k in d.keys():
-        s_query_regions = set(coord_to_region_names(d[k]))
-        #if the signature regions are already in the scplus_obj coordinate system, do nothing, otherwise overlap
-        if len(s_query_regions & test_regions) != len(s_query_regions):
-            signature_regions = target_to_overlapping_query(regions_to_overlap, d[k])
+def _merge_cistromes(cistromes: List[Cistrome]) -> Iterable[Cistrome]:
+    a_cistromes = np.array(cistromes, dtype = 'object')
+    tf_names = np.array([cistrome.tf_name for cistrome in a_cistromes])
+    tf_names_sorted_idx = np.argsort(tf_names)
+    a_cistromes = a_cistromes[tf_names_sorted_idx]
+    tf_names = tf_names[tf_names_sorted_idx]
+    u_tf_names, idx_tf_names = np.unique(tf_names, return_index = True)
+    for i, tf_name in enumerate(u_tf_names):
+        if i < len(u_tf_names) - 1:
+            cistromes_tf = a_cistromes[idx_tf_names[i]:idx_tf_names[i + 1]]
         else:
-            signature_regions = d[k]
-        if len(signature_regions) != 0:
-            d_overlap[k] = signature_regions
-    return d_overlap
+            cistromes_tf = a_cistromes[idx_tf_names[i]:]
+        assert all([x.tf_name == tf_name for x in cistromes_tf])
+        assert all([x.extended == cistromes_tf[0].extended for x in cistromes_tf])
+        yield Cistrome(
+            tf_name = tf_name,
+            target_regions = set.union(
+                *[cistrome.target_regions for cistrome in cistromes_tf]),
+            extended = cistromes_tf[0].extended)
 
+def _cistromes_to_adata(cistromes: List[Cistrome]) -> anndata.AnnData:
+    tf_names = [cistrome.tf_name for cistrome in cistromes]
+    union_target_regions= list(set.union(
+            *[cistrome.target_regions for cistrome in cistromes]))
+    cistrome_hit_mtx = np.zeros(
+        (len(union_target_regions), len(tf_names)),
+        dtype = bool)
+    for i in range(len(tf_names)):
+        cistrome_hit_mtx[:, i] = [
+            region in cistromes[i].target_regions 
+            for region in union_target_regions]
+    return anndata.AnnData(
+        X = sparse.csc_matrix(cistrome_hit_mtx), dtype = bool,
+        obs = pd.DataFrame(index = list(union_target_regions)),
+        var = pd.DataFrame(index = tf_names))
 
-def merge_cistromes(scplus_obj: SCENICPLUS,
-                    cistromes_key: str = 'Unfiltered',
-                    subset: pr.PyRanges = None):
+def get_and_merge_cistromes(
+        scplus_obj: SCENICPLUS,
+        cistromes_key: str = 'Unfiltered',
+        direct_annotation: List[str] = ['Direct_annot'],
+        extended_annotation: List[str] = ['Orthology_annot']):
     """Generate cistromes from motif enrichment tables
 
     Parameters
@@ -73,50 +162,35 @@ def merge_cistromes(scplus_obj: SCENICPLUS,
     subset: list
         A PyRanges containing a set of regions that regions in cistromes must overlap. This is useful when
         aiming for cell type specific cistromes for example (e.g. providing the cell type's MACS peaks)
+    direct_annotation: list
+        A list of strings with motif-to-TF annotation to use as direct annotation
+    extended_annotation: list
+        A list of strings with motif-to-TF annotation to use as extended annotation
     """
     menr = scplus_obj.menr
-    # Get signatures from Homer/Cistarget outputs
-    signatures = _get_signatures_as_dict(_signatures_to_iter(menr))
-
-    #split direct and indirect signatures
-    signatures_direct = {x: signatures[x] for x in signatures.keys() if not 'extended' in x}
-    signatures_extend = {x: signatures[x] for x in signatures.keys() if     'extended' in x}
-    
-    #merge regions by TF name
-    merged_signatures_direct = _merge_dict_of_signatures(signatures_direct, suffix = '')
-    merged_signatures_extend = _merge_dict_of_signatures(signatures_extend, suffix = '_extended')
-    
-    #overlap regions with scplus_regions
-    regions = set(scplus_obj.region_names)
-    pr_regions = pr.PyRanges(region_names_to_coordinates(regions))
-    if subset is not None:
-        #make sure subset is in scplus_regions coordinate system
-        regions_to_overlap = target_to_overlapping_query(pr_regions, subset)
-    else:
-        regions_to_overlap = pr_regions
-    
-    merged_signatures_direct = _overlap_if_necessary(merged_signatures_direct, regions, regions_to_overlap)
-    merged_signatures_extend = _overlap_if_necessary(merged_signatures_extend, regions, regions_to_overlap)
-    
-    # Sort alphabetically
-    merged_signatures_direct = dict(
-        sorted(merged_signatures_direct.items(), key=lambda x: x[0].lower()))
-    merged_signatures_extend = dict(
-        sorted(merged_signatures_extend.items(), key=lambda x: x[0].lower()))
-    # Combine
-    merged_signatures = {**merged_signatures_direct,
-                         **merged_signatures_extend}
-    # Add number of regions
-    merged_signatures = {
-        x + '_(' + str(len(merged_signatures[x])) + 'r)': merged_signatures[x] for x in merged_signatures.keys()}
-    # Store in object
-    if not 'Cistromes' in scplus_obj.uns.keys():
+    # get cistromes
+    cistromes = []
+    for motif_enrichment_table, motif_hits in _signatures_to_iter(menr):
+        cistromes.extend(
+            _get_cistromes(
+                motif_enrichment_table = motif_enrichment_table,
+                motif_hits = motif_hits,
+                scplus_regions = set(scplus_obj.region_names),
+                direct_annotation = direct_annotation,
+                extended_annotation = extended_annotation))
+    # merge cistromes. Seperatly for direct and extended
+    direct_cistromes = [cistrome for cistrome in cistromes if not cistrome.extended]
+    extended_cistromes = [cistrome for cistrome in cistromes if cistrome.extended]
+    merged_direct_cistromes = list(_merge_cistromes(direct_cistromes))
+    merged_extended_cistromes = list(_merge_cistromes(extended_cistromes))
+    adata_direct_cistromes = _cistromes_to_adata(merged_direct_cistromes)
+    adata_extended_cistromes = _cistromes_to_adata(merged_extended_cistromes)
+    if 'Cistromes' not in scplus_obj.uns.keys():
         scplus_obj.uns['Cistromes'] = {}
-    scplus_obj.uns['Cistromes'][cistromes_key] = merged_signatures
+    scplus_obj.uns['Cistromes'][cistromes_key]['direct'] = adata_direct_cistromes
+    scplus_obj.uns['Cistromes'][cistromes_key]['extended'] = adata_extended_cistromes
 
 # Score cistromes in cells
-
-
 def score_cistromes(scplus_obj: SCENICPLUS,
                     ranking: CistopicImputedFeatures,
                     cistromes_key: str = 'Unfiltered',
