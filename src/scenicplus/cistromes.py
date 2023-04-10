@@ -4,191 +4,15 @@
 """
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import pycistarget
-from pycistarget.utils import get_TF_list, get_motifs_per_TF
 from random import sample
 import seaborn as sns
 from scipy.stats import pearsonr
-from typing import List, Dict, Set, Iterable
+from typing import List
 from scenicplus.utils import p_adjust_bh
 from scenicplus.scenicplus_class import SCENICPLUS
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-import anndata
-from scipy import sparse
 
-@dataclass
-class Cistrome:
-    """
-    Dataclass for intermediate use
-    """
-    tf_name: str
-    target_regions: Set[str]
-    extended: bool
-
-def _signatures_to_iter(menr):
-    for x in menr.keys():
-        if isinstance(menr[x], pycistarget.motif_enrichment_dem.DEM):
-            for y in menr[x].motif_enrichment.keys():
-                yield menr[x].motif_enrichment[y], menr[x].motif_hits["Region_set"][y]
-        elif isinstance(menr[x], dict):
-            for y in menr[x].keys():
-                if not isinstance(menr[x][y], pycistarget.motif_enrichment_cistarget.cisTarget):
-                    raise ValueError(f'Only motif enrichment results from pycistarget or DEM are allowed, not {type(menr[x][y])}')
-                yield menr[x][y].motif_enrichment, menr[x][y].motif_hits["Region_set"]
-        else:
-            raise ValueError(f'Only motif enrichment results from pycistarget or DEM are allowed, not {type(menr[x])}')
-
-def _get_cistromes(
-        motif_enrichment_table: pd.DataFrame,
-        motif_hits: Dict[str, str],
-        scplus_regions: Set[str],
-        direct_annotation: List[str],
-        extended_annotation: List[str]) -> List[Cistrome]:
-    """
-    Helper function to get region TF target regions based on motif hits
-
-    Parameters
-    ----------
-        motif_enrichment_table: 
-            Pandas DataFrame containing motif enrichment data
-        motif_hits: 
-            dict of motif hits (mapping motifs to regions)
-        scplus_regions:
-            set of regions in the scplus_obj
-        direct_annotation: 
-            list of annotations to use as 'direct'
-        extended_annotation: 
-            list of annotations to use as 'extended'
-            
-    Returns
-    -------
-        List of cistromes
-    """
-    tfs_direct = get_TF_list(
-        motif_enrichment_table = motif_enrichment_table,
-        annotation = direct_annotation)
-    tfs_extended = get_TF_list(
-        motif_enrichment_table = motif_enrichment_table,
-        annotation = extended_annotation)
-    cistromes = []
-    for tf_name in tfs_direct:
-        motifs_annotated_to_tf = get_motifs_per_TF(
-            motif_enrichment_table = motif_enrichment_table,
-            tf = tf_name,
-            motif_column = "Index",
-            annotation = direct_annotation)
-        target_regions_motif: Set[str] = set()
-        for motif in motifs_annotated_to_tf:
-            if motif in motif_hits.keys():
-                target_regions_motif.update(motif_hits[motif])
-            else:
-                raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
-        cistromes.append(
-            Cistrome(
-                tf_name = tf_name,
-                target_regions = target_regions_motif & scplus_regions,
-                extended = False))
-    for tf_name in tfs_extended:
-        motifs_annotated_to_tf = get_motifs_per_TF(
-            motif_enrichment_table = motif_enrichment_table,
-            tf = tf_name,
-            motif_column = "Index",
-            annotation = extended_annotation)
-        target_regions_motif: Set[str] = set()
-        for motif in motifs_annotated_to_tf:
-            if motif in motif_hits.keys():
-                target_regions_motif.update(motif_hits[motif])
-            else:
-                raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
-        cistromes.append(
-            Cistrome(
-                tf_name = tf_name,
-                target_regions = target_regions_motif & scplus_regions,
-                extended = True))
-    return cistromes
-
-def _merge_cistromes(cistromes: List[Cistrome]) -> Iterable[Cistrome]:
-    a_cistromes = np.array(cistromes, dtype = 'object')
-    tf_names = np.array([cistrome.tf_name for cistrome in a_cistromes])
-    tf_names_sorted_idx = np.argsort(tf_names)
-    a_cistromes = a_cistromes[tf_names_sorted_idx]
-    tf_names = tf_names[tf_names_sorted_idx]
-    u_tf_names, idx_tf_names = np.unique(tf_names, return_index = True)
-    for i, tf_name in enumerate(u_tf_names):
-        if i < len(u_tf_names) - 1:
-            cistromes_tf = a_cistromes[idx_tf_names[i]:idx_tf_names[i + 1]]
-        else:
-            cistromes_tf = a_cistromes[idx_tf_names[i]:]
-        assert all([x.tf_name == tf_name for x in cistromes_tf])
-        assert all([x.extended == cistromes_tf[0].extended for x in cistromes_tf])
-        yield Cistrome(
-            tf_name = tf_name,
-            target_regions = set.union(
-                *[cistrome.target_regions for cistrome in cistromes_tf]),
-            extended = cistromes_tf[0].extended)
-
-def _cistromes_to_adata(cistromes: List[Cistrome]) -> anndata.AnnData:
-    tf_names = [cistrome.tf_name for cistrome in cistromes]
-    union_target_regions= list(set.union(
-            *[cistrome.target_regions for cistrome in cistromes]))
-    cistrome_hit_mtx = np.zeros(
-        (len(union_target_regions), len(tf_names)),
-        dtype = bool)
-    for i in range(len(tf_names)):
-        cistrome_hit_mtx[:, i] = [
-            region in cistromes[i].target_regions 
-            for region in union_target_regions]
-    return anndata.AnnData(
-        X = sparse.csc_matrix(cistrome_hit_mtx), dtype = bool,
-        obs = pd.DataFrame(index = list(union_target_regions)),
-        var = pd.DataFrame(index = tf_names))
-
-def get_and_merge_cistromes(
-        scplus_obj: SCENICPLUS,
-        cistromes_key: str = 'Unfiltered',
-        direct_annotation: List[str] = ['Direct_annot'],
-        extended_annotation: List[str] = ['Orthology_annot']):
-    """Generate cistromes from motif enrichment tables
-
-    Parameters
-    ---------
-    scplus_obj: :class:`SCENICPLUS`
-        A :class:`SCENICPLUS` object with motif enrichment results from pycistarget (`scplus_obj.menr`).
-        Several analyses can be included in the slot (topics/DARs/other; and different methods [Homer/DEM/cistarget]).
-    cistromes_key: str, optional
-        Key to store cistromes. Cistromes will stored at `scplus_obj.uns['Cistromes'][siganture_key]`
-    subset: list
-        A PyRanges containing a set of regions that regions in cistromes must overlap. This is useful when
-        aiming for cell type specific cistromes for example (e.g. providing the cell type's MACS peaks)
-    direct_annotation: list
-        A list of strings with motif-to-TF annotation to use as direct annotation
-    extended_annotation: list
-        A list of strings with motif-to-TF annotation to use as extended annotation
-    """
-    menr = scplus_obj.menr
-    # get cistromes
-    cistromes = []
-    for motif_enrichment_table, motif_hits in _signatures_to_iter(menr):
-        cistromes.extend(
-            _get_cistromes(
-                motif_enrichment_table = motif_enrichment_table,
-                motif_hits = motif_hits,
-                scplus_regions = set(scplus_obj.region_names),
-                direct_annotation = direct_annotation,
-                extended_annotation = extended_annotation))
-    # merge cistromes. Seperatly for direct and extended
-    direct_cistromes = [cistrome for cistrome in cistromes if not cistrome.extended]
-    extended_cistromes = [cistrome for cistrome in cistromes if cistrome.extended]
-    merged_direct_cistromes = list(_merge_cistromes(direct_cistromes))
-    merged_extended_cistromes = list(_merge_cistromes(extended_cistromes))
-    adata_direct_cistromes = _cistromes_to_adata(merged_direct_cistromes)
-    adata_extended_cistromes = _cistromes_to_adata(merged_extended_cistromes)
-    if 'Cistromes' not in scplus_obj.uns.keys():
-        scplus_obj.uns['Cistromes'] = {}
-    scplus_obj.uns['Cistromes'][cistromes_key]['direct'] = adata_direct_cistromes
-    scplus_obj.uns['Cistromes'][cistromes_key]['extended'] = adata_extended_cistromes
 
 # Score cistromes in cells
 def score_cistromes(scplus_obj: SCENICPLUS,
@@ -233,8 +57,7 @@ def score_cistromes(scplus_obj: SCENICPLUS,
                                                                           normalize,
                                                                           n_cpu)
 # Create pseudobulks
-
-
+#TODO: fix this function, bug with nr of cells
 def generate_pseudobulks(scplus_obj: SCENICPLUS,
                          variable: str,
                          normalize_expression: bool = True,
@@ -280,7 +103,7 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
                           == category].index.tolist()
         for x in range(nr_pseudobulks):
             random.seed(x)
-            sample_cells = sample(cells, nr_cells)
+            sample_cells = sample(cells, nr_cells) #here is the bug
             sub_dgem = dgem.loc[sample_cells, :].mean(axis=0)
             sub_auc = cistromes_auc.loc[sample_cells, :].mean(axis=0)
             cistrome_auc_agg_list.append(sub_auc)
@@ -299,7 +122,7 @@ def generate_pseudobulks(scplus_obj: SCENICPLUS,
         scplus_obj.uns['Pseudobulk'][variable][auc_key] = {}
     scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key] = cistrome_auc_agg
 
-
+#TODO: fix multiple uses of pandas concat (generates a lot of warning)
 def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
                             variable: str = None,
                             use_pseudobulk: bool = True,
@@ -370,7 +193,7 @@ def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
         scplus_obj.uns['TF_cistrome_correlation'][out_key] = {}
     scplus_obj.uns['TF_cistrome_correlation'][out_key] = corr_df
 
-
+#TODO: fix multiple uses of pandas concat (generates a lot of warning)
 def eregulon_correlation(scplus_obj: SCENICPLUS,
                          auc_key: str = 'eRegulon_AUC',
                          signature_key1: str = 'Gene_based',
@@ -457,7 +280,7 @@ def eregulon_correlation(scplus_obj: SCENICPLUS,
             scplus_obj.uns['eRegulon_correlation'][out_key] = {}
         scplus_obj.uns['eRegulon_correlation'][out_key] = corr_df
 
-
+#TODO: remove function (not used)
 def prune_plot(scplus_obj: SCENICPLUS,
                name: str,
                pseudobulk_variable: str = None,
