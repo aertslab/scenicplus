@@ -12,15 +12,11 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 import time
-from datetime import datetime
-from typing import List
-
+from typing import List, Literal, Optional, Tuple, Set, Union
 import joblib
 import numpy as np
 import pandas as pd
-import pyranges as pr
 from matplotlib import cm
 from matplotlib.colors import Normalize
 from scipy.stats import pearsonr, spearmanr
@@ -29,12 +25,9 @@ from sklearn.ensemble import (ExtraTreesRegressor, GradientBoostingRegressor,
 from tqdm import tqdm
 
 from scenicplus.scenicplus_class import SCENICPLUS
-from scenicplus.utils import (ASM_SYNONYMS, Groupby, calculate_distance_join,
-                              calculate_distance_with_limits_join,
-                              coord_to_region_names, extend_pyranges,
-                              extend_pyranges_with_limits, flatten_list,
-                              reduce_pyranges_b, reduce_pyranges_with_limits_b,
-                              region_names_to_coordinates, timestamp)
+from scenicplus.utils import ( Groupby, flatten_list,
+                              region_names_to_coordinates)
+import pathlib
 
 RANDOM_SEED = 666
 
@@ -104,154 +97,182 @@ INTERACT_AS = """table interact
     )
 """
 
-def _score_regions_to_single_gene(X, y, gene_name, region_names, regressor_type, regressor_kwargs, mask_expr_dropout) -> list:
+def _score_regions_to_single_gene(
+    acc: np.ndarray,
+    exp: np.ndarray,
+    gene_name: str,
+    region_names: Set[str],
+    regressor_type: Literal["RF", "ET", "GBM", "PR", "SR"],
+    regressor_kwargs: dict,
+    mask_expr_dropout: bool
+    ) -> Optional[Tuple[str, pd.Series]]:
     """
     Calculates region to gene importances or region to gene correlations for a single gene
-    :param X: numpy array containing matrix of accessibility of regions in search space
-    :param y: numpy array containing expression vector
-    :param regressor_type: type of regression/correlation analysis. 
-           Available regression analysis are: 'RF' (Random Forrest regression), 'ET' (Extra Trees regression), 'GBM' (Gradient Boostin regression).
-           Available correlation analysis are: 'PR' (pearson correlation), 'SR' (spearman correlation).
-    :param regressor_kwargs: arguments to pass to regression function.
-    :returns feature_importance for regression methods and correlation_coef for correlation methods
+
+    Parameters
+    ----------
+    acc: np.ndarray
+        Numpy array containing matrix of accessibility of regions in search space.
+    exp: 
+        Numpy array containing expression vector.
+    gene_name: str
+        Name of the gene.
+    region_names: List[str]
+        Names of the regions.
+    regressor_type: Literal["RF", "ET", "GBM", "PR", "SR"]
+        Regressor type to use, must be any of "RF", "ET", "GBM", "PR", "SR".
+    regressor_kwargs: dict
+        Keyword arguments to pass to the regressor function.
+    mask_expr_dropout: bool
+        Wether or not to mask expression dropouts.
+    
+    Returns
+    -------
+    feature_importance for regression methods and correlation_coef for correlation methods
     """
     if mask_expr_dropout:
-        cell_non_zero = y != 0
-        y = y[cell_non_zero]
-        X = X[:, cell_non_zero]
+        cell_non_zero = exp != 0
+        exp = exp[cell_non_zero]
+        acc = acc[:, cell_non_zero]
     # Check-up for genes with 1 region only, related to issue 2
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
+    if acc.ndim == 1:
+        acc = acc.reshape(-1, 1)
     if regressor_type in SKLEARN_REGRESSOR_FACTORY.keys():
         from arboreto import core as arboreto_core
 
         # fit model
         fitted_model = arboreto_core.fit_model(regressor_type=regressor_type,
                                                regressor_kwargs=regressor_kwargs,
-                                               tf_matrix=X,
-                                               target_gene_expression=y)
+                                               tf_matrix=acc,
+                                               target_gene_expression=exp)
         # get importance scores for each feature
         feature_importance = arboreto_core.to_feature_importances(regressor_type=regressor_type,
                                                                   regressor_kwargs=regressor_kwargs,
                                                                   trained_regressor=fitted_model)
         return gene_name, pd.Series(feature_importance, index=region_names)
 
-    if regressor_type in SCIPY_CORRELATION_FACTORY.keys():
+    elif regressor_type in SCIPY_CORRELATION_FACTORY.keys():
         # define correlation method
         correlator = SCIPY_CORRELATION_FACTORY[regressor_type]
 
-        # do correlation and get correlation coef and p value
-        correlation_result = np.array([correlator(x, y) for x in X.T])
+        # do correlation and get correlation coef
+        correlation_result = np.array([correlator(x, exp) for x in acc.T])
         correlation_coef = correlation_result[:, 0]
 
-        # , correlation_adj_pval
         return gene_name, pd.Series(correlation_coef, index=region_names)
-
-
-def _score_regions_to_genes(scplus_obj: SCENICPLUS,
-                           search_space: pd.DataFrame,
-                           mask_expr_dropout=False,
-                           genes=None,
-                           regressor_type='GBM',
-                           n_cpu=None,
-                           regressor_kwargs=GBM_KWARGS,
-                           temp_dir = None) -> dict:
-    """
-    Wrapper function for score_regions_to_single_gene and score_regions_to_single_gene_ray.
-    Calculates region to gene importances or region to gene correlations for multiple genes
-    :param scplus_obj: instance of SCENICPLUS class containing expression data and chromatin accessbility data
-    :param genes: list of genes for which to calculate region gene scores. Uses all genes if set to None
-    :param regressor_type: type of regression/correlation analysis. 
-           Available regression analysis are: 'RF' (Random Forrest regression), 'ET' (Extra Trees regression), 'GBM' (Gradient Boostin regression).
-           Available correlation analysis are: 'PR' (pearson correlation), 'SR' (spearman correlation).
-    :param regressor_kwargs: arguments to pass to regression function.
-    :param **kwargs: additional parameters to pass to ray.init.
-    :returns dictionary with genes as keys and importance score or correlation coefficient 
-             as values for resp. regression based and correlation based calculations.
-    """
-    # Check overlaps with search space (Issue #1)
-    search_space = search_space[search_space['Name'].isin(
-        scplus_obj.region_names)]
-    if genes is None:
-        genes_to_use = list(set.intersection(
-            set(search_space['Gene']), set(scplus_obj.gene_names)))
-    elif not all(np.isin(genes, list(search_space['Gene']))):
-        genes_to_use = list(set.intersection(
-            set(search_space['Gene']), set(genes)))
     else:
-        genes_to_use = genes
-    
-    EXP = scplus_obj.X_EXP
-    ACC = scplus_obj.X_ACC
-    gene_names = list(scplus_obj.gene_names)
-    region_names = list(scplus_obj.region_names)
-    if len(set(gene_names)) != len(gene_names):
-        raise ValueError("scplus_obj contains duplicate gene names!")
-    if len(set(region_names)) != len(region_names):
-        raise ValueError("scplus_obj contains duplicate region names!")
+        raise ValueError("Unsuported regression model")
 
-    if temp_dir is None:
-        if os.access('/dev/shm', os.W_OK):
-            temp_dir = '/dev/shm'
+def _get_acc_idx_per_gene(
+        scplus_region_names: pd.Index,
+        search_space: pd.DataFrame) -> Tuple[np.ndarray, List[List[str]]]:
+    region_names = search_space["Name"].to_numpy()
+    gene_names = search_space["Gene"].to_numpy()
+    s = np.argsort(gene_names)
+    region_names = region_names[s]
+    gene_names = gene_names[s]
+    region_names_to_idx = pd.DataFrame(
+        index = scplus_region_names,
+        data = {'idx': np.arange(len(scplus_region_names))})
+    unique_gene_names, gene_idx = np.unique(gene_names, return_index = True)
+    region_idx_per_gene = []
+    for i in range(len(gene_idx)):
+        if i < len(gene_idx) - 1:
+            region_idx_per_gene.append(
+                region_names_to_idx.loc[region_names[gene_idx[i]:gene_idx[i+1]], 'idx'].to_list())
         else:
-            temp_dir = tempfile.gettempdir()
+            region_idx_per_gene.append(
+                region_names_to_idx.loc[region_names[gene_idx[i]:], 'idx'].to_list())
+    return unique_gene_names, region_idx_per_gene
 
-    dt = datetime.now()
-    joblib.dump(
-        EXP, 
-        os.path.join(temp_dir, f'scenicplus_EXP_{timestamp(dt)}'))
-    joblib.dump(
-        ACC,
-        os.path.join(temp_dir, f'scenicplus_ACC_{timestamp(dt)}'))
-    EXP_memmap = joblib.load(
-        os.path.join(temp_dir, f'scenicplus_EXP_{timestamp(dt)}'),
-        mmap_mode = 'r')
-    ACC_memmap = joblib.load(
-        os.path.join(temp_dir, f'scenicplus_ACC_{timestamp(dt)}'),
-        mmap_mode = 'r')
-    
-    def pf_score_regions_to_single_gene(gene):
-        regions_in_search_space = search_space.loc[search_space['Gene'] == gene, 'Name'].values
-        return _score_regions_to_single_gene(
-            X = ACC_memmap[[region_names.index(region) for region in regions_in_search_space], :].T, 
-            y = EXP_memmap[:, gene_names.index(gene)],
-            gene_name = gene, 
-            region_names = regions_in_search_space, 
-            regressor_type = regressor_type, 
-            regressor_kwargs = regressor_kwargs, 
-            mask_expr_dropout = mask_expr_dropout)
-    def clean_shared_memory():
-        os.remove(os.path.join(temp_dir, f'scenicplus_EXP_{timestamp(dt)}'))
-        os.remove(os.path.join(temp_dir, f'scenicplus_ACC_{timestamp(dt)}'))
-    try:
-        regions_to_genes = dict(
-            joblib.Parallel(
-                n_jobs = n_cpu)(
-                    joblib.delayed(pf_score_regions_to_single_gene)(gene)
-                    for gene in tqdm(
-                        genes_to_use,
-                        total = len(genes_to_use),
-                        desc=f'Running using {n_cpu} cores')
-                    ))
-    except Exception as e:
-        clean_shared_memory()
-        raise Exception(e)
-    finally:
-        clean_shared_memory()
+def _score_regions_to_genes(
+        scplus_obj: SCENICPLUS,
+        subset_genes: Union[None, List[str]],
+        search_space: pd.DataFrame,
+        mask_expr_dropout: bool,
+        regressor_type: Literal["RF", "ET", "GBM", "PR", "SR"],
+        regressor_kwargs: dict,
+        n_cpu: int,
+        temp_dir: Union[None, pathlib.Path]) -> dict:
+    """
+    Calculates region to gene importances or region to gene correlations for multiple genes in parallel.
+
+    Parameters
+    ----------
+    scplus_obj: SCENICPLUS
+        SCENIC+ object
+    genes: List[str]
+        genes to calculate region-to-gene for.
+    search_space: pd.DataFrame
+        A Data frame containing the search space for each gee
+    mask_expr_dropout: bool
+        Wether or not to mask expression dropouts.
+    region_names: List[str]
+        Names of the regions.
+    regressor_type: Literal["RF", "ET", "GBM", "PR", "SR"]
+        Regressor type to use, must be any of "RF", "ET", "GBM", "PR", "SR".
+    regressor_kwargs: dict
+        Keyword arguments to pass to the regressor function.
+    n_cpu: int
+        Number of cores to use.
+    temp_dir: pathlib.Path
+        Path to temporary directory
+        
+    Returns
+    -------
+    dictionary with genes as keys and importance score or correlation coefficient 
+    as values for resp. regression based and correlation based calculations.
+
+    """
+    if len(set(scplus_obj.gene_names)) != len(scplus_obj.gene_names):
+        raise ValueError("scplus_obj contains duplicate gene names!")
+    if len(set(scplus_obj.region_names)) != len(scplus_obj.region_names):
+        raise ValueError("scplus_obj contains duplicate region names!")
+    genes_to_use = scplus_obj.gene_names if subset_genes is None else pd.Index(subset_genes)
+    search_space = search_space[search_space['Name'].isin(scplus_obj.region_names)]
+    search_space = search_space[search_space['Gene'].isin(genes_to_use)]
+    if temp_dir is not None:
+        if not temp_dir.exists():
+            Warning(f"{temp_dir} does not exist, creating it.")
+            os.makedirs(temp_dir)
+    gene_names, acc_idx = _get_acc_idx_per_gene(
+        scplus_region_names = scplus_obj.region_names, search_space = search_space)
+    ACC = scplus_obj.X_ACC.T
+    EXP = scplus_obj.to_df('EXP')[gene_names].to_numpy()
+    regions_to_genes = dict(
+        joblib.Parallel(
+            n_jobs = n_cpu,
+            temp_folder=temp_dir)(
+                joblib.delayed(_score_regions_to_single_gene)(
+                    acc = ACC[:, acc_idx[idx]],
+                    exp = EXP[:, idx],
+                    gene_name = gene_names[idx],
+                    region_names = scplus_obj.region_names[acc_idx[idx]],
+                    regressor_type = regressor_type,
+                    regressor_kwargs = regressor_kwargs, 
+                    mask_expr_dropout = mask_expr_dropout
+                )
+                for idx in tqdm(
+                    range(len(gene_names)),
+                    total = len(gene_names),
+                    desc=f'Running using {n_cpu} cores')
+                ))
     return regions_to_genes
 
 
-def calculate_regions_to_genes_relationships(scplus_obj: SCENICPLUS,
-                                             search_space_key: str = 'search_space',
-                                             mask_expr_dropout: bool = False,
-                                             genes: List[str] = None,
-                                             importance_scoring_method: str = 'GBM',
-                                             importance_scoring_kwargs: dict = GBM_KWARGS,
-                                             correlation_scoring_method: str = 'SR',
-                                             n_cpu: int = 1,
-                                             add_distance: bool = True,
-                                             key_added: str = 'region_to_gene',
-                                             inplace: bool = True):
+def calculate_regions_to_genes_relationships(
+        scplus_obj: SCENICPLUS,
+        temp_dir: pathlib.Path,
+        search_space_key: str = 'search_space',
+        mask_expr_dropout: bool = False,
+        genes: Union[None, List[str]] = None,
+        importance_scoring_method: Literal["RF", "ET", "GBM"] = 'GBM',
+        importance_scoring_kwargs: dict = GBM_KWARGS,
+        correlation_scoring_method: Literal["PR", "SR"] = 'SR',
+        n_cpu: int = 1,
+        add_distance: bool = True,
+        key_added: str = 'region_to_gene',
+        inplace: bool = True):
     """
     Calculates region to gene relationships using non-linear regression methods and correlation
 
@@ -291,64 +312,54 @@ def calculate_regions_to_genes_relationships(scplus_obj: SCENICPLUS,
             f'key {search_space_key} not found in scplus_obj.uns, first get search space using function: "get_search_space"')
 
     search_space = scplus_obj.uns[search_space_key]
-    # Check overlaps with search space (Issue #1)
-    search_space = search_space[search_space['Name'].isin(
-        scplus_obj.region_names)]
 
     # calulcate region to gene importance
     log.info(
         f'Calculating region to gene importances, using {importance_scoring_method} method')
-    start_time = time.time()
-    region_to_gene_importances = _score_regions_to_genes(scplus_obj,
-                                                        search_space=search_space,
-                                                        mask_expr_dropout=mask_expr_dropout,
-                                                        genes=genes,
-                                                        regressor_type=importance_scoring_method,
-                                                        regressor_kwargs=importance_scoring_kwargs,
-                                                        n_cpu=n_cpu)
-    log.info('Took {} seconds'.format(time.time() - start_time))
+    region_to_gene_importances = _score_regions_to_genes(
+        scplus_obj = scplus_obj,
+        subset_genes = genes,
+        search_space = search_space,
+        mask_expr_dropout = mask_expr_dropout,
+        regressor_type = importance_scoring_method,
+        regressor_kwargs = importance_scoring_kwargs,
+        n_cpu = n_cpu,
+        temp_dir = temp_dir)
 
     # calculate region to gene correlation
     log.info(
         f'Calculating region to gene correlation, using {correlation_scoring_method} method')
-    start_time = time.time()
-    region_to_gene_correlation = _score_regions_to_genes(scplus_obj,
-                                                        search_space=search_space,
-                                                        mask_expr_dropout=mask_expr_dropout,
-                                                        genes=genes,
-                                                        regressor_type=correlation_scoring_method,
-                                                        n_cpu=n_cpu)
-    log.info('Took {} seconds'.format(time.time() - start_time))
+    region_to_gene_correlation = _score_regions_to_genes(
+        scplus_obj = scplus_obj,
+        subset_genes = genes,
+        search_space = search_space,
+        mask_expr_dropout = mask_expr_dropout,
+        regressor_type = correlation_scoring_method,
+        regressor_kwargs = importance_scoring_kwargs,
+        n_cpu = n_cpu,
+        temp_dir = temp_dir)
 
     # transform dictionaries to pandas dataframe
-    try:
-        result_df = pd.concat([pd.DataFrame(data={'target': gene,
-                                                  'region': region_to_gene_importances[gene].index.to_list(),
-                                                  'importance': region_to_gene_importances[gene].to_list(),
-                                                  'rho': region_to_gene_correlation[gene].loc[
-                                                      region_to_gene_importances[gene].index.to_list()].to_list()})
-                               for gene in region_to_gene_importances.keys()
-                               ]
-                              )
-        result_df = result_df.reset_index()
-        result_df = result_df.drop('index', axis=1)
-        result_df['importance_x_rho'] = result_df['rho'] * \
-            result_df['importance']
-        result_df['importance_x_abs_rho'] = abs(
-            result_df['rho']) * result_df['importance']
-
-    except:
-        print('An error occured!')
-        return region_to_gene_importances, region_to_gene_correlation
-
+    result_df = pd.concat([pd.DataFrame(data={'target': gene,
+                                                'region': region_to_gene_importances[gene].index.to_list(),
+                                                'importance': region_to_gene_importances[gene].to_list(),
+                                                'rho': region_to_gene_correlation[gene].loc[
+                                                    region_to_gene_importances[gene].index.to_list()].to_list()})
+                            for gene in region_to_gene_importances.keys()
+                            ]
+                            )
+    result_df = result_df.reset_index()
+    result_df = result_df.drop('index', axis=1)
+    result_df['importance_x_rho'] = result_df['rho'] * \
+        result_df['importance']
+    result_df['importance_x_abs_rho'] = abs(
+        result_df['rho']) * result_df['importance']
     if add_distance:
-        # TODO: use consistent column names
         search_space_rn = search_space.rename(
             {'Name': 'region', 'Gene': 'target'}, axis=1).copy()
         result_df = result_df.merge(search_space_rn, on=['region', 'target'])
         #result_df['Distance'] = result_df['Distance'].map(lambda x: x[0])
     log.info('Done!')
-
     if inplace:
         scplus_obj.uns[key_added] = result_df
     else:
