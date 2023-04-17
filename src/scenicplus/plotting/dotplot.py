@@ -102,10 +102,10 @@ def generate_dotplot_df(
         size_matrix = size_matrix[color_matrix_features[2]]
     
     if subset_eRegulons is not None:
-        #change to TF names
-        subset_eRegulons = [x.split('_')[0] for x in subset_eRegulons]
-        size_matrix = size_matrix[[x for x in size_matrix if x.split('_')[0] in subset_eRegulons]]
-        color_matrix = color_matrix[[x for x in color_matrix if x.split('_')[0] in subset_eRegulons]]
+        #filter eRegulon
+        subset_eRegulons = [x.split('_(')[0] for x in subset_eRegulons]
+        size_matrix = size_matrix[[x for x in size_matrix if x.split('_(')[0] in subset_eRegulons]]
+        color_matrix = color_matrix[[x for x in color_matrix if x.split('_(')[0] in subset_eRegulons]]
     
     if scale_size_matrix:
         size_matrix = (size_matrix - size_matrix.min()) / (size_matrix.max() - size_matrix.min())
