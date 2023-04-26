@@ -11,10 +11,6 @@ and TFs which are infered to have a negative influence on gene expression (i.e. 
 import logging
 import os
 import sys
-import tempfile
-import time
-from datetime import datetime
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -22,11 +18,12 @@ import scipy.sparse
 from arboreto.algo import _prepare_input
 from arboreto.core import (EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS,
                            infer_partial_network, to_tf_matrix)
-from arboreto.utils import load_tf_names
 from tqdm import tqdm
-
 from scenicplus.scenicplus_class import SCENICPLUS
-from scenicplus.utils import _create_idx_pairs, masked_rho4pairs, timestamp
+from scenicplus.utils import _create_idx_pairs, masked_rho4pairs
+import anndata
+from typing import Literal, Union
+import pathlib
 
 COLUMN_NAME_TARGET = "target"
 COLUMN_NAME_WEIGHT = "importance"
@@ -193,12 +190,15 @@ def _add_correlation(
         }
     )
 
-def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
-                                         tf_file: str,
-                                         method: str = 'GBM',
-                                         n_cpu: int = 1,
-                                         key: str = 'TF2G_adj',
-                                         temp_dir = None):
+def calculate_TF_to_gene_relationships(
+        scplus_obj: SCENICPLUS,
+        adata_direct_cistromes: anndata.AnnData,
+        adata_extended_cistromes: anndata.AnnData,
+        temp_dir: Union[None, pathlib.Path],
+        method: Literal['GBM', 'RF'] = 'GBM',
+        n_cpu: int = 1,
+        key: str = 'TF2G_adj',
+        seed: int = 666):
     """
     A function to calculate TF to gene relationships using arboreto and correlation
 
@@ -234,8 +234,8 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
     if len(set(gene_names)) != len(gene_names):
         raise ValueError("scplus_obj contains duplicate gene names!")
     ex_matrix = scplus_obj.X_EXP
-
-    tf_names = load_tf_names(tf_file)
+    tf_names = list(set(
+        [*adata_direct_cistromes.var_names, *adata_extended_cistromes.var_names]))
     ex_matrix, gene_names, tf_names = _prepare_input(
         ex_matrix, gene_names, tf_names)
     tf_matrix, tf_matrix_gene_names = to_tf_matrix(
@@ -253,60 +253,30 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
         tf_matrix = tf_matrix.toarray()
 
     log.info('Calculating TF-to-gene importance')
-    start_time = time.time()
-
-    if temp_dir is None:
-        if os.access('/dev/shm', os.W_OK):
-            temp_dir = '/dev/shm'
-        else:
-            temp_dir = tempfile.gettempdir()
-
-    dt = datetime.now()
-    joblib.dump(
-        ex_matrix, 
-        os.path.join(temp_dir, f'scenicplus_ex_matrix_{timestamp(dt)}'))
-    joblib.dump(
-        tf_matrix,
-        os.path.join(temp_dir, f'scenicplus_tf_matrix_{timestamp(dt)}'))
-    ex_matrix_memmap = joblib.load(
-        os.path.join(temp_dir, f'scenicplus_ex_matrix_{timestamp(dt)}'),
-        mmap_mode = 'r')
-    tf_matrix_memmap = joblib.load(
-        os.path.join(temp_dir, f'scenicplus_tf_matrix_{timestamp(dt)}'),
-        mmap_mode = 'r')
+    if temp_dir is not None:
+        if not temp_dir.exists():
+            Warning(f"{temp_dir} does not exist, creating it.")
+            os.makedirs(temp_dir)
         
-    def pf_inter_partial_network(target_gene_name):
-        return infer_partial_network(
-            target_gene_name = target_gene_name,
-            target_gene_expression = ex_matrix_memmap[
-                :, gene_names.index(target_gene_name)],
-            regressor_type = method_params[0],
-            regressor_kwargs = method_params[1],
-            tf_matrix = tf_matrix_memmap,
-            tf_matrix_gene_names = tf_matrix_gene_names,
-            include_meta = False,
-            early_stop_window_length = EARLY_STOP_WINDOW_LENGTH,
-            seed = 666)
-    def clean_shared_memory():
-        os.remove(os.path.join(temp_dir, f'scenicplus_ex_matrix_{timestamp(dt)}'))
-        os.remove(os.path.join(temp_dir, f'scenicplus_tf_matrix_{timestamp(dt)}'))
-        
-    try:
-        TF_to_genes = joblib.Parallel(
-            n_jobs = n_cpu)(
-                joblib.delayed(pf_inter_partial_network)(gene)
-                for gene in tqdm(
-                    gene_names, 
-                    total=len(gene_names), 
-                    desc=f'Running using {n_cpu} cores'))
-    except Exception as e:
-        clean_shared_memory()
-        raise Exception(e)
-    finally:
-        clean_shared_memory()
+    TF_to_genes = joblib.Parallel(
+        n_jobs = n_cpu,
+        temp_folder = temp_dir)(
+            joblib.delayed(infer_partial_network)(
+                target_gene_name = gene,
+                target_gene_expression = ex_matrix[:, gene_names.index(gene)],
+                regressor_type = method_params[0],
+                regressor_kwargs = method_params[1],
+                tf_matrix = tf_matrix,
+                tf_matrix_gene_names = tf_matrix_gene_names,
+                include_meta = False,
+                early_stop_window_length = EARLY_STOP_WINDOW_LENGTH,
+                seed = seed)
+            for gene in tqdm(
+                gene_names, 
+                total=len(gene_names), 
+                desc=f'Running using {n_cpu} cores'))
+
     adj = pd.concat(TF_to_genes).sort_values(by='importance', ascending=False)
-    log.info('Took {} seconds'.format(time.time() - start_time))
-    start_time = time.time()
     log.info('Adding correlation coefficients to adjacencies.')
     ex_matrix = scplus_obj.to_df(layer = 'EXP') 
     adj = _add_correlation(adj, ex_matrix)
@@ -319,5 +289,4 @@ def calculate_TFs_to_genes_relationships(scplus_obj: SCENICPLUS,
         adj[COLUMN_NAME_WEIGHT]
     adj[COLUMN_NAME_SCORE_2] = abs(
         adj[COLUMN_NAME_CORRELATION]) * abs(adj[COLUMN_NAME_WEIGHT])
-    log.info('Took {} seconds'.format(time.time() - start_time))
     scplus_obj.uns[key] = adj
