@@ -18,6 +18,7 @@ import scipy.sparse
 from arboreto.algo import _prepare_input
 from arboreto.core import (EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS,
                            infer_partial_network, to_tf_matrix)
+from arboreto.utils import load_tf_names
 from tqdm import tqdm
 from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import _create_idx_pairs, masked_rho4pairs
@@ -190,11 +191,11 @@ def _add_correlation(
         }
     )
 
-def calculate_TF_to_gene_relationships(
+
+def calculate_TFs_to_genes_relationships(
         scplus_obj: SCENICPLUS,
-        adata_direct_cistromes: anndata.AnnData,
-        adata_extended_cistromes: anndata.AnnData,
-        temp_dir: Union[None, pathlib.Path],
+        tf_file: str,
+        temp_dir: Union[None, str],
         method: Literal['GBM', 'RF'] = 'GBM',
         n_cpu: int = 1,
         key: str = 'TF2G_adj',
@@ -234,8 +235,7 @@ def calculate_TF_to_gene_relationships(
     if len(set(gene_names)) != len(gene_names):
         raise ValueError("scplus_obj contains duplicate gene names!")
     ex_matrix = scplus_obj.X_EXP
-    tf_names = list(set(
-        [*adata_direct_cistromes.var_names, *adata_extended_cistromes.var_names]))
+    tf_names = load_tf_names(tf_file)
     ex_matrix, gene_names, tf_names = _prepare_input(
         ex_matrix, gene_names, tf_names)
     tf_matrix, tf_matrix_gene_names = to_tf_matrix(

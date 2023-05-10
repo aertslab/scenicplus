@@ -25,7 +25,7 @@ from scenicplus.enhancer_to_gene import export_to_UCSC_interact
 from scenicplus.utils import format_egrns, export_eRegulons
 from scenicplus.eregulon_enrichment import *
 from scenicplus.TF_to_gene import *
-from ..grn_builder.gsea_approach import build_grn
+from scenicplus.grn_builder.gsea_approach import build_grn
 from scenicplus.dimensionality_reduction import *
 from scenicplus.RSS import *
 from scenicplus.diff_features import *
@@ -141,7 +141,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         calculate_regions_to_genes_relationships(scplus_obj, 
                         n_cpu = n_cpu, 
                         importance_scoring_method = 'GBM',
-                        importance_scoring_kwargs = GBM_KWARGS)
+                        importance_scoring_kwargs = GBM_KWARGS,
+                        temp_dir = _temp_dir)
                         
     if 'TF2G_adj' not in scplus_obj.uns.keys():
         log.info('Inferring TF to gene relationships')
@@ -149,7 +150,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         tf_file = tf_file,
                         n_cpu = n_cpu, 
                         method = 'GBM',
-                        key= 'TF2G_adj')
+                        key= 'TF2G_adj',
+                        temp_dir = _temp_dir)
                         
     if 'eRegulons' not in scplus_obj.uns.keys():
         log.info('Build eGRN')
