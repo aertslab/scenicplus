@@ -231,6 +231,8 @@ def _score_regions_to_genes(
     search_space = search_space[search_space['Name'].isin(scplus_obj.region_names)]
     search_space = search_space[search_space['Gene'].isin(genes_to_use)]
     if temp_dir is not None:
+        if type(tmp_dir) == str:
+            tmp_dir = pathlib.Path(tmp_dir)
         if not temp_dir.exists():
             Warning(f"{temp_dir} does not exist, creating it.")
             os.makedirs(temp_dir)
@@ -257,7 +259,6 @@ def _score_regions_to_genes(
                     desc=f'Running using {n_cpu} cores')
                 ))
     return regions_to_genes
-
 
 def calculate_regions_to_genes_relationships(
         scplus_obj: SCENICPLUS,

@@ -254,6 +254,8 @@ def calculate_TFs_to_genes_relationships(
 
     log.info('Calculating TF-to-gene importance')
     if temp_dir is not None:
+        if type(tmp_dir) == str:
+            tmp_dir = pathlib.Path(tmp_dir)
         if not temp_dir.exists():
             Warning(f"{temp_dir} does not exist, creating it.")
             os.makedirs(temp_dir)
