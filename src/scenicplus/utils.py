@@ -848,3 +848,6 @@ def annotate_eregulon_by_influence(ereg):
                 return f"{TF}_{tf2g}_{r2g}"
         else:
                 return f"{TF}_{tf2g}_{r2g}_extended"
+
+def timestamp(dt):
+    return f"{dt.year}{dt.month}{dt.day}_{dt.hour}{dt.minute}{dt.second}"

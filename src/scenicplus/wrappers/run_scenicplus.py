@@ -25,7 +25,7 @@ from scenicplus.enhancer_to_gene import export_to_UCSC_interact
 from scenicplus.utils import format_egrns, export_eRegulons
 from scenicplus.eregulon_enrichment import *
 from scenicplus.TF_to_gene import *
-from ..grn_builder.gsea_approach import build_grn
+from scenicplus.grn_builder.gsea_approach import build_grn
 from scenicplus.dimensionality_reduction import *
 from scenicplus.RSS import *
 from scenicplus.diff_features import *
@@ -55,9 +55,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     tree_structure: Sequence[str] = (),
     path_bedToBigBed: Optional[str] = None,
     n_cpu: Optional[int] = 1,
-    _temp_dir: Optional[str] = '',
-    save_partial: Optional[bool] = False,
-    **kwargs
+    _temp_dir: Optional[str] = '/scratch/leuven/313/vsc31305/ray_spill'
     ):
     """
     Wrapper to run SCENIC+
@@ -141,29 +139,19 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     if 'region_to_gene' not in scplus_obj.uns.keys():
         log.info('Inferring region to gene relationships')
         calculate_regions_to_genes_relationships(scplus_obj, 
-                        ray_n_cpu = n_cpu, 
-                        _temp_dir = _temp_dir,
+                        n_cpu = n_cpu, 
                         importance_scoring_method = 'GBM',
                         importance_scoring_kwargs = GBM_KWARGS,
-                        **kwargs)
-    if save_partial:
-        log.info('Saving partial object')
-        with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
-            dill.dump(scplus_obj, f, protocol = -1)
-
+                        temp_dir = _temp_dir)
+                        
     if 'TF2G_adj' not in scplus_obj.uns.keys():
         log.info('Inferring TF to gene relationships')
         calculate_TFs_to_genes_relationships(scplus_obj, 
                         tf_file = tf_file,
-                        ray_n_cpu = n_cpu, 
+                        n_cpu = n_cpu, 
                         method = 'GBM',
-                        _temp_dir = _temp_dir,
                         key= 'TF2G_adj',
-                        **kwargs)
-    if save_partial:
-        log.info('Saving partial object')
-        with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
-            dill.dump(scplus_obj, f, protocol = -1)
+                        temp_dir = _temp_dir)
                         
     if 'eRegulons' not in scplus_obj.uns.keys():
         log.info('Build eGRN')
@@ -187,8 +175,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                  cistromes_key = 'Unfiltered',
                  disable_tqdm = False, 
                  ray_n_cpu = n_cpu,
-                 _temp_dir = _temp_dir,
-                 **kwargs)
+                 _temp_dir = _temp_dir)
                  
     if 'eRegulon_metadata' not in scplus_obj.uns.keys():
         log.info('Formatting eGRNs')
@@ -312,11 +299,6 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         log.info('Calculating DEGs/DARs')
         for var in variable:
             get_differential_features(scplus_obj, var, use_hvg = True, contrast_type = ['DEGs', 'DARs'])
-
-    if save_partial:
-        log.info('Saving partial object')
-        with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
-            dill.dump(scplus_obj, f, protocol = -1)
             
     if export_to_loom_file is True:
         log.info('Exporting to loom file')
