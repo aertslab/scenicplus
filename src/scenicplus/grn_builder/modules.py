@@ -3,15 +3,17 @@
 """
 
 import attr
-from typing import List, Tuple
+from typing import List, Tuple, Set
 from collections import namedtuple
 from itertools import chain
 from tqdm import tqdm
 import numpy as np
 import ray
+import pandas as pd
+import anndata
 
-from ..scenicplus_class import SCENICPLUS
-from ..utils import Groupby, coord_to_region_names, flatten_list
+from scenicplus.scenicplus_class import SCENICPLUS
+from scenicplus.utils import Groupby, coord_to_region_names, flatten_list
 
 # HARDCODED VARIABLES
 RHO_THRESHOLD = 0.03
@@ -452,138 +454,83 @@ def _binarize_BASC(adjacencies,
         yield c, df
 
 
-def create_emodules(SCENICPLUS_obj: SCENICPLUS,
-                    region_to_gene_key: str = 'region_to_gene',
-                    cistromes_key: str = 'Unfiltered',
-                    order_regions_to_genes_by: str = 'importance',
-                    quantiles: tuple = (0.85, 0.90),
-                    top_n_regionTogenes_per_gene: tuple = (5, 10, 15),
-                    top_n_regionTogenes_per_region: tuple = (),
-                    binarize_using_basc: bool = False,
-                    min_regions_per_gene: int = 0,
-                    rho_dichotomize: bool = True,
-                    keep_only_activating: bool = False,
-                    rho_threshold: float = RHO_THRESHOLD,
-                    keep_extended_motif_annot: bool = False,
-                    disable_tqdm=False,
-                    ray_n_cpu=None,
-                    **kwargs) -> Tuple[List[str], List[eRegulon]]:
-    """
-    A function to create e_modules of :class: ~scenicplus.grn_builder.modules.eRegulon. 
-    This function will binarize region-to-gene links using various parameters and couples these links to a TF
-    based on infromation in the motif enrichment (menr) field of the :attr:`SCENICPLUS_obj`.
-
-    Parameters
-    ----------
-    SCENICPLUS_obj
-        An instance of :class: `~scenicplus.scenicplus_class.SCENICPLUS`, containing motif enrichment data under the slot .menr.
-    region_to_gene_key
-        A key specifying under which to find region-to-gene links in the .uns slot of `SCENICPLUS_obj`. 
-        Default: "region_to_gene"
-    cistromes_key
-        A key specifying which cistromes to use in .uns['Cistromes'] slot of `SCENICPLUS_obj`
-    quantiles
-        A tuple specifying the quantiles used to binarize region-to-gene links
-        Default: (0.85, 0.90)
-    top_n_regionTogenes_per_gene
-        A tuple specifying the top n region-to-gene links to take PER GENE in order to binarize region-to-gene links.
-        Default: (5, 10, 15)
-    top_n_regionTogenes_per_region
-        A tuple specifying the top n region-to-gene links to take PER REGION in order to binarize region-to-gene links.
-        Default: ()
-    binarize_using_basc:
-        A boolean specifying wether or not to binarize region-to-gene links using BASC. Hopfensitz M, et al.
-    min_regions_per_gene:
-        An integer specifying a lower limit on regions per gene (after binarization) to consider for further analysis.
-        Default: 0
-    rho_dichotomize:
-        A boolean specifying wether or not to split region-to-gene links based on postive/negative correlation coefficients.
-        default: True
-    keep_only_activating:
-        A boolean specifying wether or not to only retain region-to-gene links with a positive correlation coefficient.
-        default: False
-    rho_threshold:
-        A floating point number specifying from which absolute value to consider a correlation coefficient positive or negative.
-        default: 0.03
-    keep_extended_motif_annot
-        A boolean specifying wether or not keep extended motif annotations for further analysis.
-        default: False
-    ray_n_cpu
-        An integer specifying the number of parallel cores to use to binarize region to gene links
-        default: None (i.e. run using single core)
-    **kwargs
-        Extra keyword arguments passed to ray.init function
-
-    Returns
-    -------
-    A set of relevant TFs, A list of :class: `~scenicplus.grn_builder.modules.eRegulon.`
-
-    References
-    ----------
-    Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. IEEE/ACM Trans Comput Biol Bioinform. 2012;9(2):487-98.
-    """
-    # check input
-    if region_to_gene_key not in SCENICPLUS_obj.uns.keys():
-        raise ValueError('Calculate region to gene relationships first.')
-
-    if 'Cistromes' not in SCENICPLUS_obj.uns.keys():
-        raise ValueError(
-            'Cistromes are undefined, first define cistromes in the slot .uns["Cistromes"]')
-
-    def iter_thresholding(adj, context):
+def create_emodules(
+        region_to_gene: pd.DataFrame,
+        cistromes: anndata.AnnData,
+        is_extended: bool,
+        order_regions_to_genes_by: str = 'importance',
+        quantiles: tuple = (0.85, 0.90),
+        top_n_regionTogenes_per_gene: tuple = (5, 10, 15),
+        top_n_regionTogenes_per_region: tuple = (),
+        binarize_using_basc: bool = False,
+        min_regions_per_gene: int = 0,
+        rho_dichotomize: bool = True,
+        keep_only_activating: bool = False,
+        rho_threshold: float = RHO_THRESHOLD,
+        disable_tqdm=False,
+        ray_n_cpu=None,
+        **kwargs) -> Tuple[Set[str], List[eRegulon]]:
+    # Set up multiple thresholding methods to threshold region to gene relationships
+    def iter_thresholding(adj:pd.DataFrame, context: frozenset):
         grouped_adj_by_gene = Groupby(adj[TARGET_GENE_NAME].to_numpy())
         grouped_adj_by_region = Groupby(adj[TARGET_REGION_NAME].to_numpy())
         yield from chain(
-            chain.from_iterable(_quantile_thr(adjacencies=adj,
-                                             grouped=grouped_adj_by_gene,
-                                             threshold=thr,
-                                             min_regions_per_gene=min_regions_per_gene,
-                                             context=context,
-                                             order_regions_to_genes_by=order_regions_to_genes_by) for thr in quantiles),
-
-            chain.from_iterable(_top_targets(adjacencies=adj,
-                                            grouped=grouped_adj_by_gene,
-                                            n=n,
-                                            min_regions_per_gene=min_regions_per_gene,
-                                            context=context,
-                                            order_regions_to_genes_by=order_regions_to_genes_by) for n in top_n_regionTogenes_per_gene),
-
-            chain.from_iterable(_top_regions(adjacencies=adj,
-                                            grouped=grouped_adj_by_region,
-                                            n=n,
-                                            min_regions_per_gene=min_regions_per_gene,
-                                            context=context,
-                                            order_regions_to_genes_by=order_regions_to_genes_by) for n in top_n_regionTogenes_per_region),
-            _binarize_BASC(adjacencies=adj,
-                          grouped=grouped_adj_by_gene,
-                          min_regions_per_gene=min_regions_per_gene,
-                          context=context,
-                          order_regions_to_genes_by=order_regions_to_genes_by) if binarize_using_basc else []
-        )
-
+            chain.from_iterable(
+                _quantile_thr(
+                            adjacencies=adj,
+                            grouped=grouped_adj_by_gene,
+                            threshold=thr,
+                            min_regions_per_gene=min_regions_per_gene,
+                            context=context,
+                            order_regions_to_genes_by=order_regions_to_genes_by) 
+                for thr in quantiles),
+            chain.from_iterable(
+                _top_targets(
+                    adjacencies=adj,
+                    grouped=grouped_adj_by_gene,
+                    n=n,
+                    min_regions_per_gene=min_regions_per_gene,
+                    context=context,
+                    order_regions_to_genes_by=order_regions_to_genes_by)
+                for n in top_n_regionTogenes_per_gene),
+            chain.from_iterable(
+                _top_regions(
+                    adjacencies=adj,
+                    grouped=grouped_adj_by_region,
+                    n=n,
+                    min_regions_per_gene=min_regions_per_gene,
+                    context=context,
+                    order_regions_to_genes_by=order_regions_to_genes_by) 
+                for n in top_n_regionTogenes_per_region),
+            _binarize_BASC(
+                    adjacencies=adj,
+                    grouped=grouped_adj_by_gene,
+                    min_regions_per_gene=min_regions_per_gene,
+                    context=context,
+                    order_regions_to_genes_by=order_regions_to_genes_by) 
+                if binarize_using_basc else [])
+    # Split positive and negative correlation coefficients, if rho_dichotomize == True
     if rho_dichotomize:
-        # split positive and negative correlation coefficients
-        repressing_adj = SCENICPLUS_obj.uns[region_to_gene_key].loc[
-            SCENICPLUS_obj.uns[region_to_gene_key][CORRELATION_COEFFICIENT_NAME] < -rho_threshold]
-        activating_adj = SCENICPLUS_obj.uns[region_to_gene_key].loc[
-            SCENICPLUS_obj.uns[region_to_gene_key][CORRELATION_COEFFICIENT_NAME] > rho_threshold]
+        repressing_adj = region_to_gene.loc[
+            region_to_gene[CORRELATION_COEFFICIENT_NAME] < -rho_threshold]
+        activating_adj = region_to_gene.loc[
+            region_to_gene[CORRELATION_COEFFICIENT_NAME] > rho_threshold]
         r2g_iter = chain(
             iter_thresholding(repressing_adj, frozenset(['negative r2g'])),
-            iter_thresholding(activating_adj, frozenset(['positive r2g'])),
-        )
+            iter_thresholding(activating_adj, frozenset(['positive r2g'])),)
     else:
         # don't split
         if keep_only_activating:
-            r2g_iter = iter_thresholding(SCENICPLUS_obj.uns[region_to_gene_key].loc[
-                SCENICPLUS_obj.uns[region_to_gene_key][CORRELATION_COEFFICIENT_NAME] > rho_threshold])
+            r2g_iter = iter_thresholding(region_to_gene.loc[
+                region_to_gene[CORRELATION_COEFFICIENT_NAME] > rho_threshold],
+                context = frozenset(['positive r2g']))
         else:
             r2g_iter = iter_thresholding(
-                SCENICPLUS_obj.uns[region_to_gene_key])
-
-    # get cistromes
-    cistrome_to_regions_d = SCENICPLUS_obj.uns['Cistromes'][cistromes_key]
-
-    # iterate over all thresholdings and generate eRegulons
+                region_to_gene,
+                context = frozenset(['all r2g']))
+    # Calculate the number of parameters.
+    # this will be used later on in the progress bar (i.e. to know the total amount of
+    # things to process)
     n_params = sum([len(quantiles) if not type(quantiles) == float else 1,
                     len(top_n_regionTogenes_per_gene) if not type(
                         top_n_regionTogenes_per_gene) == int else 1,
@@ -593,43 +540,40 @@ def create_emodules(SCENICPLUS_obj: SCENICPLUS,
     relevant_tfs = []
     eRegulons = []
 
+    mtx_cistromes:pd.DataFrame = cistromes.to_df()
+
     if ray_n_cpu is not None:
         # Init ray here so it only has to be inited once, instead of with every call of grouped.apply.
-        # This to prevent the extra overhead of calling ray.init, which is not insignifican.
+        # This to prevent the extra overhead of calling ray.init, which is not insignificant.
         ray.init(num_cpus=ray_n_cpu, **kwargs)
-
     try:
         for context, r2g_df in tqdm(r2g_iter, total=total_iter, disable=disable_tqdm):
-            for cistrome_name in tqdm(cistrome_to_regions_d.keys(),
-                                      total=len(cistrome_to_regions_d.keys()),
-                                      desc=f"\u001b[32;1mProcessing:\u001b[0m {', '.join(context)}",
-                                      leave=False,
-                                      disable=disable_tqdm):
-                if (not keep_extended_motif_annot) and 'extended' in cistrome_name:
-                    # skip
-                    continue
-                regions_enriched_for_TF_motif = coord_to_region_names(
-                    cistrome_to_regions_d[cistrome_name])
+            for TF_name in tqdm(
+                mtx_cistromes.columns,
+                total=len(mtx_cistromes.columns),
+                desc=f"\u001b[32;1mProcessing:\u001b[0m {', '.join(context)}",
+                leave=False,
+                disable=disable_tqdm):
+                regions_enriched_for_TF_motif = mtx_cistromes.index[
+                    mtx_cistromes[TF_name]]
                 r2g_df_enriched_for_TF_motif = r2g_df.loc[list(set(
                     regions_enriched_for_TF_motif) & set(r2g_df.index))]
                 if len(r2g_df_enriched_for_TF_motif) > 0:
-                    transcription_factor = cistrome_name.split('_')[0]
-                    relevant_tfs.append(transcription_factor)
+                    relevant_tfs.append(TF_name)
                     eRegulons.append(
                         eRegulon(
-                            transcription_factor=transcription_factor,
-                            cistrome_name=cistrome_name,
-                            is_extended=('extended' in cistrome_name),
+                            transcription_factor=TF_name,
+                            cistrome_name=f"{TF_name}" + ("_extended" if is_extended else "_direct") + "_({len(r2g_df_enriched_for_TF_motif)}r)",
+                            is_extended=is_extended,
                             regions2genes=list(r2g_df_enriched_for_TF_motif[list(
                                 REGIONS2GENES_HEADER)].itertuples(index=False, name='r2g')),
-                            context=context.union(frozenset(['Cistromes_'+cistromes_key]))))
+                            context=context.union(frozenset(['Cistromes']))))
     except Exception as e:
         print(e)
     finally:
         if ray_n_cpu is not None:
             ray.shutdown()
     return set(relevant_tfs), eRegulons
-
 
 def _merge_single_TF(l_e_modules):
     """
