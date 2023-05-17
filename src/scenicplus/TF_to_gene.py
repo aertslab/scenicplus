@@ -18,11 +18,10 @@ import scipy.sparse
 from arboreto.algo import _prepare_input
 from arboreto.core import (EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS,
                            infer_partial_network, to_tf_matrix)
-from arboreto.utils import load_tf_names
 from tqdm import tqdm
 from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import _create_idx_pairs, masked_rho4pairs
-from typing import Literal, Union, List
+from typing import Literal, List
 import pathlib
 
 COLUMN_NAME_TARGET = "target"
