@@ -13,7 +13,7 @@ import pandas as pd
 import anndata
 
 from scenicplus.scenicplus_class import SCENICPLUS
-from scenicplus.utils import Groupby, coord_to_region_names, flatten_list
+from scenicplus.utils import Groupby, flatten_list
 
 # HARDCODED VARIABLES
 RHO_THRESHOLD = 0.03
