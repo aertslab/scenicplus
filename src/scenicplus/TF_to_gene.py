@@ -22,8 +22,7 @@ from arboreto.utils import load_tf_names
 from tqdm import tqdm
 from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import _create_idx_pairs, masked_rho4pairs
-import anndata
-from typing import Literal, Union
+from typing import Literal, Union, List
 import pathlib
 
 COLUMN_NAME_TARGET = "target"
@@ -50,7 +49,7 @@ def _inject_TF_as_its_own_target(
     TF2G_key = 'TF2G_adj', 
     out_key = 'TF2G_adj',
     inplace = True,
-    increase_importance_by = 0.00001) -> pd.DataFrame:
+    increase_importance_by = 0.00001) -> None | pd.DataFrame:
     if scplus_obj is None and TF2G_adj is None:
         raise ValueError('Either provide a SCENIC+ object of a pd.DataFrame with TF to gene adjecencies!')
     if scplus_obj is not None and TF2G_adj is not None:
@@ -191,11 +190,10 @@ def _add_correlation(
         }
     )
 
-
 def calculate_TFs_to_genes_relationships(
         scplus_obj: SCENICPLUS,
-        tf_file: str,
-        temp_dir: Union[None, str],
+        tf_names: List[str],
+        temp_dir: pathlib.Path,
         method: Literal['GBM', 'RF'] = 'GBM',
         n_cpu: int = 1,
         key: str = 'TF2G_adj',
@@ -235,7 +233,6 @@ def calculate_TFs_to_genes_relationships(
     if len(set(gene_names)) != len(gene_names):
         raise ValueError("scplus_obj contains duplicate gene names!")
     ex_matrix = scplus_obj.X_EXP
-    tf_names = load_tf_names(tf_file)
     ex_matrix, gene_names, tf_names = _prepare_input(
         ex_matrix, gene_names, tf_names)
     tf_matrix, tf_matrix_gene_names = to_tf_matrix(
@@ -254,8 +251,8 @@ def calculate_TFs_to_genes_relationships(
 
     log.info('Calculating TF-to-gene importance')
     if temp_dir is not None:
-        if type(tmp_dir) == str:
-            tmp_dir = pathlib.Path(tmp_dir)
+        if type(temp_dir) == str:
+            temp_dir = pathlib.Path(temp_dir)
         if not temp_dir.exists():
             Warning(f"{temp_dir} does not exist, creating it.")
             os.makedirs(temp_dir)
