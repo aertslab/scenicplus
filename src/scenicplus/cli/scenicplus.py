@@ -3,7 +3,7 @@ import argparse
 import pathlib
 from scenicplus.cli import gfx
 from scenicplus.cli.commands import (
-    prepare_GEX_ACC
+    prepare_GEX_ACC, prepare_motif_enrichment_results
 )
 
 _DESCRIPTION = "Single-Cell Enhancer-driven gene regulatory Network Inference and Clustering"
@@ -13,7 +13,7 @@ def _function(arg: str):
         raise ValueError("Argument has to be a lambda function definition!")
     return eval(arg)
 
-def prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction):
+def add_parser_for_prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction):
     parser:argparse.ArgumentParser = subparser.add_parser(
         name = "prepare_GEX_ACC",
         add_help = True,
@@ -44,7 +44,7 @@ def prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction):
     parser.add_argument(
         "--out_file", dest="out_file",
         action="store", type=pathlib.Path, required=True,
-        help="Out file name (MuData h5ad file).")
+        help="Out file name (MuData h5mu file).")
     # Optional arguments
     parser.add_argument(
         "--dont_use_raw_for_GEX_anndata", dest="dont_use_raw_for_GEX_anndata",
@@ -78,18 +78,69 @@ def prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction):
         help="""For non multi_ome_mode, use this number of cells per metacell to link scRNA-seq and scATAC-seq.
         If this is a single integer the same number of cells will be used for all annotations.""")
 
+def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "prepare_menr",
+        add_help = True,
+        description="""
+        Prepare motif enrichment data. Returns two AnnData files
+        containing cistroms based on direct and extended motif-to-TF annotations.
+        Also updates the multiome MuData indicating which genes are TFs.""")
+    def prepare_menr_data(arg):
+        if len(arg.direct_annotation) > 0 and arg.out_file_direct_annotation is None:
+            raise ValueError("Please provide path for --direct_annotation!")
+        if len(arg.extended_annotation) > 0 and arg.out_file_extended_annotation is None:
+            raise ValueError("Please provide path for --extended_annotation!")
+        prepare_motif_enrichment_results(
+            menr_fname=arg.menr_fname,
+            multiome_mudata_fname=arg.multiome_mudata_fname,
+            out_file_direct_annotation=arg.out_file_direct_annotation,
+            out_file_extended_annotation=arg.out_file_extended_annotation,
+            direct_annotation=arg.direct_annotation,
+            extended_annotation=arg.extended_annotation)
+    parser.set_defaults(func=prepare_menr_data)
+    # Required arguments
+    parser.add_argument(
+        "--menr_fname", dest="menr_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to motif enrichment result pickle file (from pycistarget).")
+    parser.add_argument(
+        "--multiome_mudata_fname", dest="multiome_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to multiome MuData object (from scenicplus prepare_GEX_ACC).")
+    # Optional arguments
+    parser.add_argument(
+        "--out_file_direct_annotation", dest="out_file_direct_annotation",
+        action="store", type=pathlib.Path, required=False,
+        help="Out file name for direct cistromes (AnnData h5ad file).")
+    parser.add_argument(
+        "--out_file_extended_annotation", dest="out_file_extended_annotation",
+        action="store", type=pathlib.Path, required=False,
+        help="Out file name for extended cistromes (AnnData h5ad file).")
+    parser.add_argument(
+        "--direct_annotation", dest="direct_annotation",
+        action="store", type=str, required=False, nargs='+',
+        default=['Direct_annot'],
+        help="Annotations to use as direct.")
+    parser.add_argument(
+        "--extended_annotation", dest="extended_annotation",
+        action="store", type=str, required=False, nargs='+',
+        default=['Orthology_annot'],
+        help="Annotations to use as extended.")
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
-    subparsers = parser.add_subparsers(help="Prepare scRNA-seq, scATAC-seq data.")
-    prepare_GEX_and_ACC_data(subparsers)
+    prepare_subparsers = parser.add_subparsers(help="Prepare data")
+    add_parser_for_prepare_GEX_and_ACC_data(prepare_subparsers)
+    add_parser_for_prepare_menr_data(prepare_subparsers)
     return parser
 
 def main(argv=None) -> int:
     #parse command line arguments
+    print(gfx.logo)
     parser = create_argument_parser()
     args = parser.parse_args(args=argv)
-    print(gfx.logo)
     if not hasattr(args, "func"):
         parser.print_help()
     else:
