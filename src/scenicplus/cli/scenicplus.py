@@ -2,9 +2,6 @@ import sys
 import argparse 
 import pathlib
 from scenicplus.cli import gfx
-from scenicplus.cli.commands import (
-    prepare_GEX_ACC, prepare_motif_enrichment_results
-)
 
 _DESCRIPTION = "Single-Cell Enhancer-driven gene regulatory Network Inference and Clustering"
 
@@ -21,11 +18,12 @@ def add_parser_for_prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction
         Prepare scRNA-seq, scATAC-seq data. Returns a MuData file
         containing linked gene expression and chromatin accessibility data.""")
     def command_prepare_GEX_ACC(arg):
+        from scenicplus.cli.commands import prepare_GEX_ACC
         prepare_GEX_ACC(
             cisTopic_obj_fname=arg.cisTopic_obj_fname,
             GEX_anndata_fname=arg.GEX_anndata_fname,
             out_file=arg.out_file,
-            use_raw_for_GEX_anndata=(not arg.dont_use_raw_for_GEX_anndata),
+            use_raw_for_GEX_anndata=(not arg.do_not_use_raw_for_GEX_anndata),
             is_multiome=(not arg.is_not_multiome),
             bc_transform_func=_function(arg.bc_transform_func),
             key_to_group_by=arg.key_to_group_by,
@@ -47,7 +45,7 @@ def add_parser_for_prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction
         help="Out file name (MuData h5mu file).")
     # Optional arguments
     parser.add_argument(
-        "--dont_use_raw_for_GEX_anndata", dest="dont_use_raw_for_GEX_anndata",
+        "--do_not_use_raw_for_GEX_anndata", dest="do_not_use_raw_for_GEX_anndata",
         action="store_true", default=False,
         help="Do not use raw gene expression counts.")
     parser.add_argument(
@@ -91,6 +89,7 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
             raise ValueError("Please provide path for --direct_annotation!")
         if len(arg.extended_annotation) > 0 and arg.out_file_extended_annotation is None:
             raise ValueError("Please provide path for --extended_annotation!")
+        from scenicplus.cli.commands import prepare_motif_enrichment_results
         prepare_motif_enrichment_results(
             menr_fname=arg.menr_fname,
             multiome_mudata_fname=arg.multiome_mudata_fname,
@@ -128,12 +127,53 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         default=['Orthology_annot'],
         help="Annotations to use as extended.")
 
+def add_parser_for_download_genome_annotations(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "download_genome_annotations",
+        add_help = True,
+        description="""
+        Download genome annotation and chromsizes and save to tsv""")
+    def download_command(arg):
+        from scenicplus.cli.commands import download_gene_annotation_chromsizes
+        download_gene_annotation_chromsizes(
+            species=arg.species,
+            genome_annotation_out_fname=arg.genome_annotation_out_fname,
+            chromsizes_out_fname=arg.chromsizes_out_fname,
+            biomart_host=arg.biomart_host,
+            use_ucsc_chromosome_style=(not arg.do_not_use_ucsc_chromosome_style))
+    parser.set_defaults(func=download_command)
+    # Required arguments
+    parser.add_argument(
+        "--species", dest="species",
+        action="store", type=pathlib.Path, required=True,
+        help="Species name (e.g. hsapies).")
+    parser.add_argument(
+        "--genome_annotation_out_fname", dest="genome_annotation_out_fname",
+        action="store", default=False, required=True,
+        help="Out file name for genome annotation (tsv).")
+    parser.add_argument(
+        "--chromsizes_out_fname", dest="chromsizes_out_fname",
+        action="store", default=False, required=True,
+        help="Out file name for chromosome sizes (tsv).")
+    # Optional arguments
+    parser.add_argument(
+        "--biomart_host", dest="biomart_host",
+        action="store", type=str, required=False,
+        default = "http://www.ensembl.org",
+        help="Biomart host name")
+    parser.add_argument(
+        "--do_not_use_ucsc_chromosome_style", dest="do_not_use_ucsc_chromosome_style",
+        action="store_true",
+        help="Do not use UCSC chromosome style names.")
+
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
     prepare_subparsers = parser.add_subparsers(help="Prepare data")
     add_parser_for_prepare_GEX_and_ACC_data(prepare_subparsers)
     add_parser_for_prepare_menr_data(prepare_subparsers)
+    add_parser_for_download_genome_annotations(prepare_subparsers)
     return parser
 
 def main(argv=None) -> int:
