@@ -278,9 +278,9 @@ def get_search_space(
 
     #check column names
     _gene_annotation_required_cols = [
-        "Chromosome", "Start", "end", "Strand", "Gene", "Transcription_Start_Site"]
+        "Chromosome", "Start", "End", "Strand", "Gene", "Transcription_Start_Site"]
     _chromsizes_required_cols = [
-        "Chromosome", "Start", "end"]
+        "Chromosome", "Start", "End"]
     if not all([col in gene_annotation.columns for col in _gene_annotation_required_cols]):
         raise ValueError(
             f"gene_annotation should have the following columns: {', '.join(_gene_annotation_required_cols)}")
