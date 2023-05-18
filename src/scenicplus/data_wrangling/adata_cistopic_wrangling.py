@@ -74,11 +74,11 @@ def process_multiome_data(
     mudata = MuData(
         {
             'scRNA': AnnData(
-                X=X_EXP, obs=GEX_cell_metadata,
-                var=GEX_gene_metadata, obsm=GEX_dr_cell),
+                X=X_EXP, obs=GEX_cell_metadata.infer_objects(),
+                var=GEX_gene_metadata.infer_objects(), obsm=GEX_dr_cell),
             'scATAC': AnnData(
-                X=imputed_acc_obj.mtx.T, obs=ACC_cell_metadata,
-                var=ACC_region_metadata, obsm=ACC_dr_cell)
+                X=imputed_acc_obj.mtx.T, obs=ACC_cell_metadata.infer_objects(),
+                var=ACC_region_metadata.infer_objects(), obsm=ACC_dr_cell)
         }
     )
 
