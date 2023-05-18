@@ -47,34 +47,36 @@ def add_parser_for_prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction
     parser.add_argument(
         "--do_not_use_raw_for_GEX_anndata", dest="do_not_use_raw_for_GEX_anndata",
         action="store_true", default=False,
-        help="Do not use raw gene expression counts.")
+        help="Do not use raw gene expression counts. Default is False")
     parser.add_argument(
         "--is_not_multiome", dest="is_not_multiome",
         action="store_true", default=False,
-        help="Data is not multiome")
+        help="Data is not multiome. Default is False")
     parser.add_argument(
         "--bc_transform_func", dest="bc_transform_func",
         action="store", type=str,
         default="lambda x: x",
-        help="lambda function to transform gene expression cell barcodes into chromatin accessibility barcodes")
+        help="lambda function to transform gene expression cell barcodes into chromatin accessibility barcodes. Default is lambda x: x")
     parser.add_argument(
         "--key_to_group_by", dest="key_to_group_by",
         action="store", type=str,
         default=None,
         help="""For non multi_ome_mode, use this cell metadata key to generate metacells from scRNA-seq and scATAC-seq. 
-        Key should be common in scRNA-seq and scATAC-seq side""")
+        Key should be common in scRNA-seq and scATAC-seq side.""")
     parser.add_argument(
         "--nr_metacells", dest="nr_metacells",
         action="store", type=int,
         default=None,
         help="""For non multi_ome_mode, use this number of meta cells to link scRNA-seq and scATAC-seq
-        If this is a single integer the same number of metacells will be used for all annotations.""")
+        If this is a single integer the same number of metacells will be used for all annotations.
+        By default this number is determined automatically so that each cell is sampled at maximum twice.""")
     parser.add_argument(
         "--nr_cells_per_metacells", dest="nr_cells_per_metacells",
         action="store", type=int,
         default=10,
         help="""For non multi_ome_mode, use this number of cells per metacell to link scRNA-seq and scATAC-seq.
-        If this is a single integer the same number of cells will be used for all annotations.""")
+        If this is a single integer the same number of cells will be used for all annotations.
+        Default is 10""")
 
 def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
     parser:argparse.ArgumentParser = subparser.add_parser(
@@ -125,12 +127,12 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         "--direct_annotation", dest="direct_annotation",
         action="store", type=str, required=False, nargs='+',
         default=['Direct_annot'],
-        help="Annotations to use as direct.")
+        help="Annotations to use as direct. Default is 'Direct_annot'")
     parser.add_argument(
         "--extended_annotation", dest="extended_annotation",
         action="store", type=str, required=False, nargs='+',
         default=['Orthology_annot'],
-        help="Annotations to use as extended.")
+        help="Annotations to use as extended. Default is 'Orthology_annot'")
 
 def add_parser_for_download_genome_annotations(subparser:argparse._SubParsersAction):
     parser:argparse.ArgumentParser = subparser.add_parser(
@@ -154,11 +156,11 @@ def add_parser_for_download_genome_annotations(subparser:argparse._SubParsersAct
         help="Species name (e.g. hsapies).")
     parser.add_argument(
         "--genome_annotation_out_fname", dest="genome_annotation_out_fname",
-        action="store", default=False, required=True,
+        action="store", required=True,
         help="Out file name for genome annotation (tsv).")
     parser.add_argument(
         "--chromsizes_out_fname", dest="chromsizes_out_fname",
-        action="store", default=False, required=True,
+        action="store", required=True,
         help="Out file name for chromosome sizes (tsv).")
     # Optional arguments
     parser.add_argument(
@@ -217,18 +219,20 @@ def add_parser_for_search_space(subparser:argparse._SubParsersAction):
         action="store", type=int, required=False,
         nargs=2, default=[1000, 150000],
         help="""Search space upstream. The minimum (first position) means that even if there is a gene right next to it these
-                bp will be taken. The second position indicates the maximum distance.""")
+                bp will be taken. The second position indicates the maximum distance.
+                Default is 1000 150000""")
     parser.add_argument(
         "--downstream", dest="downstream",
         action="store", type=int, required=False,
         nargs=2, default=[1000, 150000],
         help="""Search space downstream. The minimum (first position) means that even if there is a gene right next to it these
-                bp will be taken. The second position indicates the maximum distance.""")
+                bp will be taken. The second position indicates the maximum distance.
+                Default is 1000 150000""")
     parser.add_argument(
         "--extend_tss", dest="extend_tss",
         action="store", type=int, required=False,
         nargs=2, default=[10, 10],
-        help="Space around the TSS consider as promoter.")
+        help="Space around the TSS consider as promoter. Default is 10 10")
     parser.add_argument(
         "--remove_promoters", dest="remove_promoters",
         action="store_true",
