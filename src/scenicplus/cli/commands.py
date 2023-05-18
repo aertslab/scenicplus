@@ -1,14 +1,18 @@
 import pathlib
 from typing import (
-    Callable, Union, Dict, List)
+    Callable, Union, Dict, List,
+    Tuple)
 import pickle
 import mudata
 import logging
 import sys
+import pandas as pd
 
 from scenicplus.data_wrangling.adata_cistopic_wrangling import (
     process_multiome_data, process_non_multiome_data)
 from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
+from scenicplus.data_wrangling.gene_search_space import (
+    download_gene_annotation_and_chromsizes, get_search_space)
 
 # Create logger
 level = logging.INFO
@@ -52,6 +56,7 @@ def prepare_motif_enrichment_results(
         multiome_mudata_fname: pathlib.Path,
         out_file_direct_annotation: pathlib.Path,
         out_file_extended_annotation: pathlib.Path,
+        out_file_tf_names: pathlib.Path,
         direct_annotation: List[str],
         extended_annotation: List[str]) -> None:
     log.info("Reading motif enrichment results.")
@@ -69,12 +74,12 @@ def prepare_motif_enrichment_results(
     TFs = list(
         set([*adata_direct_cistromes.var_names, *adata_extended_cistromes.var_names]) & \
         set(mdata['scRNA'].var_names))
-    log.info(f"Labling {len(TFs)} genes as transcription factors.")
-    mdata['scRNA'].var['is_TF'] = False
-    mdata['scRNA'].var.loc[TFs, 'is_TF'] = True
-    log.info(
-        f"Saving modified multiome MuData to: {multiome_mudata_fname.__str__()}")
-    mdata.write_h5mu(multiome_mudata_fname)
+    log.info(f"Found {len(TFs)} TFs.")
+    log.info(f"Saving TF names to: {out_file_tf_names.__str__()}")
+    with open(out_file_tf_names, "w") as f:
+        for TF in TFs:
+            _ = f.write(TF)
+            _ = f.write("\n")
     if len(direct_annotation) > 0:
         log.info(
             f"Writing direct cistromes to: {out_file_direct_annotation.__str__()}")
@@ -83,3 +88,57 @@ def prepare_motif_enrichment_results(
         log.info(
             f"Writing extended cistromes to: {out_file_extended_annotation.__str__()}")
         adata_extended_cistromes.write_h5ad(out_file_extended_annotation.__str__())
+
+def download_gene_annotation_chromsizes(
+        species: str,
+        biomart_host: str,
+        use_ucsc_chromosome_style: bool,
+        genome_annotation_out_fname: pathlib.Path,
+        chromsizes_out_fname: pathlib.Path):
+    result = download_gene_annotation_and_chromsizes(
+            species=species,
+            biomart_host=biomart_host,
+            use_ucsc_chromosome_style=use_ucsc_chromosome_style)
+    if type(result) is tuple:
+        annot, chromsizes = result 
+        log.info(f"Saving chromosome sizes to: {chromsizes_out_fname.__str__()}")
+        chromsizes.to_csv(
+            chromsizes_out_fname,
+            sep = "\t", header = True, index = False)
+    else:
+        annot: pd.DataFrame = result
+        log.info(
+            "Chrosomome sizes was not found, please provide this information manually.")
+    log.info(f"Saving genome annotation to: {genome_annotation_out_fname.__str__()}")
+    annot.to_csv(
+        genome_annotation_out_fname,
+        sep = "\t", header = True, index = False)
+
+def get_search_space_command(
+        multiome_mudata_fname: pathlib.Path,
+        gene_annotation_fname: pathlib.Path,
+        chromsizes_fname: pathlib.Path,
+        out_fname: pathlib.Path,
+        use_gene_boundaries: bool,
+        upstream: Tuple[int, int],
+        downstream: Tuple[int, int],
+        extend_tss: Tuple[int, int],
+        remove_promoters: bool):
+    log.info("Reading data")
+    mdata = mudata.read(multiome_mudata_fname.__str__())
+    gene_annotation=pd.read_table(gene_annotation_fname)
+    chromsizes=pd.read_table(chromsizes_fname)
+    search_space = get_search_space(
+        scplus_region=set(mdata['scATAC'].var_names),
+        scplus_genes=set(mdata['scRNA'].var_names),
+        gene_annotation=gene_annotation,
+        chromsizes=chromsizes,
+        use_gene_boundaries=use_gene_boundaries,
+        upstream=upstream,
+        downstream=downstream,
+        extend_tss=extend_tss,
+        remove_promoters=remove_promoters)
+    log.info(f"Writing search space to: {out_fname.__str__()}")
+    search_space.to_csv(
+        out_fname, sep = "\t",
+        header = True, index = False)

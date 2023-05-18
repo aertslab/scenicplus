@@ -95,6 +95,7 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
             multiome_mudata_fname=arg.multiome_mudata_fname,
             out_file_direct_annotation=arg.out_file_direct_annotation,
             out_file_extended_annotation=arg.out_file_extended_annotation,
+            out_file_tf_names=arg.out_file_tf_names,
             direct_annotation=arg.direct_annotation,
             extended_annotation=arg.extended_annotation)
     parser.set_defaults(func=prepare_menr_data)
@@ -107,6 +108,10 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         "--multiome_mudata_fname", dest="multiome_mudata_fname",
         action="store", type=pathlib.Path, required=True,
         help="Path to multiome MuData object (from scenicplus prepare_GEX_ACC).")
+    parser.add_argument(
+        "--out_file_tf_names", dest="out_file_tf_names",
+        action="store", type=pathlib.Path, required=True,
+        help="Out file name for TF names (txt file).")
     # Optional arguments
     parser.add_argument(
         "--out_file_direct_annotation", dest="out_file_direct_annotation",
@@ -166,6 +171,68 @@ def add_parser_for_download_genome_annotations(subparser:argparse._SubParsersAct
         action="store_true",
         help="Do not use UCSC chromosome style names.")
 
+def add_parser_for_search_space(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "search_spance",
+        add_help = True,
+        description="""
+        Get search space for each gene. Returns tsv with search spance""")
+    def search_space(arg):
+        from scenicplus.cli.commands import get_search_space_command
+        get_search_space_command(
+            multiome_mudata_fname=arg.multiome_mudata_fname,
+            gene_annotation_fname=arg.gene_annotation_fname,
+            chromsizes_fname=arg.chromsizes_fname,
+            out_fname=arg.out_fname,
+            use_gene_boundaries=arg.use_gene_boundaries,
+            upstream=arg.upstream,
+            downstream=arg.downstream,
+            extend_tss=arg.extend_tss,
+            remove_promoters=arg.remove_promoters)
+    parser.set_defaults(func=search_space)
+    # Required arguments
+    parser.add_argument(
+        "--multiome_mudata_fname", dest="multiome_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to multiome MuData object (from scenicplus prepare_GEX_ACC).")
+    parser.add_argument(
+        "--gene_annotation_fname", dest="gene_annotation_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to gene annotation tsv (from scenicplus download_genome_annotations).")
+    parser.add_argument(
+        "--chromsizes_fname", dest="chromsizes_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to chromosome sizes tsv (from scenicplus download_genome_annotations).")
+    parser.add_argument(
+        "--out_fname", dest="out_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Out file name for gene search space (tsv).")
+    # Optional arguments
+    parser.add_argument(
+        "--use_gene_boundaries", dest="use_gene_boundaries",
+        action="store_true",
+        help="Whether to use the whole search space or stop when encountering another gene.")
+    parser.add_argument(
+        "--upstream", dest="upstream",
+        action="store", type=int, required=False,
+        nargs=2, default=[1000, 150000],
+        help="""Search space upstream. The minimum (first position) means that even if there is a gene right next to it these
+                bp will be taken. The second position indicates the maximum distance.""")
+    parser.add_argument(
+        "--downstream", dest="downstream",
+        action="store", type=int, required=False,
+        nargs=2, default=[1000, 150000],
+        help="""Search space downstream. The minimum (first position) means that even if there is a gene right next to it these
+                bp will be taken. The second position indicates the maximum distance.""")
+    parser.add_argument(
+        "--extend_tss", dest="extend_tss",
+        action="store", type=int, required=False,
+        nargs=2, default=[10, 10],
+        help="Space around the TSS consider as promoter.")
+    parser.add_argument(
+        "--remove_promoters", dest="remove_promoters",
+        action="store_true",
+        help="Whether to remove promoters from the search space or not.")
 
 def create_argument_parser():
     parser = argparse.ArgumentParser(
@@ -174,14 +241,15 @@ def create_argument_parser():
     add_parser_for_prepare_GEX_and_ACC_data(prepare_subparsers)
     add_parser_for_prepare_menr_data(prepare_subparsers)
     add_parser_for_download_genome_annotations(prepare_subparsers)
+    add_parser_for_search_space(prepare_subparsers)
     return parser
 
 def main(argv=None) -> int:
     #parse command line arguments
-    print(gfx.logo)
     parser = create_argument_parser()
     args = parser.parse_args(args=argv)
     if not hasattr(args, "func"):
+        print(gfx.logo)
         parser.print_help()
     else:
         args.func(args)
