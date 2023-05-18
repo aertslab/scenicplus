@@ -81,7 +81,7 @@ def prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction):
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
-    subparsers = parser.add_subparsers(help="sub-command help")
+    subparsers = parser.add_subparsers(help="Prepare scRNA-seq, scATAC-seq data.")
     prepare_GEX_and_ACC_data(subparsers)
     return parser
 
