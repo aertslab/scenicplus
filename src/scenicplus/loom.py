@@ -171,7 +171,7 @@ def export_to_loom(scplus_obj: SCENICPLUS,
             lowercase=False, token_pattern=r'(?u)\b\w\w+\b:\b\w\w+\b-\b\w\w+\b')
     regulon_mat = cv.fit_transform(regulons.values())
     regulon_mat = pd.DataFrame(regulon_mat.todense(
-    ), columns=cv.get_feature_names(), index=regulons.keys())
+    ), columns=cv.get_feature_names_out(), index=regulons.keys())
     regulon_mat = regulon_mat.reindex(columns=feature_names, fill_value=0).T
     if keep_direct_and_extended_if_not_direct is True:
         regulon_mat = regulon_mat[selected_eRegulons]
@@ -590,8 +590,8 @@ def _add_markers(loom: SCopeLoom,
         row_attrs_cluster_markers = {
             f"ClusterMarkers_{str(idx)}": _df_to_named_matrix(
                 cluster_markers.astype(np.int8)),
-            f"ClusterMarkers_{str(idx)}_avg_logFC": _df_to_named_matrix(cluster_markers_avg_logfc.astype(np.float32)),
-            f"ClusterMarkers_{str(idx)}_pval": _df_to_named_matrix(cluster_markers_pval.astype(np.float32))
+            f"ClusterMarkers_{str(idx)}_avg_logFC": _df_to_named_matrix(cluster_markers_avg_logfc.astype(float32)),
+            f"ClusterMarkers_{str(idx)}_pval": _df_to_named_matrix(cluster_markers_pval.astype(float32))
         }
         row_attrs = {**row_attrs, **row_attrs_cluster_markers}
         loom.row_attrs = row_attrs

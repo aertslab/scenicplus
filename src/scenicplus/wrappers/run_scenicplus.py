@@ -20,7 +20,8 @@ In case the process is killed prematurely, the function can be restared and the 
 from scenicplus.scenicplus_class import SCENICPLUS, create_SCENICPLUS_object
 from scenicplus.preprocessing.filtering import *
 from scenicplus.cistromes import *
-from scenicplus.enhancer_to_gene import get_search_space, calculate_regions_to_genes_relationships, GBM_KWARGS
+from scenicplus.data_wrangling.gene_search_space import get_search_space, get_ensembl_annotation, get_ucsc_chromsizes
+from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships, GBM_KWARGS
 from scenicplus.enhancer_to_gene import export_to_UCSC_interact 
 from scenicplus.utils import format_egrns, export_eRegulons
 from scenicplus.eregulon_enrichment import *
@@ -34,6 +35,7 @@ from typing import Dict, List, Mapping, Optional, Sequence
 import os
 import dill
 import time
+import gc
 
 
 def run_scenicplus(scplus_obj: 'SCENICPLUS',
@@ -125,17 +127,18 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     if 'Cistromes' not in scplus_obj.uns.keys():
         log.info('Merging cistromes')
         merge_cistromes(scplus_obj)
-    
+        gc.collect()
     
     if 'search_space' not in scplus_obj.uns.keys():
+        
+        log.info('Getting annotation')
+        annot = get_ensembl_annotation(species, biomart_host=biomart_host)
+        chromsizes = get_ucsc_chromsizes(assembly)
+        
         log.info('Getting search space')
-        get_search_space(scplus_obj,
-                     biomart_host = biomart_host,
-                     species = species,
-                     assembly = assembly, 
-                     upstream = upstream,
-                     downstream = downstream)
-                 
+        get_search_space(scplus_obj, annot, chromsizes,
+                     upstream = upstream, downstream = downstream)
+        
     if 'region_to_gene' not in scplus_obj.uns.keys():
         log.info('Inferring region to gene relationships')
         calculate_regions_to_genes_relationships(scplus_obj, 
@@ -143,7 +146,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         importance_scoring_method = 'GBM',
                         importance_scoring_kwargs = GBM_KWARGS,
                         temp_dir = _temp_dir)
-                        
+        gc.collect()
+        
     if 'TF2G_adj' not in scplus_obj.uns.keys():
         log.info('Inferring TF to gene relationships')
         calculate_TFs_to_genes_relationships(scplus_obj, 
@@ -152,6 +156,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                         method = 'GBM',
                         key= 'TF2G_adj',
                         temp_dir = _temp_dir)
+        gc.collect()
+        
                         
     if 'eRegulons' not in scplus_obj.uns.keys():
         log.info('Build eGRN')
@@ -176,7 +182,8 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                  disable_tqdm = False, 
                  ray_n_cpu = n_cpu,
                  _temp_dir = _temp_dir)
-                 
+        gc.collect()
+        
     if 'eRegulon_metadata' not in scplus_obj.uns.keys():
         log.info('Formatting eGRNs')
         format_egrns(scplus_obj,
@@ -190,6 +197,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         get_eRegulons_as_signatures(scplus_obj,
                                      eRegulon_metadata_key='eRegulon_metadata', 
                                      key_added='eRegulon_signatures')
+        gc.collect()
                                      
     if simplified_eGRN is True:
         md = scplus_obj.uns['eRegulon_signatures']['Gene_based']
@@ -201,6 +209,9 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         names = list(set([x.split('_(')[0][:len(x.split('_(')[0]) - 2] for x in md.keys()]))
         scplus_obj.uns['eRegulon_signatures']['Region_based'] = {x:list(set(sum([value for key, value in md.items() if key.startswith(x)], []))) for x in names}
         scplus_obj.uns['eRegulon_signatures']['Region_based'] = {x+'_('+str(len(scplus_obj.uns['eRegulon_signatures']['Region_based'][x]))+'r)': scplus_obj.uns['eRegulon_signatures']['Region_based'][x] for x in scplus_obj.uns['eRegulon_signatures']['Region_based'].keys()}
+        del md
+        del names
+        gc.collect()
 
     
     if 'eRegulon_AUC' not in scplus_obj.uns.keys():
@@ -233,6 +244,7 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                 auc_threshold = 0.05,
                 normalize= False,
                 n_cpu = n_cpu)
+        gc.collect()
                 
     if calculate_TF_eGRN_correlation is True:
         log.info('Calculating TF-eGRNs AUC correlation')
@@ -261,14 +273,16 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                                     auc_key = 'eRegulon_AUC',
                                     signature_key = 'Region_based',
                                     out_key = var+'_eGRN_region_based')
+        gc.collect()
                                 
     if 'eRegulon_AUC_thresholds' not in scplus_obj.uns.keys():
+        
         log.info('Binarizing eGRNs AUC')
         binarize_AUC(scplus_obj, 
              auc_key='eRegulon_AUC',
              out_key='eRegulon_AUC_thresholds',
-             signature_keys=['Gene_based', 'Region_based'],
-             n_cpu=n_cpu)
+             signature_keys=['Gene_based', 'Region_based'])
+        gc.collect()
              
     if not hasattr(scplus_obj, 'dr_cell'):
         scplus_obj.dr_cell = {}         
@@ -276,10 +290,13 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
         log.info('Making eGRNs AUC UMAP')
         run_eRegulons_umap(scplus_obj,
                    scale=True, signature_keys=['Gene_based', 'Region_based'])
+        gc.collect()
+        
     if 'eRegulons_tSNE' not in scplus_obj.dr_cell.keys():
         log.info('Making eGRNs AUC tSNE')
         run_eRegulons_tsne(scplus_obj,
                    scale=True, signature_keys=['Gene_based', 'Region_based'])
+        gc.collect()
                    
     if 'RSS' not in scplus_obj.uns.keys():
         log.info('Calculating eRSS')
@@ -294,11 +311,13 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                          signature_keys=['Region_based'],
                          out_key_suffix='_region_based',
                          scale=False)
-                         
+        gc.collect()
+        
     if calculate_DEGs_DARs is True:
         log.info('Calculating DEGs/DARs')
         for var in variable:
             get_differential_features(scplus_obj, var, use_hvg = True, contrast_type = ['DEGs', 'DARs'])
+        gc.collect()
             
     if export_to_loom_file is True:
         log.info('Exporting to loom file')
@@ -308,12 +327,15 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
                title =  'Gene based eGRN',
                nomenclature = assembly,
                out_fname=os.path.join(save_path,'SCENIC+_gene_based.loom'))
+        gc.collect()
+        
         export_to_loom(scplus_obj, 
                signature_key = 'Region_based',
                tree_structure = tree_structure,
                title =  'Region based eGRN',
                nomenclature = assembly,
                out_fname=os.path.join(save_path,'SCENIC+_region_based.loom'))
+        gc.collect()
                
     if export_to_UCSC_file is True:
         log.info('Exporting to UCSC')
@@ -361,8 +383,4 @@ def run_scenicplus(scplus_obj: 'SCENICPLUS',
     with open(os.path.join(save_path,'scplus_obj.pkl'), 'wb') as f:
         dill.dump(scplus_obj, f, protocol = -1)
 
-    log.info('Finished! Took {} minutes'.format((time.time() - start_time)/60))       
-    
-    
-    
-    
+    log.info('Finished! Took {} minutes'.format((time.time() - start_time)/60))

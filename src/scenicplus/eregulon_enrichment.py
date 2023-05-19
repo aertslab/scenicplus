@@ -4,7 +4,7 @@
 
 from pycisTopic.diff_features import *
 from pycisTopic.signature_enrichment import *
-from pyscenic.binarization import binarize
+from scenicplus.binarization import binarize
 
 from .scenicplus_class import SCENICPLUS
 
@@ -174,8 +174,7 @@ def score_eRegulons(scplus_obj: SCENICPLUS,
 def binarize_AUC(scplus_obj: SCENICPLUS,
                  auc_key: Optional[str] = 'eRegulon_AUC',
                  out_key: Optional[str] = 'eRegulon_AUC_thresholds',
-                 signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
-                 n_cpu: Optional[int] = 1):
+                 signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based']):
     """
     Binarize eRegulons using AUCell
 
@@ -189,12 +188,10 @@ def binarize_AUC(scplus_obj: SCENICPLUS,
         Key where the AUCell thresholds will be stored (in `scplus_obj.uns`)
     signature_keys: List, optional
         Keys to extract AUC values from. Default: ['Gene_based', 'Region_based']
-    n_cpu: int
-        The number of cores to use. Default: 1
     """
     if not out_key in scplus_obj.uns.keys():
         scplus_obj.uns[out_key] = {}
     for signature in signature_keys:
         auc_mtx = scplus_obj.uns[auc_key][signature]
-        _, auc_thresholds = binarize(auc_mtx, num_workers=n_cpu)
+        _, auc_thresholds = binarize(auc_mtx)
         scplus_obj.uns[out_key][signature] = auc_thresholds
