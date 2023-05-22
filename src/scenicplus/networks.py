@@ -574,7 +574,7 @@ def concentrical_layout(G,
     n_region_nodes = len(region_nodes)
 
     theta = np.linspace(0, 1, n_region_nodes + 1)[:-1] * 2 * np.pi
-    theta = theta.astype(float32)
+    theta = theta.astype(np.float32)
     pos_regions = np.column_stack(
         [np.cos(theta), np.sin(theta), np.zeros((n_region_nodes, 0))]
     )

@@ -21,6 +21,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from itertools import repeat, chain, islice
 import loompy as lp
 import re
+import warnings
 
 from .scenicplus_class import SCENICPLUS
 
@@ -136,13 +137,19 @@ def export_to_loom(scplus_obj: SCENICPLUS,
 
     # eGRN AUC values
     auc_mtx = scplus_obj.uns[auc_key][signature_key].loc[cell_names]
+    # filter out -_- and +_- eRegulons to make header smaller (otherwise 'create_loom' may crash)
+    auc_mtx = auc_mtx[ [x for x in auc_mtx.columns if ('+_-' not in x) and ('-_-' not in x)] ]    
     auc_mtx.columns = [re.sub('_\(.*\)', '', x)
                        for x in auc_mtx.columns]
     auc_thresholds = scplus_obj.uns[auc_thr_key][signature_key]
+    # filter out -_- and +_- eRegulons
+    auc_thresholds = auc_thresholds[ [x for x in auc_thresholds.index if ('+_-' not in x) and ('-_-' not in x)] ]
     auc_thresholds.index = [re.sub('_\(.*\)', '', x)
                             for x in auc_thresholds.index]
+    
+    
     if auc_mtx.shape[1] > 900 and keep_direct_and_extended_if_not_direct is False:
-        log.info('The number of regulons is more than > 900. keep_direct_and_extended_if_not_direct is set to True')
+        log.info("The number of regulons is more than > 900 ({auc_mtx.shape[1]}). keep_direct_and_extended_if_not_direct is set to True")
         keep_direct_and_extended_if_not_direct = True
     if keep_direct_and_extended_if_not_direct is True:
         direct_eRegulons = [x for x in auc_mtx.columns if not 'extended' in x]
@@ -303,8 +310,14 @@ def _export_minimal_loom(
     embeddings_X = pd.DataFrame(index=cell_names)
     embeddings_Y = pd.DataFrame(index=cell_names)
     for idx, (name, df_embedding) in enumerate(embeddings.items()):
-        if len(df_embedding.columns) != 2:
-            raise Exception('The embedding should have two columns.')
+
+        if len(df_embedding.columns) > 2:
+            warnings.warn(f"The embedding has more than two columns. Taking first two columns of '{name}.'")
+            df_embedding = df_embedding.iloc[:,:2]
+            
+        elif len(df_embedding.columns) < 2:
+            raise Exception(f"The embedding '{name}' contains less than two columns.")
+            
 
         # Default embedding must have id == -1 for SCope.
         embedding_id = idx - 1
@@ -378,7 +391,7 @@ def _export_minimal_loom(
             "allThresholds": {"gaussian_mixture_split": (threshold if isinstance(threshold, float) else threshold[0])},
             "motifData": "",
         }
-        for name, threshold in auc_thresholds.iteritems()
+        for name, threshold in zip(auc_thresholds.index, auc_thresholds.values)
     ]
 
     general_attrs = {
@@ -576,13 +589,12 @@ def _add_markers(loom: SCopeLoom,
                 pvals_adj = markers_dict[cluster_name][cluster_description[i]
                                                        ]['Adjusted_pval']
                 logfoldchanges = markers_dict[cluster_name][cluster_description[i]]['Log2FC']
-                i = str(i)
                 num_genes = len(gene_names)
 
                 # Replace
-                cluster_markers.loc[gene_names, i] = np.int(1)
-                cluster_markers_avg_logfc.loc[gene_names, i] = logfoldchanges
-                cluster_markers_pval.loc[gene_names, i] = pvals_adj
+                cluster_markers.loc[gene_names, str(i)] = np.int(1)
+                cluster_markers_avg_logfc.loc[gene_names, str(i)] = logfoldchanges
+                cluster_markers_pval.loc[gene_names, str(i)] = pvals_adj
             except BaseException:
                 print('No markers for ', cluster_description[i])
 
@@ -590,8 +602,8 @@ def _add_markers(loom: SCopeLoom,
         row_attrs_cluster_markers = {
             f"ClusterMarkers_{str(idx)}": _df_to_named_matrix(
                 cluster_markers.astype(np.int8)),
-            f"ClusterMarkers_{str(idx)}_avg_logFC": _df_to_named_matrix(cluster_markers_avg_logfc.astype(float32)),
-            f"ClusterMarkers_{str(idx)}_pval": _df_to_named_matrix(cluster_markers_pval.astype(float32))
+            f"ClusterMarkers_{str(idx)}_avg_logFC": _df_to_named_matrix(cluster_markers_avg_logfc.astype(np.float32)),
+            f"ClusterMarkers_{str(idx)}_pval": _df_to_named_matrix(cluster_markers_pval.astype(np.float32))
         }
         row_attrs = {**row_attrs, **row_attrs_cluster_markers}
         loom.row_attrs = row_attrs
