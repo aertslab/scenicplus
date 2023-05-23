@@ -10,6 +10,10 @@ def _function(arg: str):
         raise ValueError("Argument has to be a lambda function definition!")
     return eval(arg)
 
+"""
+Functions to create data preparation parsers.
+"""
+
 def add_parser_for_prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction):
     parser:argparse.ArgumentParser = subparser.add_parser(
         name = "prepare_GEX_ACC",
@@ -238,14 +242,90 @@ def add_parser_for_search_space(subparser:argparse._SubParsersAction):
         action="store_true",
         help="Whether to remove promoters from the search space or not.")
 
+
+"""
+Functions to create GRN inference parsers.
+"""
+
+def add_parser_for_infer_TF_to_gene(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "TF_to_gene",
+        add_help = True,
+        description="""
+        Infer TF-to-gene relationships""")
+    def TF_to_gene(arg):
+        from scenicplus.cli.commands import infer_TF_to_gene
+        infer_TF_to_gene(
+            multiome_mudata_fname=arg.multiome_mudata_fname,
+            tf_names_fname=arg.tf_names,
+            temp_dir=arg.temp_dir,
+            adj_out_fname=arg.out_tf_to_gene_adjacencies,
+            method=arg.method,
+            n_cpu=arg.n_cpu,
+            seed=arg.seed)
+    parser.set_defaults(func=TF_to_gene)
+    # Required arguments
+    parser.add_argument(
+        "--multiome_mudata_fname", dest="multiome_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to multiome MuData object (from scenicplus prepare_GEX_ACC).")
+    parser.add_argument(
+        "--tf_names", dest="tf_names",
+        action="store", type=pathlib.Path, required=True,
+        help="Path TF names (from scenicplus prepare_menr).")
+    parser.add_argument(
+        "--temp_dir", dest="temp_dir",
+        action="store", type=pathlib.Path, required=True,
+        help="Path temp dir.")
+    parser.add_argument(
+        "--out_tf_to_gene_adjacencies", dest="out_tf_to_gene_adjacencies",
+        action="store", type=pathlib.Path, required=True,
+        help="Out file name to store TF to gene adjacencies (tsv)")
+    
+    # Optional arguments
+    parser.add_argument(
+        "--method", dest="method",
+        action="store", choices = ["GBM", "RF"], required=False,
+        default = "GBM",
+        help="Regression method to use, either GBM (Gradient Boosting Machine) or RF (Random Forrest). Default is GBM")
+    parser.add_argument(
+        "--n_cpu", dest="n_cpu",
+        action="store", type=int, required=False,
+        default=1,
+        help="Number of cores to use. Default is 1.")
+    parser.add_argument(
+        "--seed", dest="seed",
+        action="store", type=int, required=False,
+        default=666,
+        help="Seed to use. Default is 666.")
+
+
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
-    prepare_subparsers = parser.add_subparsers(help="Prepare data")
-    add_parser_for_prepare_GEX_and_ACC_data(prepare_subparsers)
-    add_parser_for_prepare_menr_data(prepare_subparsers)
-    add_parser_for_download_genome_annotations(prepare_subparsers)
-    add_parser_for_search_space(prepare_subparsers)
+    subparsers = parser.add_subparsers()
+
+    """
+    Data preparation parsers
+    """
+    preprocessing_parser = subparsers.add_parser(
+        "prepare_data", 
+        description="Prepare gene expression, chromatin accessibility and motif enrichment data.")
+    preprocessing_subparsers = preprocessing_parser.add_subparsers()
+    add_parser_for_prepare_GEX_and_ACC_data(preprocessing_subparsers)
+    add_parser_for_prepare_menr_data(preprocessing_subparsers)
+    add_parser_for_download_genome_annotations(preprocessing_subparsers)
+    add_parser_for_search_space(preprocessing_subparsers)
+
+    """
+    GRN inference parsers
+    """
+    inference_parser = subparsers.add_parser(
+        "grn_inference",
+        description="Infer Enhancer driven Gene Regulatory Networks.")
+    inference_subparsers = inference_parser.add_subparsers()
+    add_parser_for_infer_TF_to_gene(inference_subparsers)
     return parser
 
 def main(argv=None) -> int:

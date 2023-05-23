@@ -14,14 +14,13 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
-import scipy.sparse
 from arboreto.algo import _prepare_input
 from arboreto.core import (EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS,
                            infer_partial_network, to_tf_matrix)
 from tqdm import tqdm
 from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import _create_idx_pairs, masked_rho4pairs
-from typing import Literal, List
+from typing import Literal, List, Union
 import pathlib
 
 COLUMN_NAME_TARGET = "target"
@@ -48,7 +47,7 @@ def _inject_TF_as_its_own_target(
     TF2G_key = 'TF2G_adj', 
     out_key = 'TF2G_adj',
     inplace = True,
-    increase_importance_by = 0.00001) -> None | pd.DataFrame:
+    increase_importance_by = 0.00001) -> Union[None, pd.DataFrame]:
     if scplus_obj is None and TF2G_adj is None:
         raise ValueError('Either provide a SCENIC+ object of a pd.DataFrame with TF to gene adjecencies!')
     if scplus_obj is not None and TF2G_adj is not None:
@@ -190,31 +189,14 @@ def _add_correlation(
     )
 
 def calculate_TFs_to_genes_relationships(
-        scplus_obj: SCENICPLUS,
+        df_exp_mtx: pd.DataFrame,
         tf_names: List[str],
         temp_dir: pathlib.Path,
         method: Literal['GBM', 'RF'] = 'GBM',
         n_cpu: int = 1,
-        key: str = 'TF2G_adj',
-        seed: int = 666):
+        seed: int = 666) -> pd.DataFrame:
     """
-    A function to calculate TF to gene relationships using arboreto and correlation
-
-    Parameters
-    ----------
-    scplus_obj
-        An instance of :class:`~scenicplus.scenicplus_class.SCENICPLUS`
-    tf_file
-        Path to a file specifying with genes are TFs
-    method
-        Whether to use Gradient Boosting Machines (GBM) or random forest (RF)
-    n_cpu
-        Number of cpus to use
-    key
-        String specifying where in the .uns slot to store the adjacencies matrix in :param:`SCENICPLUS_obj`
-        default: "TF2G_adj"
-    **kwargs
-        Parameters to pass to ray.init
+    #TODO: Add docstrings
     """
 
     if(method == 'GBM'):
@@ -228,26 +210,11 @@ def calculate_TFs_to_genes_relationships(
             RF_KWARGS   # regressor_kwargs
         ]
 
-    gene_names = list(scplus_obj.gene_names)
-    if len(set(gene_names)) != len(gene_names):
-        raise ValueError("scplus_obj contains duplicate gene names!")
-    ex_matrix = scplus_obj.X_EXP
-    ex_matrix, gene_names, tf_names = _prepare_input(
-        ex_matrix, gene_names, tf_names)
+    exp_mtx, gene_names, tf_names = _prepare_input(
+        expression_data = df_exp_mtx, gene_names = None, tf_names = tf_names)
     tf_matrix, tf_matrix_gene_names = to_tf_matrix(
-        ex_matrix, gene_names, tf_names)
-    
-    #convert ex_matrix, tf_matrix to np.array if necessary
-    if isinstance(ex_matrix, np.matrix):
-        ex_matrix = np.array(ex_matrix)
-    elif scipy.sparse.issparse(ex_matrix):
-        ex_matrix = ex_matrix.toarray()
-        
-    if isinstance(tf_matrix, np.matrix):
-        tf_matrix = np.array(tf_matrix)
-    elif scipy.sparse.issparse(tf_matrix):
-        tf_matrix = tf_matrix.toarray()
-
+        exp_mtx,  gene_names, tf_names)
+            
     log.info('Calculating TF-to-gene importance')
     if temp_dir is not None:
         if type(temp_dir) == str:
@@ -261,7 +228,7 @@ def calculate_TFs_to_genes_relationships(
         temp_folder = temp_dir)(
             joblib.delayed(infer_partial_network)(
                 target_gene_name = gene,
-                target_gene_expression = ex_matrix[:, gene_names.index(gene)],
+                target_gene_expression = exp_mtx[:, gene_names.index(gene)],
                 regressor_type = method_params[0],
                 regressor_kwargs = method_params[1],
                 tf_matrix = tf_matrix,
@@ -276,15 +243,9 @@ def calculate_TFs_to_genes_relationships(
 
     adj = pd.concat(TF_to_genes).sort_values(by='importance', ascending=False)
     log.info('Adding correlation coefficients to adjacencies.')
-    ex_matrix = scplus_obj.to_df(layer = 'EXP') 
-    adj = _add_correlation(adj, ex_matrix)
+    adj = _add_correlation(adj, df_exp_mtx)
     adj = _inject_TF_as_its_own_target(
         TF2G_adj=adj, 
         inplace = False, 
-        ex_mtx = scplus_obj.to_df(layer='EXP'))
-    log.info('Adding importance x rho scores to adjacencies.')
-    adj[COLUMN_NAME_SCORE_1] = adj[COLUMN_NAME_CORRELATION] * \
-        adj[COLUMN_NAME_WEIGHT]
-    adj[COLUMN_NAME_SCORE_2] = abs(
-        adj[COLUMN_NAME_CORRELATION]) * abs(adj[COLUMN_NAME_WEIGHT])
-    scplus_obj.uns[key] = adj
+        ex_mtx = df_exp_mtx)
+    return adj

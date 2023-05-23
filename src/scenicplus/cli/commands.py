@@ -1,7 +1,7 @@
 import pathlib
 from typing import (
     Callable, Union, Dict, List,
-    Tuple)
+    Tuple, Literal)
 import pickle
 import mudata
 import logging
@@ -13,6 +13,7 @@ from scenicplus.data_wrangling.adata_cistopic_wrangling import (
 from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
 from scenicplus.data_wrangling.gene_search_space import (
     download_gene_annotation_and_chromsizes, get_search_space)
+from scenicplus.TF_to_gene import calculate_TFs_to_genes_relationships
 
 # Create logger
 level = logging.INFO
@@ -142,3 +143,28 @@ def get_search_space_command(
     search_space.to_csv(
         out_fname, sep = "\t",
         header = True, index = False)
+
+def infer_TF_to_gene(
+        multiome_mudata_fname: pathlib.Path,
+        tf_names_fname: pathlib.Path,
+        temp_dir: pathlib.Path,
+        adj_out_fname: pathlib.Path,
+        method: Literal['GBM', 'RF'],
+        n_cpu: int,
+        seed: int):
+    log.info("Reading multiome MuData.")
+    mdata = mudata.read(multiome_mudata_fname.__str__())
+    with open(tf_names_fname, "r") as f:
+         tf_names = f.read().split('\n')
+    log.info(f"Using {len(tf_names)} TFs.")
+    adj = calculate_TFs_to_genes_relationships(
+        df_exp_mtx=mdata["scRNA"].to_df(),
+        tf_names = tf_names,
+        temp_dir = temp_dir,
+        method = method,
+        n_cpu = n_cpu,
+        seed = seed)
+    log.info(f"Saving TF to gene adjacencies to: {adj_out_fname.__str__()}")
+    adj.to_csv(
+        adj_out_fname,
+        sep='\t', header = True, index = False)
