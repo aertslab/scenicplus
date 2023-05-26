@@ -1,3 +1,4 @@
+# General imports
 import pathlib
 from typing import (
     Callable, Union, Dict, List,
@@ -8,12 +9,16 @@ import logging
 import sys
 import pandas as pd
 
+# SCENIC+ imports
 from scenicplus.data_wrangling.adata_cistopic_wrangling import (
-    process_multiome_data, process_non_multiome_data)
+    process_multiome_data, 
+    process_non_multiome_data)
 from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
 from scenicplus.data_wrangling.gene_search_space import (
-    download_gene_annotation_and_chromsizes, get_search_space)
+    download_gene_annotation_and_chromsizes, 
+    get_search_space)
 from scenicplus.TF_to_gene import calculate_TFs_to_genes_relationships
+from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships
 
 # Create logger
 level = logging.INFO
@@ -165,6 +170,33 @@ def infer_TF_to_gene(
         n_cpu = n_cpu,
         seed = seed)
     log.info(f"Saving TF to gene adjacencies to: {adj_out_fname.__str__()}")
+    adj.to_csv(
+        adj_out_fname,
+        sep='\t', header = True, index = False)
+
+def infer_region_to_gene(
+        multiome_mudata_fname: pathlib.Path,
+        search_space_fname: pathlib.Path,
+        temp_dir: pathlib.Path,
+        adj_out_fname: pathlib.Path,
+        importance_scoring_method: Literal['RF', 'ET', 'GBM'],
+        correlation_scoring_method: Literal['PR', 'SR'],
+        mask_expr_dropout: bool,
+        n_cpu: int):
+    log.info("Reading multiome MuData.")
+    mdata = mudata.read(multiome_mudata_fname.__str__())
+    log.info("Reading search space")
+    search_space = pd.read_table(search_space_fname)
+    adj = calculate_regions_to_genes_relationships(
+        df_exp_mtx = mdata['scRNA'].to_df(),
+        df_acc_mtx = mdata['scATAC'].to_df(),
+        search_space = search_space,
+        temp_dir = temp_dir,
+        mask_expr_dropout = mask_expr_dropout,
+        importance_scoring_method = importance_scoring_method,
+        correlation_scoring_method = correlation_scoring_method,
+        n_cpu = n_cpu)
+    log.info(f"Saving region to gene adjacencies to {adj_out_fname.__str__()}")
     adj.to_csv(
         adj_out_fname,
         sep='\t', header = True, index = False)

@@ -299,7 +299,62 @@ def add_parser_for_infer_TF_to_gene(subparser:argparse._SubParsersAction):
         default=666,
         help="Seed to use. Default is 666.")
 
+def add_parser_for_infer_region_to_gene(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "region_to_gene",
+        add_help = True,
+        description="""
+        Infer region-to-gene relationships""")
+    def TF_to_gene(arg):
+        from scenicplus.cli.commands import infer_region_to_gene
+        infer_region_to_gene(
+            multiome_mudata_fname=arg.multiome_mudata_fname,
+            search_space_fname=arg.search_space_fname,
+            temp_dir=arg.temp_dir,
+            adj_out_fname=arg.out_region_to_gene_adjacencies,
+            importance_scoring_method=arg.importance_scoring_method,
+            correlation_scoring_method=arg.correlation_scoring_method,
+            mask_expr_dropout=arg.mask_expr_dropout,
+            n_cpu = arg.n_cpu)
+    parser.set_defaults(func=TF_to_gene)
+    # Required arguments
+    parser.add_argument(
+        "--multiome_mudata_fname", dest="multiome_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to multiome MuData object (from scenicplus prepare_GEX_ACC).")
+    parser.add_argument(
+        "--search_space_fname", dest="search_space_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to search space dataframe (from scenicplus search_spance).")
+    parser.add_argument(
+        "--temp_dir", dest="temp_dir",
+        action="store", type=pathlib.Path, required=True,
+        help="Path temp dir.")
+    parser.add_argument(
+        "--out_region_to_gene_adjacencies", dest="out_region_to_gene_adjacencies",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to store region to gene adjacencies (tsv).")
 
+    # Optional arguments
+    parser.add_argument(
+        "--importance_scoring_method", dest="importance_scoring_method",
+        action="store", choices = ['RF', 'ET', 'GBM'], required=False,
+        default = "GBM",
+        help="Regression method to use, either GBM (Gradient Boosting Machine), RF (Random Forrest) or ET (Extra Trees). Default is GBM.")
+    parser.add_argument(
+        "--correlation_scoring_method", dest="correlation_scoring_method",
+        action="store", choices = ['PR', 'SR'], required=False,
+        default = "SR",
+        help="Correlation method to use, either PR (Pearson correlation) or SR (Spearman Rank correlation). Default is SR.")
+    parser.add_argument(
+        "--mask_expr_dropout", dest="mask_expr_dropout",
+        action="store_true",
+        help="Whether to mask expression dropouts. Default is False.")
+    parser.add_argument(
+        "--n_cpu", dest="n_cpu",
+        action="store", type=int, required=False,
+        default=1,
+        help="Number of cores to use. Default is 1.")
 
 def create_argument_parser():
     parser = argparse.ArgumentParser(
@@ -313,6 +368,7 @@ def create_argument_parser():
         "prepare_data", 
         description="Prepare gene expression, chromatin accessibility and motif enrichment data.")
     preprocessing_subparsers = preprocessing_parser.add_subparsers()
+    # Create data preparation parsers
     add_parser_for_prepare_GEX_and_ACC_data(preprocessing_subparsers)
     add_parser_for_prepare_menr_data(preprocessing_subparsers)
     add_parser_for_download_genome_annotations(preprocessing_subparsers)
@@ -325,7 +381,9 @@ def create_argument_parser():
         "grn_inference",
         description="Infer Enhancer driven Gene Regulatory Networks.")
     inference_subparsers = inference_parser.add_subparsers()
+    # Create inference parsers
     add_parser_for_infer_TF_to_gene(inference_subparsers)
+    add_parser_for_infer_region_to_gene(inference_subparsers)
     return parser
 
 def main(argv=None) -> int:
