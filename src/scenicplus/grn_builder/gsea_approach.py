@@ -47,11 +47,9 @@ import numpy as np
 import logging
 import sys
 from tqdm import tqdm
-import ray
 import anndata
-from typing import Dict, List
-
-from scenicplus.scenicplus_class import SCENICPLUS
+from typing import List
+import joblib
 from scenicplus.utils import p_adjust_bh
 from scenicplus.grn_builder.modules import (
     create_emodules, eRegulon, merge_emodules, RHO_THRESHOLD, TARGET_GENE_NAME)
@@ -64,7 +62,11 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('GSEA')
 
-def _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
+def _run_gsea_for_e_module(
+        e_module:eRegulon, 
+        rnk:pd.Series, 
+        gsea_n_perm:int, 
+        context: frozenset):
     """
     Helper function to run gsea for single e_module
 
@@ -83,38 +85,36 @@ def _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
     -------
     Instance of :class:`~scenicplus.grn_builder.modules.eRegulon`
     """
-    gene_set = e_module.target_genes  # is already made unique by the class
-    TF = e_module.transcription_factor
-    try:
-        NES, pval, LE_genes = run_gsea(
-            ranked_gene_list=rnk,
-            gene_set=gene_set,
-            n_perm=gsea_n_perm)
-    except:
-        NES = np.nan
-        pval = np.nan
-        LE_genes = np.nan
-    return eRegulon(
-        transcription_factor=TF,
-        cistrome_name=e_module.cistrome_name,
-        is_extended=e_module.is_extended,
-        regions2genes=e_module.regions2genes,
-        context=e_module.context.union(context),
-        gsea_enrichment_score=NES,
-        gsea_pval=pval,
-        in_leading_edge=[getattr(r2g, TARGET_GENE_NAME) in LE_genes for r2g in e_module.regions2genes])
-
-
-@ray.remote
-def _ray_run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context):
-    return _run_gsea_for_e_module(e_module, rnk, gsea_n_perm, context)
-
+    if len(rnk) > 0:
+        gene_set = e_module.target_genes  # is already made unique by the class
+        TF = e_module.transcription_factor
+        try:
+            NES, pval, LE_genes = run_gsea(
+                ranked_gene_list=rnk,
+                gene_set=gene_set,
+                n_perm=gsea_n_perm)
+        except:
+            NES = np.nan
+            pval = np.nan
+            LE_genes = np.nan
+        return eRegulon(
+            transcription_factor=TF,
+            cistrome_name=e_module.cistrome_name,
+            is_extended=e_module.is_extended,
+            regions2genes=e_module.regions2genes,
+            context=e_module.context.union(context),
+            gsea_enrichment_score=NES,
+            gsea_pval=pval,
+            in_leading_edge=[getattr(r2g, TARGET_GENE_NAME) in LE_genes for r2g in e_module.regions2genes])
+    else:
+        return None
 
 def build_grn(
         tf_to_gene: pd.DataFrame,
         region_to_gene: pd.DataFrame,
         cistromes: anndata.AnnData,
         is_extended: bool,
+        temp_dir: str,
         order_regions_to_genes_by='importance',
         order_TFs_to_genes_by='importance',
         gsea_n_perm=1000,
@@ -131,11 +131,15 @@ def build_grn(
         NES_thr=0,
         adj_pval_thr=1,
         min_target_genes=5,
-        ray_n_cpu=None,
+        n_cpu=1,
         merge_eRegulons=True,
         disable_tqdm=False,
         **kwargs) -> List[eRegulon]:
     log.info('Thresholding region to gene relationships')
+    # some tfs are missing from tf_to_gene because they are not 
+    # preset in the gene expression matrix, so subset!
+    cistromes = cistromes[
+        :, cistromes.var_names[cistromes.var_names.isin(tf_to_gene['TF'])]]
     relevant_tfs, e_modules = create_emodules(
         region_to_gene=region_to_gene,
         cistromes=cistromes,
@@ -150,103 +154,64 @@ def build_grn(
         keep_only_activating=keep_only_activating,
         rho_threshold=rho_threshold,
         disable_tqdm=disable_tqdm,
-        ray_n_cpu=ray_n_cpu,
-        **kwargs)
+        n_cpu=n_cpu,
+        temp_dir=temp_dir)
     log.info('Subsetting TF2G adjacencies for TF with motif.')
     TF2G_adj_relevant = tf_to_gene.loc[tf_to_gene['TF'].isin(relevant_tfs)]
-
-    if ray_n_cpu is not None:
-        ray.init(num_cpus=ray_n_cpu, **kwargs)
-        jobs = []
-
+    TF2G_adj_relevant.index = TF2G_adj_relevant["TF"]
     log.info('Running GSEA...')
-    new_e_modules: List[eRegulon] = []
-    # dict so adjacencies matrix is only subsetted once per TF (improves performance)
-    TF_to_TF_adj_d:Dict[str, pd.DataFrame] = {}
-    tqdm_desc = 'initializing' if ray_n_cpu is not None else 'Running using single core'
-    for e_module in tqdm(e_modules, total=len(e_modules), desc=tqdm_desc, disable=disable_tqdm):
-        TF = e_module.transcription_factor
-        if TF in TF_to_TF_adj_d.keys():
-            TF2G_adj = TF_to_TF_adj_d[TF]
-        else:
-            TF2G_adj = TF2G_adj_relevant.loc[TF2G_adj_relevant['TF'] == TF]
-            TF2G_adj.index = TF2G_adj['target']
-            TF_to_TF_adj_d[TF] = TF2G_adj
-        if rho_dichotomize_tf2g:
-            TF2G_adj_activating = TF2G_adj.loc[TF2G_adj['rho']
-                                               > rho_threshold]
-            TF2G_adj_repressing = TF2G_adj.loc[TF2G_adj['rho']
-                                               < -rho_threshold]
-
-            TF2G_adj_activating_ranking = pd.Series(TF2G_adj_activating[order_TFs_to_genes_by]).sort_values(ascending=False)
-            TF2G_adj_repressing_ranking = pd.Series(TF2G_adj_repressing[order_TFs_to_genes_by]).sort_values(ascending=False)
-
-            if len(TF2G_adj_activating_ranking) > 0:
-                if ray_n_cpu is None:
-                    new_e_modules.append(
-                        _run_gsea_for_e_module(
-                            e_module,
-                            TF2G_adj_activating_ranking,
-                            gsea_n_perm,
-                            frozenset(['positive tf2g'])))
-                else:
-                    jobs.append(
-                        _ray_run_gsea_for_e_module.remote(
-                            e_module,
-                            TF2G_adj_activating_ranking,
-                            gsea_n_perm,
-                            frozenset(['positive tf2g'])))
-
-            if len(TF2G_adj_repressing_ranking) > 0:
-                if ray_n_cpu is None:
-                    new_e_modules.append(
-                        _run_gsea_for_e_module(
-                            e_module,
-                            TF2G_adj_repressing_ranking,
-                            gsea_n_perm,
-                            frozenset(['negative tf2g'])))
-                else:
-                    jobs.append(
-                        _ray_run_gsea_for_e_module.remote(
-                            e_module,
-                            TF2G_adj_repressing_ranking,
-                            gsea_n_perm,
-                            frozenset(['negative tf2g'])))
-        else:
-            TF2G_adj_ranking = pd.Series(TF2G_adj[order_TFs_to_genes_by]).sort_values(ascending=False)
-            if len(TF2G_adj_ranking) > 0:
-                if ray_n_cpu is None:
-                    new_e_modules.append(
-                        _run_gsea_for_e_module(
-                            e_module,
-                            TF2G_adj_ranking,
-                            gsea_n_perm,
-                            frozenset([''])))
-                else:
-                    jobs.append(
-                        _ray_run_gsea_for_e_module.remote(
-                            e_module,
-                            TF2G_adj_ranking,
-                            gsea_n_perm,
-                            frozenset([''])))
-    if ray_n_cpu is not None:
-        def to_iterator(obj_ids):
-            while obj_ids:
-                finished_ids, obj_ids = ray.wait(obj_ids)
-                for finished_id in finished_ids:
-                    yield ray.get(finished_id)
-
-        for e_module in tqdm(to_iterator(jobs),
-                             total=len(jobs),
-                             desc=f'Running using {ray_n_cpu} cores',
-                             smoothing=0.1,
-                             disable=disable_tqdm):
-            new_e_modules.append(e_module)
-
-
-    if ray_n_cpu is not None:
-        ray.shutdown()
-
+    if rho_dichotomize_tf2g:
+        pos_tf_gene_modules = joblib.Parallel(
+            n_jobs=n_cpu,
+            temp_folder=temp_dir)(
+            joblib.delayed(_run_gsea_for_e_module)(
+                e_module=e_module,
+                rnk=pd.Series(TF2G_adj_relevant.loc[
+                    e_module.transcription_factor].loc[
+                        TF2G_adj_relevant.loc[
+                    e_module.transcription_factor, "rho"] > rho_threshold] \
+                        .set_index("target")[order_TFs_to_genes_by] \
+                        .sort_values(ascending=False)),
+                gsea_n_perm=gsea_n_perm,
+                context=frozenset(['positive tf2g']))
+            for e_module in tqdm(
+                e_modules, 
+                total = len(e_modules),
+                desc="Running for Positive TF to gene"))
+        neg_tf_gene_modules = joblib.Parallel(
+            n_jobs=n_cpu,
+            temp_folder=temp_dir)(
+            joblib.delayed(_run_gsea_for_e_module)(
+                e_module=e_module,
+                rnk=pd.Series(TF2G_adj_relevant.loc[
+                    e_module.transcription_factor].loc[
+                        TF2G_adj_relevant.loc[
+                    e_module.transcription_factor, "rho"] < -rho_threshold] \
+                        .set_index("target")[order_TFs_to_genes_by] \
+                        .sort_values(ascending=False)),
+                gsea_n_perm=gsea_n_perm,
+                context=frozenset(['negative tf2g']))
+            for e_module in tqdm(
+                e_modules, 
+                total = len(e_modules),
+                desc="Running for Negative TF to gene"))
+        new_e_modules = [*pos_tf_gene_modules, *neg_tf_gene_modules]
+    else:
+        new_e_modules = joblib.Parallel(
+            n_jobs=n_cpu,
+            temp_folder=temp_dir)(
+            joblib.delayed(_run_gsea_for_e_module)(
+                e_module=e_module,
+                rnk=pd.Series(TF2G_adj_relevant.loc[
+                    e_module.transcription_factor] \
+                        .set_index("target")[order_TFs_to_genes_by] \
+                        .sort_values(ascending=False)),
+                gsea_n_perm=gsea_n_perm,
+                context=frozenset(['negative tf2g']))
+            for e_module in tqdm(
+                e_modules, 
+                total = len(e_modules),
+                desc="Running for Negative TF to gene"))
     # filter out nans
     new_e_modules = [m for m in new_e_modules if not np.isnan(
         m.gsea_enrichment_score) and not np.isnan(m.gsea_pval)]
