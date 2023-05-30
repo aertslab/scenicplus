@@ -3,18 +3,17 @@ import pyranges as pr
 import numpy as np
 import networkx as nx
 from typing import List, Union
-import ray
 from random import sample
 import random
 from matplotlib import cm
 from matplotlib.colors import Normalize, rgb2hex
-import pyranges as pr
-import numpy as np
 from numba import njit, float64, int64, prange
 from pycisTopic.utils import region_names_to_coordinates
 import subprocess
 import os
 import re
+from typing import Callable
+import joblib
 
 ASM_SYNONYMS = {
     'hg38': 'GRCh38',
@@ -285,19 +284,32 @@ class Groupby:
             self.indices[k].append(i)
         self.indices = [np.array(elt) for elt in self.indices]
 
-    def apply(self, function, vector, broadcast, ray_n_cpu=None):
-        if ray_n_cpu is not None:
-            ray_function = ray.remote(function)
+    def apply(
+            self,
+            function: Callable,
+            vector:np.ndarray,
+            broadcast:bool,
+            temp_dir: str,
+            n_cpu:int=1) -> np.ndarray:
+        if n_cpu > 1:
             if broadcast:
                 result = np.zeros(len(vector))
-                results_unsorted = ray.get(
-                    [ray_function.remote(vector[idx]) for idx in self.indices])
+                results_unsorted = joblib.Parallel(
+                    n_jobs=n_cpu,
+                    temp_folder=temp_dir)(
+                        joblib.delayed(function)(
+                            vector[idx])
+                        for idx in self.indices)
                 for idx, res in zip(self.indices, results_unsorted):
                     result[idx] = res
             else:
                 result = np.zeros(self.n_keys)
-                results_unsorted = ray.get([ray_function.remote(
-                    vector[idx]) for _, idx in enumerate(self.indices)])
+                results_unsorted = joblib.Parallel(
+                    n_jobs=n_cpu,
+                    temp_folder=temp_dir)(
+                        joblib.delayed(function)(
+                            vector[idx])
+                        for _, idx in enumerate(self.indices))
                 for (k, _), res in zip(enumerate(self.indices), results_unsorted):
                     result[self.keys_as_int[k]] = res
         else:

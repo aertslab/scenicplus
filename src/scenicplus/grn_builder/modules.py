@@ -8,7 +8,6 @@ from collections import namedtuple
 from itertools import chain
 from tqdm import tqdm
 import numpy as np
-import ray
 import pandas as pd
 import anndata
 
@@ -193,13 +192,15 @@ class eRegulon():
         return descr
 
 
-def _quantile_thr(adjacencies,
-                 grouped,
-                 threshold,
-                 min_regions_per_gene,
-                 context=frozenset(),
-                 order_regions_to_genes_by='importance',
-                 ray_n_cpu=None):
+def _quantile_thr(
+        adjacencies: pd.DataFrame,
+        grouped: Groupby,
+        threshold: float,
+        min_regions_per_gene: int,
+        temp_dir: str,
+        context:frozenset=frozenset(),
+        order_regions_to_genes_by:str='importance',
+        n_cpu: int=1):
     """
     A helper function to binarize region-to-gene links using based on quantiles of importance.
 
@@ -216,7 +217,7 @@ def _quantile_thr(adjacencies,
     context
         A frozenset containing contexts to add to the binarized results.
         default: frozenset()
-    ray_n_cpu
+    n_cpu
         An int specifying the number of parallel cores to use
 
     Yields
@@ -239,27 +240,37 @@ def _quantile_thr(adjacencies,
     importances = adjacencies[order_regions_to_genes_by].to_numpy()
 
     # get quantiles and threshold
-    thresholds = grouped.apply(_qt, importances, True, ray_n_cpu=ray_n_cpu)
+    thresholds = grouped.apply(
+        function=_qt,
+        vector=importances,
+        broadcast=True,
+        temp_dir=temp_dir,
+        n_cpu=n_cpu)
     passing = importances > thresholds
 
     if min_regions_per_gene > 0:
         # check min regions per gene
         passing = grouped.apply(
-            _gt, passing, True, ray_n_cpu=ray_n_cpu).astype(bool)
+            function=_gt,
+            vector=passing,
+            broadcast=True,
+            temp_dir=temp_dir,
+            nn_cpu=n_cpu).astype(bool)
 
     if sum(passing) > 0:
         df = adjacencies.loc[passing]
         df.index = df[TARGET_REGION_NAME]
         yield c, df
 
-
-def _top_targets(adjacencies,
-                grouped,
-                n,
-                min_regions_per_gene,
-                context=frozenset(),
-                order_regions_to_genes_by='importance',
-                ray_n_cpu=None):
+def _top_targets(
+        adjacencies:pd.DataFrame,
+        grouped: Groupby,
+        n:int,
+        min_regions_per_gene:int,
+        temp_dir: str,
+        context:frozenset=frozenset(),
+        order_regions_to_genes_by:str='importance',
+        n_cpu:int=1):
     """
     A helper function to binarize region-to-gene links using based on the top region-to-gene links per gene.
 
@@ -303,27 +314,37 @@ def _top_targets(adjacencies,
     importances = adjacencies[order_regions_to_genes_by].to_numpy()
 
     # get top n threshold
-    thresholds = grouped.apply(_top, importances, True, ray_n_cpu=ray_n_cpu)
+    thresholds = grouped.apply(
+        function=_top,
+        vector=importances,
+        broadcast=True,
+        temp_dir=temp_dir,
+        n_cpu=n_cpu)
     passing = importances >= thresholds
 
     if min_regions_per_gene > 0:
         # check min regions per gene
         passing = grouped.apply(
-            _gt, passing, True, ray_n_cpu=ray_n_cpu).astype(bool)
+            function=_gt,
+            vector=passing,
+            broadcast=True,
+            temp_dir=temp_dir,
+            n_cpu=n_cpu).astype(bool)
 
     if sum(passing) > 0:
         df = adjacencies.loc[passing]
         df.index = df[TARGET_REGION_NAME]
         yield c, df
 
-
-def _top_regions(adjacencies,
-                grouped,
-                n,
-                min_regions_per_gene,
-                context=frozenset(),
-                order_regions_to_genes_by='importance',
-                ray_n_cpu=None):
+def _top_regions(
+        adjacencies: pd.DataFrame,
+        grouped: Groupby,
+        n: int,
+        temp_dir: str,
+        min_regions_per_gene: int,
+        context:frozenset=frozenset(),
+        order_regions_to_genes_by:str='importance',
+        n_cpu:int=1):
     """
     A helper function to binarize region-to-gene links using based on the top region-to-gene links per region.
 
@@ -368,7 +389,12 @@ def _top_regions(adjacencies,
     importances = adjacencies[order_regions_to_genes_by].to_numpy()
 
     # get top n threshold
-    thresholds = grouped.apply(_top, importances, True, ray_n_cpu=ray_n_cpu)
+    thresholds = grouped.apply(
+        function=_top,
+        vector=importances,
+        broadcast=True,
+        temp_dir=temp_dir,
+        n_cpu=n_cpu)
     passing = importances >= thresholds
 
     df = adjacencies.loc[passing]
@@ -377,20 +403,25 @@ def _top_regions(adjacencies,
         # check minimum target gene requirement
         grouped = Groupby(df[TARGET_GENE_NAME].to_numpy())
         passing = grouped.apply(
-            _gt, passing[passing], True, ray_n_cpu=ray_n_cpu).astype(bool)
+            function=_gr,
+            vector=passing[passing],
+            broadcast=True,
+            temp_dir=temp_dir,
+            n_cpu=n_cpu).astype(bool)
         df = df.loc[passing]
         df.index = df[TARGET_REGION_NAME]
 
     if len(df) > 0:
         yield c, df
 
-
-def _binarize_BASC(adjacencies,
-                  grouped,
-                  min_regions_per_gene,
-                  context=frozenset(),
-                  order_regions_to_genes_by='importance',
-                  ray_n_cpu=None):
+def _binarize_BASC(
+        adjacencies:pd.DataFrame,
+        grouped:Groupby,
+        min_regions_per_gene:int,
+        temp_dir:str,
+        context:frozenset=frozenset(),
+        order_regions_to_genes_by:str='importance',
+        n_cpu:int=1):
     """
     A helper function to binarize region-to-gene links using BASC
     For more information see: Hopfensitz M, et al. Multiscale binarization of gene expression data for reconstructing Boolean networks. 
@@ -440,13 +471,21 @@ def _binarize_BASC(adjacencies,
 
     # get BASC thresholds
     thresholds = grouped.apply(
-        _binarize_basc, importances, True, ray_n_cpu=ray_n_cpu)
+        function=_binarize_basc,
+        vector=importances,
+        broadcast=True,
+        temp_dir=temp_dir,
+        n_cpu=n_cpu)
     passing = importances > thresholds
 
     if min_regions_per_gene > 0:
         # check min regions per gene
         passing = grouped.apply(
-            _gt, passing, True, ray_n_cpu=ray_n_cpu).astype(bool)
+            function=_gt,
+            vector=passing,
+            broadcast=True,
+            temp_dir=temp_dir,
+            n_cpu=n_cpu).astype(bool)
 
     if sum(passing) > 0:
         df = adjacencies.loc[passing]
@@ -458,6 +497,7 @@ def create_emodules(
         region_to_gene: pd.DataFrame,
         cistromes: anndata.AnnData,
         is_extended: bool,
+        temp_dir: str,
         order_regions_to_genes_by: str = 'importance',
         quantiles: tuple = (0.85, 0.90),
         top_n_regionTogenes_per_gene: tuple = (5, 10, 15),
@@ -468,8 +508,7 @@ def create_emodules(
         keep_only_activating: bool = False,
         rho_threshold: float = RHO_THRESHOLD,
         disable_tqdm=False,
-        ray_n_cpu=None,
-        **kwargs) -> Tuple[Set[str], List[eRegulon]]:
+        n_cpu=None,) -> Tuple[Set[str], List[eRegulon]]:
     # Set up multiple thresholding methods to threshold region to gene relationships
     def iter_thresholding(adj:pd.DataFrame, context: frozenset):
         grouped_adj_by_gene = Groupby(adj[TARGET_GENE_NAME].to_numpy())
@@ -482,7 +521,9 @@ def create_emodules(
                             threshold=thr,
                             min_regions_per_gene=min_regions_per_gene,
                             context=context,
-                            order_regions_to_genes_by=order_regions_to_genes_by) 
+                            order_regions_to_genes_by=order_regions_to_genes_by,
+                            temp_dir=temp_dir,
+                            n_cpu=n_cpu)
                 for thr in quantiles),
             chain.from_iterable(
                 _top_targets(
@@ -491,7 +532,9 @@ def create_emodules(
                     n=n,
                     min_regions_per_gene=min_regions_per_gene,
                     context=context,
-                    order_regions_to_genes_by=order_regions_to_genes_by)
+                    order_regions_to_genes_by=order_regions_to_genes_by,
+                    temp_dir=temp_dir,
+                    n_cpu=n_cpu)
                 for n in top_n_regionTogenes_per_gene),
             chain.from_iterable(
                 _top_regions(
@@ -500,14 +543,18 @@ def create_emodules(
                     n=n,
                     min_regions_per_gene=min_regions_per_gene,
                     context=context,
-                    order_regions_to_genes_by=order_regions_to_genes_by) 
+                    order_regions_to_genes_by=order_regions_to_genes_by,
+                    temp_dir=temp_dir,
+                    n_cpu=n_cpu)
                 for n in top_n_regionTogenes_per_region),
             _binarize_BASC(
                     adjacencies=adj,
                     grouped=grouped_adj_by_gene,
                     min_regions_per_gene=min_regions_per_gene,
                     context=context,
-                    order_regions_to_genes_by=order_regions_to_genes_by) 
+                    order_regions_to_genes_by=order_regions_to_genes_by,
+                    temp_dir=temp_dir,
+                    n_cpu=n_cpu)
                 if binarize_using_basc else [])
     # Split positive and negative correlation coefficients, if rho_dichotomize == True
     if rho_dichotomize:
@@ -542,37 +589,27 @@ def create_emodules(
 
     mtx_cistromes:pd.DataFrame = cistromes.to_df()
 
-    if ray_n_cpu is not None:
-        # Init ray here so it only has to be inited once, instead of with every call of grouped.apply.
-        # This to prevent the extra overhead of calling ray.init, which is not insignificant.
-        ray.init(num_cpus=ray_n_cpu, **kwargs)
-    try:
-        for context, r2g_df in tqdm(r2g_iter, total=total_iter, disable=disable_tqdm):
-            for TF_name in tqdm(
-                mtx_cistromes.columns,
-                total=len(mtx_cistromes.columns),
-                desc=f"\u001b[32;1mProcessing:\u001b[0m {', '.join(context)}",
-                leave=False,
-                disable=disable_tqdm):
-                regions_enriched_for_TF_motif = mtx_cistromes.index[
-                    mtx_cistromes[TF_name]]
-                r2g_df_enriched_for_TF_motif = r2g_df.loc[list(set(
-                    regions_enriched_for_TF_motif) & set(r2g_df.index))]
-                if len(r2g_df_enriched_for_TF_motif) > 0:
-                    relevant_tfs.append(TF_name)
-                    eRegulons.append(
-                        eRegulon(
-                            transcription_factor=TF_name,
-                            cistrome_name=f"{TF_name}" + ("_extended" if is_extended else "_direct") + "_({len(r2g_df_enriched_for_TF_motif)}r)",
-                            is_extended=is_extended,
-                            regions2genes=list(r2g_df_enriched_for_TF_motif[list(
-                                REGIONS2GENES_HEADER)].itertuples(index=False, name='r2g')),
-                            context=context.union(frozenset(['Cistromes']))))
-    except Exception as e:
-        print(e)
-    finally:
-        if ray_n_cpu is not None:
-            ray.shutdown()
+    for context, r2g_df in tqdm(r2g_iter, total=total_iter, disable=disable_tqdm):
+        for TF_name in tqdm(
+            mtx_cistromes.columns,
+            total=len(mtx_cistromes.columns),
+            desc=f"\u001b[32;1mProcessing:\u001b[0m {', '.join(context)}",
+            leave=False,
+            disable=disable_tqdm):
+            regions_enriched_for_TF_motif = mtx_cistromes.index[
+                mtx_cistromes[TF_name]]
+            r2g_df_enriched_for_TF_motif = r2g_df.loc[list(set(
+                regions_enriched_for_TF_motif) & set(r2g_df.index))]
+            if len(r2g_df_enriched_for_TF_motif) > 0:
+                relevant_tfs.append(TF_name)
+                eRegulons.append(
+                    eRegulon(
+                        transcription_factor=TF_name,
+                        cistrome_name=f"{TF_name}" + ("_extended" if is_extended else "_direct") + "_({len(r2g_df_enriched_for_TF_motif)}r)",
+                        is_extended=is_extended,
+                        regions2genes=list(r2g_df_enriched_for_TF_motif[list(
+                            REGIONS2GENES_HEADER)].itertuples(index=False, name='r2g')),
+                        context=context.union(frozenset(['Cistromes']))))
     return set(relevant_tfs), eRegulons
 
 def _merge_single_TF(l_e_modules):
