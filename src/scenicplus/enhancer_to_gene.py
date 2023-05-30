@@ -185,8 +185,8 @@ def _get_acc_idx_per_gene(
     return unique_gene_names, region_idx_per_gene
 
 def _score_regions_to_genes(
-        scplus_obj: SCENICPLUS,
-        subset_genes: Union[None, List[str]],
+        df_exp_mtx: pd.DataFrame,
+        df_acc_mtx: pd.DataFrame,
         search_space: pd.DataFrame,
         mask_expr_dropout: bool,
         regressor_type: Literal["RF", "ET", "GBM", "PR", "SR"],
@@ -194,52 +194,27 @@ def _score_regions_to_genes(
         n_cpu: int,
         temp_dir: Union[None, pathlib.Path]) -> dict:
     """
-    Calculates region to gene importances or region to gene correlations for multiple genes in parallel.
-
-    Parameters
-    ----------
-    scplus_obj: SCENICPLUS
-        SCENIC+ object
-    genes: List[str]
-        genes to calculate region-to-gene for.
-    search_space: pd.DataFrame
-        A Data frame containing the search space for each gee
-    mask_expr_dropout: bool
-        Wether or not to mask expression dropouts.
-    region_names: List[str]
-        Names of the regions.
-    regressor_type: Literal["RF", "ET", "GBM", "PR", "SR"]
-        Regressor type to use, must be any of "RF", "ET", "GBM", "PR", "SR".
-    regressor_kwargs: dict
-        Keyword arguments to pass to the regressor function.
-    n_cpu: int
-        Number of cores to use.
-    temp_dir: pathlib.Path
-        Path to temporary directory
-        
-    Returns
-    -------
-    dictionary with genes as keys and importance score or correlation coefficient 
-    as values for resp. regression based and correlation based calculations.
-
+    # TODO: Add doctstrings
     """
-    if len(set(scplus_obj.gene_names)) != len(scplus_obj.gene_names):
-        raise ValueError("scplus_obj contains duplicate gene names!")
-    if len(set(scplus_obj.region_names)) != len(scplus_obj.region_names):
-        raise ValueError("scplus_obj contains duplicate region names!")
-    genes_to_use = scplus_obj.gene_names if subset_genes is None else pd.Index(subset_genes)
-    search_space = search_space[search_space['Name'].isin(scplus_obj.region_names)]
-    search_space = search_space[search_space['Gene'].isin(genes_to_use)]
+    if len(set(df_exp_mtx.columns)) != len(df_exp_mtx.columns):
+        raise ValueError("Expression matrix contains duplicate gene names")
+    if len(set(df_acc_mtx.columns)) != len(df_acc_mtx.columns):
+        raise ValueError("Chromatin accessibility matrix contains duplicate gene names")
     if temp_dir is not None:
-        if type(tmp_dir) == str:
-            tmp_dir = pathlib.Path(tmp_dir)
+        if type(temp_dir) == str:
+            temp_dir = pathlib.Path(temp_dir)
         if not temp_dir.exists():
             Warning(f"{temp_dir} does not exist, creating it.")
             os.makedirs(temp_dir)
+    scplus_region_names = df_acc_mtx.columns
+    scplus_gene_names = df_exp_mtx.columns
+    search_space = search_space[search_space['Name'].isin(scplus_region_names)]
+    search_space = search_space[search_space['Gene'].isin(scplus_gene_names)]
+    # Get region indeces per gene
     gene_names, acc_idx = _get_acc_idx_per_gene(
-        scplus_region_names = scplus_obj.region_names, search_space = search_space)
-    ACC = scplus_obj.X_ACC.T
-    EXP = scplus_obj.to_df('EXP')[gene_names].to_numpy()
+        scplus_region_names = scplus_region_names, search_space = search_space)
+    EXP = df_exp_mtx[gene_names].to_numpy()
+    ACC = df_acc_mtx.to_numpy()
     regions_to_genes = dict(
         joblib.Parallel(
             n_jobs = n_cpu,
@@ -248,7 +223,7 @@ def _score_regions_to_genes(
                     acc = ACC[:, acc_idx[idx]],
                     exp = EXP[:, idx],
                     gene_name = gene_names[idx],
-                    region_names = scplus_obj.region_names[acc_idx[idx]],
+                    region_names = scplus_region_names[acc_idx[idx]],
                     regressor_type = regressor_type,
                     regressor_kwargs = regressor_kwargs, 
                     mask_expr_dropout = mask_expr_dropout
@@ -261,45 +236,18 @@ def _score_regions_to_genes(
     return regions_to_genes
 
 def calculate_regions_to_genes_relationships(
-        scplus_obj: SCENICPLUS,
+        df_exp_mtx: pd.DataFrame,
+        df_acc_mtx: pd.DataFrame,
+        search_space: pd.DataFrame,
         temp_dir: pathlib.Path,
-        search_space_key: str = 'search_space',
         mask_expr_dropout: bool = False,
-        genes: Union[None, List[str]] = None,
         importance_scoring_method: Literal["RF", "ET", "GBM"] = 'GBM',
         importance_scoring_kwargs: dict = GBM_KWARGS,
         correlation_scoring_method: Literal["PR", "SR"] = 'SR',
         n_cpu: int = 1,
-        add_distance: bool = True,
-        key_added: str = 'region_to_gene',
-        inplace: bool = True):
+        add_distance: bool = True):
     """
-    Calculates region to gene relationships using non-linear regression methods and correlation
-
-    Parameters
-    ----------
-    scplus_obj: SCENICPLUS
-        instance of SCENICPLUS class containing expression data and chromatin accessbility data
-    search_space_key: str = 'search_space'
-        a key in scplus_obj.uns.keys pointing to a dataframe containing the search space surounding each gene.
-    mask_expr_dropout: bool = False
-        Wether or not to exclude cells which have zero counts for a gene from the calculations
-    genes: List[str] None
-        list of genes for which to calculate region gene scores. Default is None, i.e. all genes
-    importance_scoring_method: str = GBM
-        method used to score region to gene importances. Available regression analysis are: 'RF' (Random Forrest regression), 'ET' (Extra Trees regression), 'GBM' (Gradient Boostin regression).
-    importance_scoring_kwargs: dict = GBM_KWARGS
-        arguments to pass to the importance scoring function
-    correlation_scoring_method: str = SR
-        method used to calculate region to gene correlations. Available correlation analysis are: 'PR' (pearson correlation), 'SR' (spearman correlation).
-    n_cpu: int = None
-        number of cores to use.
-    add_distance: bool = True
-        Wether or not to return region to gene distances
-    key_added: str = region_to_gene
-        Key in scplus_obj.uns under which to store region to gene links, only stores when inplace = True
-    inplace: bool = True
-        Wether or not store the region to gene links in the scplus_obj, if False a pd.DataFrame will be returned.
+    # TODO: add docstrings
     """
     # Create logger
     level = logging.INFO
@@ -307,19 +255,13 @@ def calculate_regions_to_genes_relationships(
     handlers = [logging.StreamHandler(stream=sys.stdout)]
     logging.basicConfig(level=level, format=format, handlers=handlers)
     log = logging.getLogger('R2G')
-    if search_space_key not in scplus_obj.uns.keys():
-        raise Exception(
-            f'key {search_space_key} not found in scplus_obj.uns, first get search space using function: "get_search_space"')
-
-    search_space = scplus_obj.uns[search_space_key]
-
     # calulcate region to gene importance
     log.info(
         f'Calculating region to gene importances, using {importance_scoring_method} method')
     region_to_gene_importances = _score_regions_to_genes(
-        scplus_obj = scplus_obj,
-        subset_genes = genes,
-        search_space = search_space,
+        df_exp_mtx=df_exp_mtx,
+        df_acc_mtx=df_acc_mtx,
+        search_space=search_space,
         mask_expr_dropout = mask_expr_dropout,
         regressor_type = importance_scoring_method,
         regressor_kwargs = importance_scoring_kwargs,
@@ -330,9 +272,9 @@ def calculate_regions_to_genes_relationships(
     log.info(
         f'Calculating region to gene correlation, using {correlation_scoring_method} method')
     region_to_gene_correlation = _score_regions_to_genes(
-        scplus_obj = scplus_obj,
-        subset_genes = genes,
-        search_space = search_space,
+        df_exp_mtx=df_exp_mtx,
+        df_acc_mtx=df_acc_mtx,
+        search_space=search_space,
         mask_expr_dropout = mask_expr_dropout,
         regressor_type = correlation_scoring_method,
         regressor_kwargs = importance_scoring_kwargs,
@@ -360,10 +302,7 @@ def calculate_regions_to_genes_relationships(
         result_df = result_df.merge(search_space_rn, on=['region', 'target'])
         #result_df['Distance'] = result_df['Distance'].map(lambda x: x[0])
     log.info('Done!')
-    if inplace:
-        scplus_obj.uns[key_added] = result_df
-    else:
-        return result_df
+    return result_df
 
 
 def export_to_UCSC_interact(scplus_obj: SCENICPLUS,
