@@ -161,57 +161,74 @@ def build_grn(
     TF2G_adj_relevant.index = TF2G_adj_relevant["TF"]
     log.info('Running GSEA...')
     if rho_dichotomize_tf2g:
+        log.info("Generating rankings...")
+        TF2G_adj_relevant_pos = TF2G_adj_relevant.loc[TF2G_adj_relevant["rho"] > rho_threshold]
+        TF2G_adj_relevant_neg = TF2G_adj_relevant.loc[TF2G_adj_relevant["rho"] < -rho_threshold]
+        pos_TFs, c = np.unique(TF2G_adj_relevant_pos["TF"], return_counts=True)
+        pos_TFs = pos_TFs[c >= min_target_genes]
+        neg_TFs, c = np.unique(TF2G_adj_relevant_neg["TF"], return_counts=True)
+        neg_TFs = neg_TFs[c >= min_target_genes]
+        # The expression below will fail if there is only a single target gene (after thresholding on rho)
+        # TF2G_adj_relevant_pos/neg.loc[TF] will return a pd.Series instead of dataframe
+        # This should never be the case though (if min_target_genes > 1)
+        # But better fix this at some point!
+        TF_to_ranking_pos = {
+            TF: TF2G_adj_relevant_pos.loc[TF].set_index('target')[order_TFs_to_genes_by].sort_values(ascending = False)
+            for TF in tqdm(pos_TFs, total = len(pos_TFs))}
+        TF_to_ranking_neg = {
+            TF: TF2G_adj_relevant_neg.loc[TF].set_index('target')[order_TFs_to_genes_by].sort_values(ascending = False)
+            for TF in tqdm(neg_TFs, total = len(neg_TFs))}
         pos_tf_gene_modules = joblib.Parallel(
             n_jobs=n_cpu,
             temp_folder=temp_dir)(
             joblib.delayed(_run_gsea_for_e_module)(
                 e_module=e_module,
-                rnk=pd.Series(TF2G_adj_relevant.loc[
-                    e_module.transcription_factor].loc[
-                        TF2G_adj_relevant.loc[
-                    e_module.transcription_factor, "rho"] > rho_threshold] \
-                        .set_index("target")[order_TFs_to_genes_by] \
-                        .sort_values(ascending=False)),
+                rnk=TF_to_ranking_pos[e_module.transcription_factor],
                 gsea_n_perm=gsea_n_perm,
                 context=frozenset(['positive tf2g']))
             for e_module in tqdm(
                 e_modules, 
                 total = len(e_modules),
-                desc="Running for Positive TF to gene"))
+                desc="Running for Positive TF to gene")
+            if e_module.transcription_factor in pos_TFs)
         neg_tf_gene_modules = joblib.Parallel(
             n_jobs=n_cpu,
             temp_folder=temp_dir)(
             joblib.delayed(_run_gsea_for_e_module)(
                 e_module=e_module,
-                rnk=pd.Series(TF2G_adj_relevant.loc[
-                    e_module.transcription_factor].loc[
-                        TF2G_adj_relevant.loc[
-                    e_module.transcription_factor, "rho"] < -rho_threshold] \
-                        .set_index("target")[order_TFs_to_genes_by] \
-                        .sort_values(ascending=False)),
+                rnk=TF_to_ranking_neg[e_module.transcription_factor],
                 gsea_n_perm=gsea_n_perm,
                 context=frozenset(['negative tf2g']))
             for e_module in tqdm(
                 e_modules, 
                 total = len(e_modules),
-                desc="Running for Negative TF to gene"))
+                desc="Running for Negative TF to gene")
+            if e_module.transcription_factor in neg_TFs)
         new_e_modules = [*pos_tf_gene_modules, *neg_tf_gene_modules]
     else:
+        log.info("Generating rankings...")
+        TFs, c = np.unique(TF2G_adj_relevant["TF"], return_counts=True)
+        TFs = TFs[c >= min_target_genes]
+        # The expression below will fail if there is only a single target gene (after thresholding on rho)
+        # TF2G_adj_relevant.loc[TF] will return a pd.Series instead of dataframe
+        # This should never be the case though (if min_target_genes > 1)
+        # But better fix this at some point!
+        TF_to_ranking = {
+            TF: TF2G_adj_relevant.loc[TF].set_index('target')[order_TFs_to_genes_by].sort_values(ascending = False)
+            for TF in tqdm(TFs, total = len(TFs))}
         new_e_modules = joblib.Parallel(
             n_jobs=n_cpu,
             temp_folder=temp_dir)(
             joblib.delayed(_run_gsea_for_e_module)(
                 e_module=e_module,
-                rnk=pd.Series(TF2G_adj_relevant.loc[
-                    e_module.transcription_factor] \
-                        .set_index("target")[order_TFs_to_genes_by] \
-                        .sort_values(ascending=False)),
+                rnk=TF_to_ranking[e_module.transcription_factor],
                 gsea_n_perm=gsea_n_perm,
                 context=frozenset(['negative tf2g']))
             for e_module in tqdm(
                 e_modules, 
                 total = len(e_modules),
-                desc="Running for Negative TF to gene"))
+                desc="Running for Negative TF to gene")
+            if e_module.transcription_factor in TFs)
     # filter out nans
     new_e_modules = [m for m in new_e_modules if not np.isnan(
         m.gsea_enrichment_score) and not np.isnan(m.gsea_pval)]
