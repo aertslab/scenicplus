@@ -646,7 +646,7 @@ def forces_rss(adata: AnnData,
     n_types = len(cell_data)
     regulons = list(data_mat.columns)
     n_regulons = len(regulons)
-    rss_values = np.empty(shape=(n_types, n_regulons), dtype=np.float)
+    rss_values = np.empty(shape=(n_types, n_regulons), dtype=np.float64)
 
     def rss(aucs, labels):
         # jensenshannon function provides distance which is the sqrt of the JS divergence.
