@@ -1,0 +1,21 @@
+configfile: "config/config.yaml"
+
+rule all:
+    input:
+        config["output_data"]["combined_GEX_ACC_mudata"]
+
+rule prepare_GEX_ACC:
+    input:
+        cisTopic_obj_fname=config["input_data"]["cisTopic_obj_fname"],
+        GEX_anndata_fname=config["input_data"]["GEX_anndata_fname"]
+    output:
+        config["output_data"]["combined_GEX_ACC_mudata"]
+    params:
+        bc_transform_func=lambda wildcards: config["params"]["bc_transform_func"]
+    shell:
+        """
+        scenicplus prepare_data prepare_GEX_ACC \
+            --cisTopic_obj_fname {input.cisTopic_obj_fname} \
+            --GEX_anndata_fname {input.GEX_anndata_fname} \
+            --out_file {output} --bc_transform_func {params.bc_transform_func}
+        """
