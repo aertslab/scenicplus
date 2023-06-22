@@ -356,6 +356,135 @@ def add_parser_for_infer_region_to_gene(subparser:argparse._SubParsersAction):
         default=1,
         help="Number of cores to use. Default is 1.")
 
+def add_parser_for_infer_egrn(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "eGRN",
+        add_help = True,
+        description="""
+        Infer enhancer-driven Gene Regulatory Network (eGRN)""")
+    def eGRN(arg):
+        from scenicplus.cli.commands import infer_grn
+        infer_grn(
+            TF_to_gene_adj_fname=arg.TF_to_gene_adj_fname,
+            region_to_gene_adj_fname=arg.region_to_gene_adj_fname,
+            cistromes_fname=arg.cistromes_fname,
+            eRegulon_out_fname=arg.eRegulon_out_fname,
+            is_extended=arg.is_extended,
+            temp_dir=arg.temp_dir,
+            order_regions_to_genes_by=arg.order_regions_to_genes_by,
+            order_TFs_to_genes_by=arg.order_TFs_to_genes_by,
+            gsea_n_perm=arg.gsea_n_perm,
+            quantiles=arg.quantiles,
+            top_n_regionTogenes_per_gene=arg.top_n_regionTogenes_per_gene,
+            top_n_regionTogenes_per_region=arg.top_n_regionTogenes_per_region,
+            binarize_using_basc=not(arg.do_not_binarize_using_basc),
+            min_regions_per_gene=arg.min_regions_per_gene,
+            rho_dichotomize_tf2g=not(arg.do_not_rho_dichotomize_tf2g),
+            rho_dichotomize_r2g=not(arg.do_not_rho_dichotomize_r2g),
+            rho_dichotomize_eregulon=not(arg.do_not_rho_dichotomize_eRegulon),
+            keep_only_activating=arg.keep_only_activating_eRegulons,
+            rho_threshold=arg.rho_threshold,
+            min_target_genes=arg.min_target_genes,
+            n_cpu=arg.n_cpu)
+            
+    parser.set_defaults(func=eGRN)
+    # Required arguments
+    parser.add_argument(
+        "--TF_to_gene_adj_fname", dest="TF_to_gene_adj_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to TF-to-gene adjacencies (.tsv) from scenicplus TF_to_gene.")
+    parser.add_argument(
+        "--region_to_gene_adj_fname", dest="region_to_gene_adj_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to region-to-gene adjacencies (.tsv) from scenicplus region_to_gene.")
+    parser.add_argument(
+        "--cistromes_fname", dest="cistromes_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to either direct or extended cistromes (.h5ad) from scenicplus prepare_menr.")
+    parser.add_argument(
+        "--eRegulon_out_fname", dest="eRegulon_out_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to save eRegulon dataframe (.tsv)")
+    parser.add_argument(
+        "--temp_dir", dest="temp_dir",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to temp dir.")
+    # Optional arguments
+    parser.add_argument(
+        "--is_extended", dest="is_extended",
+        action="store_true",
+        help="Use this when cistromes are based on extended annotation. Default is False.")
+    parser.add_argument(
+        "--order_regions_to_genes_by", dest="order_regions_to_genes_by",
+        action="store", type=str, required=False,
+        default="importance",
+        help="Column by which to order the region-to-gene links. Default is 'importance'.")
+    parser.add_argument(
+        "--order_TFs_to_genes_by", dest="order_TFs_to_genes_by",
+        action="store", type=str, required=False,
+        default="importance",
+        help="Column by which to order the TF-to-gene links. Default is 'importance'.")
+    parser.add_argument(
+        "--gsea_n_perm", dest="gsea_n_perm",
+        action="store", type=int, required=False,
+        default=1000,
+        help="Number of permutations to run for GSEA. Default is 1000.")
+    parser.add_argument(
+        "--quantiles", dest="quantiles",
+        action="store", type=float, required=False,
+        nargs="*", default=[0.85, 0.90, 0.95],
+        help="Quantiles for thresholding region-to-gene links. Default is [0.85, 0.90, 0.95]")
+    parser.add_argument(
+        "--top_n_regionTogenes_per_gene", dest="top_n_regionTogenes_per_gene",
+        action="store", type=int, required=False,
+        nargs="*", default=[5, 10, 15],
+        help="Top n region-to-gene links per gene for thresholding region-to-gene links. Default is [5, 10, 15]")
+    parser.add_argument(
+        "--top_n_regionTogenes_per_region", dest="top_n_regionTogenes_per_region",
+        action="store", type=int, required=False,
+        nargs="*", default=[],
+        help="Top n region-to-gene links per region for thresholding region-to-gene links. Default is []")
+    parser.add_argument(
+        "--do_not_binarize_using_basc", dest="do_not_binarize_using_basc",
+        action="store_true",
+        help="Don't use BASC to binarize region to gene links. By default BASC is used.")
+    parser.add_argument(
+        "--min_regions_per_gene", dest="min_regions_per_gene",
+        action="store", type=int, required=False,
+        default=0,
+        help="Minimum regions per gene. Default is 0.")
+    parser.add_argument(
+        "--do_not_rho_dichotomize_tf2g", dest="do_not_rho_dichotomize_tf2g",
+        action="store_true",
+        help="Don't split positive and negative TF-to-gene links. By default they are split.")
+    parser.add_argument(
+        "--do_not_rho_dichotomize_r2g", dest="do_not_rho_dichotomize_r2g",
+        action="store_true",
+        help="Don't split positive and negative region-to-gene links. By default they are split.")
+    parser.add_argument(
+        "--do_not_rho_dichotomize_eRegulon", dest="do_not_rho_dichotomize_eRegulon",
+        action="store_true",
+        help="Don't split positive and negative eRegulons. By default they are split.")
+    parser.add_argument(
+        "--keep_only_activating_eRegulons", dest="keep_only_activating_eRegulons",
+        action="store_true",
+        help="Keep only activating eRegulons. By default both activating and repressive eRegulons are kept.")
+    parser.add_argument(
+        "--rho_threshold", dest="rho_threshold",
+        action="store", type=float, required=False,
+        default=0.05,
+        help="Threshold on correlation coefficient used for splitting positive and negative interactions. Default is 0.05")
+    parser.add_argument(
+        "--min_target_genes", dest="min_target_genes",
+        action="store", type=int, required=False,
+        default=10,
+        help="Minimum number of target genes per eRegulon, eRegulon with a lower number of target genes will be discarded. Default is 10")
+    parser.add_argument(
+        "--n_cpu", dest="n_cpu",
+        action="store", type=int, required=False,
+        default=1,
+        help="Number of cores to use. Default is 1.")
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
@@ -384,6 +513,7 @@ def create_argument_parser():
     # Create inference parsers
     add_parser_for_infer_TF_to_gene(inference_subparsers)
     add_parser_for_infer_region_to_gene(inference_subparsers)
+    add_parser_for_infer_egrn(inference_subparsers)
     return parser
 
 def main(argv=None) -> int:

@@ -1,3 +1,7 @@
+# TODO: split these commands over multiple files. 
+#       this will limit the amount of import time required.
+#       Or, put the imports inside the function calls.
+
 # General imports
 import pathlib
 from typing import (
@@ -8,6 +12,7 @@ import mudata
 import logging
 import sys
 import pandas as pd
+import numpy as np
 
 # SCENIC+ imports
 from scenicplus.data_wrangling.adata_cistopic_wrangling import (
@@ -19,6 +24,9 @@ from scenicplus.data_wrangling.gene_search_space import (
     get_search_space)
 from scenicplus.TF_to_gene import calculate_TFs_to_genes_relationships
 from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships
+from scenicplus.grn_builder.gsea_approach import build_grn
+from scenicplus.grn_builder.modules import eRegulon
+
 
 # Create logger
 level = logging.INFO
@@ -200,3 +208,117 @@ def infer_region_to_gene(
     adj.to_csv(
         adj_out_fname,
         sep='\t', header = True, index = False)
+
+def _format_egrns(
+        eRegulons: List[eRegulon],
+        tf_to_gene: pd.DataFrame):
+    """
+    A function to format eRegulons to a pandas dataframe
+    """
+    REGION_TO_GENE_COLUMNS = [
+        'Region',
+        'Gene',
+        'importance',
+        'rho',
+        'importance_x_rho',
+        'importance_x_abs_rho']
+    eRegulons_formatted = []
+    for ereg in eRegulons:
+        TF = ereg.transcription_factor
+        is_extended = ereg.is_extended
+        region_to_gene = pd.DataFrame(
+            ereg.regions2genes,
+            columns=REGION_TO_GENE_COLUMNS)
+        n_target_regions = len(set(region_to_gene['Region']))
+        n_target_genes = len(set(region_to_gene['Gene']))
+        # TF_[extended,direct]_[+,-]/[+,-]
+        eRegulon_name = TF + '_' + \
+            ('extended' if is_extended else 'direct') + '_' + \
+            ('+' if 'positive tf2g' in ereg.context else '-') + '/' + \
+            ('+' if 'positive r2g' in ereg.context else '-')
+        # TF_[extended,direct]_[+,-]/[+,-]_(nr)
+        region_signature_name = eRegulon_name + '_' + f'({n_target_regions}r)'
+        # TF_[extended,direct]_[+,-]/[+,-]_(ng)
+        gene_signature_name = eRegulon_name + '_' + f'({n_target_genes}g)'
+        # construct dataframe
+        region_to_gene['TF'] = TF
+        region_to_gene['is_extended'] = is_extended
+        region_to_gene['eRegulon_name'] = eRegulon_name
+        region_to_gene['Gene_signature_name'] = gene_signature_name
+        region_to_gene['Region_signature_name'] = region_signature_name
+        eRegulons_formatted.append(region_to_gene)
+    eRegulon_metadata = pd.concat(eRegulons_formatted)
+    eRegulon_metadata.merge(
+        right=tf_to_gene.rename({'target': 'Gene'}, axis = 1), #TODO: rename col beforehand!
+        how='left',
+        on= ['TF', 'Gene'],
+        suffixes=['_R2G', '_TF2G'])
+    return eRegulon_metadata
+
+def infer_grn(
+        TF_to_gene_adj_fname: pathlib.Path,
+        region_to_gene_adj_fname: pathlib.Path,
+        cistromes_fname: pathlib.Path,
+        eRegulon_out_fname: pathlib.Path,
+        is_extended: bool,
+        temp_dir: pathlib.Path,
+        order_regions_to_genes_by: str,
+        order_TFs_to_genes_by: str,
+        gsea_n_perm: int,
+        quantiles: List[float],
+        top_n_regionTogenes_per_gene: List[float],
+        top_n_regionTogenes_per_region: List[float],
+        binarize_using_basc: bool,
+        min_regions_per_gene: int,
+        rho_dichotomize_tf2g: bool,
+        rho_dichotomize_r2g: bool,
+        rho_dichotomize_eregulon: bool,
+        keep_only_activating: bool,
+        rho_threshold: float,
+        min_target_genes: int,
+        n_cpu: int):
+    log.info("Loading TF to gene adjacencies.")
+    tf_to_gene = pd.read_table(TF_to_gene_adj_fname)
+
+    log.info("Loading region to gene adjacencies.")
+    region_to_gene = pd.read_table(region_to_gene_adj_fname)
+
+    log.info("Loading cistromes.")
+    cistromes = mudata.read_h5ad(cistromes_fname.__str__())
+
+    eRegulons = build_grn(
+        tf_to_gene=tf_to_gene,
+        region_to_gene=region_to_gene,
+        cistromes=cistromes,
+        is_extended=is_extended,
+        temp_dir=temp_dir.__str__(),
+        order_regions_to_genes_by=order_regions_to_genes_by,
+        order_TFs_to_genes_by=order_TFs_to_genes_by,
+        gsea_n_perm=gsea_n_perm,
+        quantiles=quantiles,
+        top_n_regionTogenes_per_gene=top_n_regionTogenes_per_gene,
+        top_n_regionTogenes_per_region=top_n_regionTogenes_per_region,
+        binarize_using_basc=binarize_using_basc,
+        min_regions_per_gene=min_regions_per_gene,
+        rho_dichotomize_tf2g=rho_dichotomize_tf2g,
+        rho_dichotomize_r2g=rho_dichotomize_r2g,
+        rho_dichotomize_eregulon=rho_dichotomize_eregulon,
+        keep_only_activating=keep_only_activating,
+        rho_threshold=rho_threshold,
+        NES_thr=0,
+        adj_pval_thr=1,
+        min_target_genes=min_target_genes,
+        n_cpu=n_cpu,
+        merge_eRegulons=True,
+        disable_tqdm=False)
+
+    log.info("Formatting eGRN as table.")
+    eRegulon_metadata = _format_egrns(
+        eRegulons=eRegulons,
+        tf_to_gene=tf_to_gene)
+    log.info(f"Saving network to {eRegulon_out_fname.__str__()}")
+    eRegulon_metadata.to_csv(
+        eRegulon_out_fname,
+        sep='\t', header=True, index=False)
+
+# TODO: add command for triplet score
