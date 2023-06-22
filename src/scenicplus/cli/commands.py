@@ -12,7 +12,6 @@ import mudata
 import logging
 import sys
 import pandas as pd
-import numpy as np
 
 # SCENIC+ imports
 from scenicplus.data_wrangling.adata_cistopic_wrangling import (
