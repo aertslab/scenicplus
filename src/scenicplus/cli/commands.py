@@ -284,7 +284,7 @@ def infer_grn(
     region_to_gene = pd.read_table(region_to_gene_adj_fname)
 
     log.info("Loading cistromes.")
-    cistromes = mudata.read_h5ad(cistromes_fname.__str__())
+    cistromes = mudata.read(cistromes_fname.__str__())
 
     eRegulons = build_grn(
         tf_to_gene=tf_to_gene,
