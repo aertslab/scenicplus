@@ -1,9 +1,34 @@
 input_data:
   cisTopic_obj_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/cistopic_obj.pkl"
   GEX_anndata_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/adata.h5ad"
-
-params:
-  bc_transform_func: "\"lambda x: f'{x}-10x_pbmc'\""
+  menr_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/menr.pkl"
 
 output_data:
+  # output for prepare_GEX_ACC
   combined_GEX_ACC_mudata: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/ACC_GEX.h5mu"
+  # output for prepare_menr
+  cistromes_direct: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/cistromes_direct.h5ad"
+  cistromes_extended: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/cistromes_extended.h5ad"
+  tf_names: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/tf_names.txt"
+  # output for download_genome_annotations
+  genome_annotation: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/genome_annotation.tsv"
+  chromsizes: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/chromsizes.tsv"
+  # output for search_space
+  search_space: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/search_space.tsv"
+
+params_data_preparation:
+  # Params for prepare_GEX_ACC
+  bc_transform_func: "\"lambda x: f'{x}-10x_pbmc'\""
+  is_multiome: True
+  key_to_group_by: ""
+  nr_cells_per_metacells: 10
+  # Params for prepare_menr
+  direct_annotation: "Direct_annot"
+  extended_annotation: "Orthology_annot"
+  # Params for download_genome_annotations
+  species: "hsapiens"
+  biomart_host: "http://www.ensembl.org"
+  # Params for search_space
+  search_space_upstream: "1000 150000"
+  search_space_downstream: "1000 150000"
+  search_space_extend_tss: "10 10"

@@ -2,20 +2,107 @@ configfile: "config/config.yaml"
 
 rule all:
     input:
-        config["output_data"]["combined_GEX_ACC_mudata"]
+        config["output_data"]["search_space"]
 
-rule prepare_GEX_ACC:
+# Prepare data
+if config["params_data_preparation"]["is_multiome"]:
+    rule prepare_GEX_ACC_multiome:
+        input:
+            cisTopic_obj_fname=config["input_data"]["cisTopic_obj_fname"],
+            GEX_anndata_fname=config["input_data"]["GEX_anndata_fname"]
+        output:
+            config["output_data"]["combined_GEX_ACC_mudata"]
+        params:
+            bc_transform_func=lambda wildcards: config["params_data_preparation"]["bc_transform_func"]
+        shell:
+            """
+            scenicplus prepare_data prepare_GEX_ACC \
+                --cisTopic_obj_fname {input.cisTopic_obj_fname} \
+                --GEX_anndata_fname {input.GEX_anndata_fname} \
+                --out_file {output} \
+                --bc_transform_func {params.bc_transform_func}
+            """
+else:
+    rule prepare_GEX_ACC_non_multiome:
+        input:
+            cisTopic_obj_fname=config["input_data"]["cisTopic_obj_fname"],
+            GEX_anndata_fname=config["input_data"]["GEX_anndata_fname"]
+        output:
+            config["output_data"]["combined_GEX_ACC_mudata"]
+        params:
+            bc_transform_func=lambda wildcards: config["params_data_preparation"]["bc_transform_func"],
+            key_to_group_by=lambda wildcards: config["params_data_preparation"]["key_to_group_by"],
+            nr_cells_per_metacells=lambda wildcards: config["params_data_preparation"]["nr_cells_per_metacells"]
+        shell:
+            """
+            scenicplus prepare_data prepare_GEX_ACC \
+                --cisTopic_obj_fname {input.cisTopic_obj_fname} \
+                --GEX_anndata_fname {input.GEX_anndata_fname} \
+                --out_file {output} \
+                --bc_transform_func {params.bc_transform_func} \
+                --is_not_multiome \
+                --key_to_group_by {params.key_to_group_by} \
+                --nr_cells_per_metacells {params.nr_cells_per_metacells}
+            """
+
+rule prepare_menr:
     input:
-        cisTopic_obj_fname=config["input_data"]["cisTopic_obj_fname"],
-        GEX_anndata_fname=config["input_data"]["GEX_anndata_fname"]
+        menr_fname=config["input_data"]["menr_fname"],
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"]
     output:
-        config["output_data"]["combined_GEX_ACC_mudata"]
+        tf_names=config["output_data"]["tf_names"],
+        cistromes_direct=config["output_data"]["cistromes_direct"],
+        cistromes_extended=config["output_data"]["cistromes_extended"]
     params:
-        bc_transform_func=lambda wildcards: config["params"]["bc_transform_func"]
+        direct_annotation=lambda wildcards: config["params_data_preparation"]["direct_annotation"],
+        extended_annotation=lambda wildcards: config["params_data_preparation"]["extended_annotation"]
     shell:
         """
-        scenicplus prepare_data prepare_GEX_ACC \
-            --cisTopic_obj_fname {input.cisTopic_obj_fname} \
-            --GEX_anndata_fname {input.GEX_anndata_fname} \
-            --out_file {output} --bc_transform_func {params.bc_transform_func}
+        scenicplus prepare_data prepare_menr \
+            --menr_fname {input.menr_fname} \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --out_file_tf_names {output.tf_names} \
+            --out_file_direct_annotation {output.cistromes_direct} \
+            --out_file_extended_annotation {output.cistromes_extended} \
+            --direct_annotation {params.direct_annotation} \
+            --extended_annotation {params.extended_annotation}
+        """
+
+rule download_genome_annotations:
+    output:
+        genome_annotation=config["output_data"]["genome_annotation"],
+        chromsizes=config["output_data"]["chromsizes"]
+    params:
+        species=lambda wildcards: config["params_data_preparation"]["species"],
+        biomart_host=lambda wildcards: config["params_data_preparation"]["biomart_host"]
+    shell:
+        """
+        scenicplus prepare_data download_genome_annotations \
+            --species {params.species} \
+            --biomart_host {params.biomart_host} \
+            --genome_annotation_out_fname {output.genome_annotation} \
+            --chromsizes_out_fname {output.chromsizes}
+        """
+
+rule get_search_space:
+    input:
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
+        genome_annotation=config["output_data"]["genome_annotation"],
+        chromsizes=config["output_data"]["chromsizes"]
+    output:
+        search_space=config["output_data"]["search_space"]
+    params:
+        upstream=lambda wildcards: config["params_data_preparation"]["search_space_upstream"],
+        downstream=lambda wildcards: config["params_data_preparation"]["search_space_downstream"],
+        extend_tss=lambda wildcards: config["params_data_preparation"]["search_space_extend_tss"]
+    shell:
+        """
+        scenicplus prepare_data search_spance \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --gene_annotation_fname {input.genome_annotation} \
+            --chromsizes_fname {input.chromsizes} \
+            --out_fname {output.search_space} \
+            --upstream {params.upstream} \
+            --downstream {params.downstream} \
+            --extend_tss {params.extend_tss}
         """
