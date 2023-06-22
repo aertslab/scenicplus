@@ -19,10 +19,13 @@ output_data:
   tf_to_gene_adjacencies: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/tf_to_gene_adj.tsv"
   # output region_to_gene
   region_to_gene_adjacencies: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/region_to_gene_adj.tsv"
+  # output eGRN
+  eRegulons_direct: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/eRegulon_direct.tsv"
+  eRegulons_extended: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/eRegulons_extended.tsv"
 
 params_general:
   temp_dir: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli"
-  n_cpu: 10
+  n_cpu: 40
   seed: 666
 
 params_data_preparation:
@@ -48,3 +51,14 @@ params_inference:
   # Params regions_to_gene
   region_to_gene_importance_method: "GBM"
   region_to_gene_correlation_method: "SR"
+  # Params for eGRN inference
+  order_regions_to_genes_by: "importance"
+  order_TFs_to_genes_by: "importance"
+  gsea_n_perm: 1000
+  quantile_thresholds_region_to_gene: "0.85 0.90 0.95"
+  top_n_regionTogenes_per_gene: "5 10 15"
+  top_n_regionTogenes_per_region: ""
+  min_regions_per_gene: 0
+  rho_threshold: 0.05
+  min_target_genes: 10
+
