@@ -15,6 +15,15 @@ output_data:
   chromsizes: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/chromsizes.tsv"
   # output for search_space
   search_space: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/search_space.tsv"
+  # output tf_to_gene
+  tf_to_gene_adjacencies: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/tf_to_gene_adj.tsv"
+  # output region_to_gene
+  region_to_gene_adjacencies: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/region_to_gene_adj.tsv"
+
+params_general:
+  temp_dir: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli"
+  n_cpu: 10
+  seed: 666
 
 params_data_preparation:
   # Params for prepare_GEX_ACC
@@ -32,3 +41,10 @@ params_data_preparation:
   search_space_upstream: "1000 150000"
   search_space_downstream: "1000 150000"
   search_space_extend_tss: "10 10"
+
+params_inference:
+  # Params for tf_to_gene
+  tf_to_gene_importance_method: "GBM"
+  # Params regions_to_gene
+  region_to_gene_importance_method: "GBM"
+  region_to_gene_correlation_method: "SR"

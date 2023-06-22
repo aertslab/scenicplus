@@ -1,8 +1,11 @@
+# TODO: disable tqdm
+
 configfile: "config/config.yaml"
 
 rule all:
     input:
-        config["output_data"]["search_space"]
+        config["output_data"]["region_to_gene_adjacencies"],
+        config["output_data"]["tf_to_gene_adjacencies"]
 
 # Prepare data
 if config["params_data_preparation"]["is_multiome"]:
@@ -105,4 +108,50 @@ rule get_search_space:
             --upstream {params.upstream} \
             --downstream {params.downstream} \
             --extend_tss {params.extend_tss}
+        """
+
+rule tf_to_gene:
+    input:
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
+        tf_names=config["output_data"]["tf_names"],
+    output:
+        tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"]
+    params:
+        temp_dir=lambda wildcards: config["params_general"]["temp_dir"],
+        method=lambda wildcards: config["params_inference"]["tf_to_gene_importance_method"],
+        seed=lambda wildcards: config["params_general"]["seed"]
+    threads: config["params_general"]["n_cpu"]
+    shell:
+        """
+        scenicplus grn_inference TF_to_gene \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --tf_names {input.tf_names} \
+            --temp_dir {params.temp_dir} \
+            --out_tf_to_gene_adjacencies {output.tf_to_gene_adjacencies} \
+            --method {params.method} \
+            --n_cpu {threads} \
+            --seed {params.seed}
+        """
+
+rule region_to_gene:
+    input:
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
+        search_space=config["output_data"]["search_space"],
+    output:
+        region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"]
+    params:
+        temp_dir=lambda wildcards: config["params_general"]["temp_dir"],
+        method_importance=lambda wildcards: config["params_inference"]["region_to_gene_importance_method"],
+        method_correlation=lambda wildcards: config["params_inference"]["region_to_gene_correlation_method"],
+    threads: config["params_general"]["n_cpu"]
+    shell:
+        """
+        scenicplus grn_inference region_to_gene \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --search_space_fname {input.search_space} \
+            --temp_dir {params.temp_dir} \
+            --out_region_to_gene_adjacencies {output.region_to_gene_adjacencies} \
+            --importance_scoring_method {params.method_importance} \
+            --correlation_scoring_method {params.method_correlation} \
+            --n_cpu {threads}
         """
