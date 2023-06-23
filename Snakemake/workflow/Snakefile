@@ -197,9 +197,9 @@ rule eGRN_direct:
 
 rule eGRN_extended:
     input:
-        tf_to_gene_adjacencies=config["output_data"]["cistromes_extended"],
+        tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"],
         region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"],
-        cistromes_direct=config["output_data"]["cistromes_direct"]
+        cistromes_direct=config["output_data"]["cistromes_extended"]
     output:
         eRegulons_direct=config["output_data"]["eRegulons_extended"]
     params:
