@@ -1,4 +1,4 @@
-pandas
+pandas==1.5
 numpy==1.23.5
 tqdm
 ray
@@ -7,7 +7,7 @@ typing
 matplotlib
 scikit-learn
 statistics
-pyranges
+pyranges=0.0.111
 scipy
 pybiomart
 requests
@@ -31,6 +31,7 @@ scanpy==1.8.2
 cython
 plotnine
 mudata
+snakemake-minimal
 git+https://github.com/aertslab/pycisTopic@master#egg=pycisTopic
 git+https://github.com/aertslab/pycistarget@master#egg=pycistarget
 git+https://github.com/aertslab/pySCENIC@master#egg=pyscenic
