@@ -527,9 +527,12 @@ def create_argument_parser():
     """
     Data preparation parsers
     """
+    prepare_data_command="prepare_data"
     preprocessing_parser = subparsers.add_parser(
-        "prepare_data", 
+        prepare_data_command, 
         description="Prepare gene expression, chromatin accessibility and motif enrichment data.")
+    # set defaults so we can later check which subparser was called, to print help message
+    preprocessing_parser.set_defaults(_subparser_name=prepare_data_command)
     preprocessing_subparsers = preprocessing_parser.add_subparsers()
     # Create data preparation parsers
     add_parser_for_prepare_GEX_and_ACC_data(preprocessing_subparsers)
@@ -540,23 +543,38 @@ def create_argument_parser():
     """
     GRN inference parsers
     """
+    grn_inference_command="grn_inference"
     inference_parser = subparsers.add_parser(
-        "grn_inference",
+        grn_inference_command,
         description="Infer Enhancer driven Gene Regulatory Networks.")
+    # set defaults so we can later check which subparser was called, to print help message
+    inference_parser.set_defaults(_subparser_name=grn_inference_command)
     inference_subparsers = inference_parser.add_subparsers()
     # Create inference parsers
     add_parser_for_infer_TF_to_gene(inference_subparsers)
     add_parser_for_infer_region_to_gene(inference_subparsers)
     add_parser_for_infer_egrn(inference_subparsers)
-    return parser
+    add_parser_for_aucell(inference_subparsers)
+    # Create dictionary of subparsers in order to be able to print their help messages
+    subparser_dict = {
+        prepare_data_command: preprocessing_parser,
+        grn_inference_command: inference_parser}
+    return parser, subparser_dict
 
 def main(argv=None) -> int:
     #parse command line arguments
-    parser = create_argument_parser()
+    parser, subparsers = create_argument_parser()
     args = parser.parse_args(args=argv)
+    
     if not hasattr(args, "func"):
         print(gfx.logo)
-        parser.print_help()
+        if not hasattr(args, "_subparser_name"):
+            # No subparser was called, print main help message
+            parser.print_help()
+        else:
+            # A subparser was called, its name is stored in _subparser_name
+            # Print its help message
+            subparsers[args._subparser_name].print_help()
     else:
         args.func(args)
     return 0
