@@ -25,6 +25,7 @@ from scenicplus.TF_to_gene import calculate_TFs_to_genes_relationships
 from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships
 from scenicplus.grn_builder.gsea_approach import build_grn
 from scenicplus.grn_builder.modules import eRegulon
+from scenicplus.eregulon_enrichment import score_eRegulons
 
 
 # Create logger
@@ -321,3 +322,25 @@ def infer_grn(
         sep='\t', header=True, index=False)
 
 # TODO: add command for triplet score
+
+def calculate_auc(
+        eRegulons_fname: pathlib.Path,
+        multiome_mudata_fname: pathlib.Path,
+        out_file: pathlib.Path,
+        n_cpu: int = 1):
+    log.info("Reading data.")
+    mdata = mudata.read(multiome_mudata_fname.__str__())
+    eRegulons = pd.read_table(eRegulons_fname)
+    log.info("Calculating enrichment scores.")
+    gene_region_AUC = score_eRegulons(
+        eRegulons=eRegulons,
+        gex_mtx=mdata["scRNA"].to_df(),
+        acc_mtx=mdata["scATAC"].to_df(),
+        n_cpu=n_cpu)
+    mdata_AUC = mudata.MuData(
+        {
+            "Gene_based": mudata.AnnData(X=gene_region_AUC["Gene_based"]),
+            "Region_based": mudata.AnnData(X=gene_region_AUC["Region_based"])
+        })
+    log.info(f"Writing file to {out_file.__str__()}")
+    mdata_AUC.write_h5mu(out_file.__str__())

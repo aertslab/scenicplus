@@ -485,6 +485,40 @@ def add_parser_for_infer_egrn(subparser:argparse._SubParsersAction):
         default=1,
         help="Number of cores to use. Default is 1.")
 
+def add_parser_for_aucell(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "AUCell",
+        add_help = True,
+        description="""
+        Calculate eRegulon enrichment scores using AUCell""")
+    def aucell(arg):
+        from scenicplus.cli.commands import calculate_auc
+        calculate_auc(
+            eRegulons_fname=arg.eRegulon_fname,
+            multiome_mudata_fname=arg.multiome_mudata_fname,
+            out_file=arg.aucell_out_fname,
+            n_cpu=arg.n_cpu)
+    parser.set_defaults(func=aucell)
+    # Required arguments
+    parser.add_argument(
+        "--eRegulon_fname", dest="eRegulon_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to eRegulons (.tsv) from scenicplus eGRN.")
+    parser.add_argument(
+        "--multiome_mudata_fname", dest="multiome_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to multiome mudata (.h5mu) from scenicplus prepare_GEX_ACC.")
+    parser.add_argument(
+        "--aucell_out_fname", dest="aucell_out_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to store enrichment scores (.h5mu).")
+    # Optional arguments
+    parser.add_argument(
+        "--n_cpu", dest="n_cpu",
+        action="store", type=int, required=False,
+        default=1,
+        help="Number of cores to use. Default is 1.")
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
