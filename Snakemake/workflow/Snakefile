@@ -4,8 +4,8 @@ configfile: "config/config.yaml"
 
 rule all:
     input:
-        config["output_data"]["eRegulons_direct"],
-        config["output_data"]["eRegulons_extended"]
+        config["output_data"]["AUCell_direct"],
+        config["output_data"]["AUCell_extended"]
 
 # Prepare data
 if config["params_data_preparation"]["is_multiome"]:
@@ -199,9 +199,9 @@ rule eGRN_extended:
     input:
         tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"],
         region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"],
-        cistromes_direct=config["output_data"]["cistromes_extended"]
+        cistromes_extended=config["output_data"]["cistromes_extended"]
     output:
-        eRegulons_direct=config["output_data"]["eRegulons_extended"]
+        eRegulons_extended=config["output_data"]["eRegulons_extended"]
     params:
         temp_dir=lambda wildcards: config["params_general"]["temp_dir"],
         order_regions_to_genes_by=lambda wildcards: config["params_inference"]["order_regions_to_genes_by"],
@@ -220,8 +220,8 @@ rule eGRN_extended:
             --is_extended \
             --TF_to_gene_adj_fname {input.tf_to_gene_adjacencies}\
             --region_to_gene_adj_fname {input.region_to_gene_adjacencies} \
-            --cistromes_fname {input.cistromes_direct}\
-            --eRegulon_out_fname {output.eRegulons_direct} \
+            --cistromes_fname {input.cistromes_extended}\
+            --eRegulon_out_fname {output.eRegulons_extended} \
             --temp_dir {params.temp_dir} \
             --order_regions_to_genes_by {params.order_regions_to_genes_by} \
             --order_TFs_to_genes_by {params.order_TFs_to_genes_by} \
@@ -232,5 +232,36 @@ rule eGRN_extended:
             --min_regions_per_gene {params.min_regions_per_gene} \
             --rho_threshold {params.rho_threshold} \
             --min_target_genes {params.min_target_genes} \
+            --n_cpu {threads}
+        """
+rule AUCell_direct:
+    input:
+        eRegulons_direct=config["output_data"]["eRegulons_direct"],
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
+    output:
+        aucell_direct_out_fname=config["output_data"]["AUCell_direct"]
+    threads: config["params_general"]["n_cpu"]
+    shell:
+        """
+        scenicplus grn_inference AUCell \
+            --eRegulon_fname {input.eRegulons_direct} \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --aucell_out_fname {output.aucell_direct_out_fname} \
+            --n_cpu {threads}
+        """
+
+rule AUCell_extended:
+    input:
+        eRegulons_extended=config["output_data"]["eRegulons_extended"],
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
+    output:
+        aucell_extended_out_fname=config["output_data"]["AUCell_extended"]
+    threads: config["params_general"]["n_cpu"]
+    shell:
+        """
+        scenicplus grn_inference AUCell \
+            --eRegulon_fname {input.eRegulons_extended} \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --aucell_out_fname {output.aucell_extended_out_fname} \
             --n_cpu {threads}
         """

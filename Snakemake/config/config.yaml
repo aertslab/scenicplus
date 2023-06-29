@@ -22,6 +22,9 @@ output_data:
   # output eGRN
   eRegulons_direct: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/eRegulon_direct.tsv"
   eRegulons_extended: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/eRegulons_extended.tsv"
+  # output AUCell
+  AUCell_direct: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/AUCell_direct.h5mu"
+  AUCell_extended: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/AUCell_extended.h5mu"
 
 params_general:
   temp_dir: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli"
