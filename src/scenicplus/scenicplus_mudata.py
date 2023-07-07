@@ -1,3 +1,4 @@
+import mudata
 from mudata import MuData
 import pandas as pd
 from typing import Optional
@@ -50,3 +51,30 @@ class ScenicPlusMuData(MuData):
              self.uns["direct_e_regulon_metadata"] = e_regulon_metadata_direct
         if self.has_extended_e_regulons:
             self.uns["extended_e_regulon_metadata"] = e_regulon_metadata_extended
+
+def read(path: str):
+    mdata = mudata.read(path)
+    acc_gex_mdata = MuData(
+        {"scRNA": mdata["scRNA_counts"], "scATAC": mdata["scATAC_counts"]})
+    if "direct_gene_based_AUC" in mdata.mod.keys():
+        e_regulon_auc_direct = MuData(
+            {"Gene_based": mdata["direct_gene_based_AUC"], "Region_based": mdata["direct_region_based_AUC"]})
+        e_regulon_metadata_direct = mdata.uns["direct_e_regulon_metadata"]
+    else:
+        e_regulon_auc_direct = None
+        e_regulon_metadata_direct = None
+    if "extended_gene_based_AUC" in mdata.mod.keys():
+        e_regulon_auc_extended = MuData(
+            {"Gene_based": mdata["extended_gene_based_AUC"], "Region_based": mdata["extended_region_based_AUC"]})
+        e_regulon_metadata_extended = mdata.uns["extended_e_regulon_metadata"]
+    else:
+        e_regulon_auc_extended = None
+        e_regulon_metadata_extended = None
+    scplusmdata = ScenicPlusMuData(
+        acc_gex_mdata=acc_gex_mdata,
+        e_regulon_auc_direct=e_regulon_auc_direct,
+        e_regulon_auc_extended=e_regulon_auc_extended,
+        e_regulon_metadata_direct=e_regulon_metadata_direct,
+        e_regulon_metadata_extended=e_regulon_metadata_extended)
+    scplusmdata.uns = mdata.uns
+    return scplusmdata
