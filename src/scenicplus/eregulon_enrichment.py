@@ -4,10 +4,11 @@
 
 from pycisTopic.signature_enrichment import signature_enrichment
 from pyscenic.binarization import binarize
-from typing import Literal, Dict, List
+from typing import Literal, Dict, List, Optional
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
+from scenicplus.scenicplus_class import SCENICPLUS
 
 # Temporary class so old code from pycisTopic works.
 # This class replaces the "CistopicImputedFeatures" from pycisTopic,
@@ -63,7 +64,7 @@ def rank_data(
         raise ValueError(f"Axis can only be 0 or 1 not {axis}")
 
     return ranked_data(
-        mtx=ranking,
+        mtx=ranking.T,
         feature_names=df.columns if axis == 1 else df.index,
         cell_names=df.index if axis == 1 else df.columns)
 
