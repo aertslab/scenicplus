@@ -8,7 +8,7 @@ and seperate single-cell chromatin accessbility data and single-cell gene expres
 In the second case both data modalities should have a common cell metadata field with values linking both modalities (e.g. common celltype annotation).
 
 """
-
+# this is here for legacy!
 import attr
 from numpy.lib.function_base import iterable
 import scipy.sparse as sparse

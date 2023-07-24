@@ -41,7 +41,6 @@ class ScenicPlusMuData(MuData):
         if e_regulon_auc_extended is not None:
             _constructor["extended_gene_based_AUC"] = e_regulon_auc_extended["Gene_based"]
             _constructor["extended_region_based_AUC"] = e_regulon_auc_extended["Region_based"]
-            self.uns["extended_e_regulon_metadata"] = e_regulon_metadata_extended
 
         # construct MuData
         super().__init__(_constructor)
