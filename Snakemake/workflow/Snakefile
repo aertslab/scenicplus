@@ -4,8 +4,7 @@ configfile: "config/config.yaml"
 
 rule all:
     input:
-        config["output_data"]["AUCell_direct"],
-        config["output_data"]["AUCell_extended"]
+        scplus_mudata_out_fname=config["output_data"]["scplus_mdata"]
 
 # Prepare data
 if config["params_data_preparation"]["is_multiome"]:
@@ -264,4 +263,24 @@ rule AUCell_extended:
             --multiome_mudata_fname {input.multiome_mudata_fname} \
             --aucell_out_fname {output.aucell_extended_out_fname} \
             --n_cpu {threads}
+        """
+
+rule scplus_mudata:
+    input:
+        multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
+        aucell_direct_fname=config["output_data"]["AUCell_direct"],
+        aucell_extended_fname=config["output_data"]["AUCell_extended"],
+        eRegulons_direct_fname=config["output_data"]["eRegulons_direct"],
+        eRegulons_extended_fname=config["output_data"]["eRegulons_extended"]
+    output:
+        scplus_mudata_out_fname=config["output_data"]["scplus_mdata"]
+    shell:
+        """
+        scenicplus grn_inference create_scplus_mudata \
+            --multiome_mudata_fname {input.multiome_mudata_fname} \
+            --e_regulon_auc_direct_mudata_fname {input.aucell_direct_fname} \
+            --e_regulon_auc_extended_mudata_fname {input.aucell_extended_fname} \
+            --e_regulon_metadata_direct_fname {input.eRegulons_direct_fname} \
+            --e_regulon_metadata_extended_fname {input.eRegulons_extended_fname} \
+            --out_file {output.scplus_mudata_out_fname}
         """

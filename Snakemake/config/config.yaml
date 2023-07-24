@@ -25,6 +25,8 @@ output_data:
   # output AUCell
   AUCell_direct: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/AUCell_direct.h5mu"
   AUCell_extended: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/AUCell_extended.h5mu"
+  # output scplus mudata
+  scplus_mdata: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/scplusmdata.h5mu"
 
 params_general:
   temp_dir: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli"
