@@ -519,6 +519,51 @@ def add_parser_for_aucell(subparser:argparse._SubParsersAction):
         default=1,
         help="Number of cores to use. Default is 1.")
 
+def add_parser_for_create_scplus_mudata(subparser:argparse._SubParsersAction):
+    parser:argparse.ArgumentParser = subparser.add_parser(
+        name = "create_scplus_mudata",
+        add_help = True,
+        description="""
+        Create MuData object to store SCENIC+ results.
+        Can be used for downstream analysis.""")
+    def create_object(arg):
+        from scenicplus.cli.commands import create_scplus_mudata
+        create_scplus_mudata(
+            multiome_mudata_fname=arg.multiome_mudata_fname,
+            e_regulon_auc_direct_mudata_fname=arg.e_regulon_auc_direct_mudata_fname,
+            e_regulon_auc_extended_mudata_fname=arg.e_regulon_auc_extended_mudata_fname,
+            e_regulon_metadata_direct_fname=arg.e_regulon_metadata_direct_fname,
+            e_regulon_metadata_extended_fname=arg.e_regulon_metadata_extended_fname,
+            out_file=arg.out_file)
+    parser.set_defaults(func=create_object)
+    # Required arguments
+    parser.add_argument(
+        "--multiome_mudata_fname", dest="multiome_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to MuData containing gene expression and chromatin accessibility data (.h5mu)")
+    parser.add_argument(
+        "--e_regulon_auc_direct_mudata_fname", dest="e_regulon_auc_direct_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to MuData containing AUC values for direct eRegulons (.h5mu)")
+    parser.add_argument(
+        "--e_regulon_auc_extended_mudata_fname", dest="e_regulon_auc_extended_mudata_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to MuData containing AUC values for extended eRegulons (.h5mu)")
+    parser.add_argument(
+        "--e_regulon_metadata_direct_fname", dest="e_regulon_metadata_direct_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to tsv containing metadata for direct eRegulons (.tsv)")
+    parser.add_argument(
+        "--e_regulon_metadata_extended_fname", dest="e_regulon_metadata_extended_fname",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to tsv containing metadata for extended eRegulons (.tsv)")
+    parser.add_argument(
+        "--out_file", dest="out_file",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to store resulting MuData (.h5mu)")
+    
+
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         description=_DESCRIPTION)
@@ -555,6 +600,7 @@ def create_argument_parser():
     add_parser_for_infer_region_to_gene(inference_subparsers)
     add_parser_for_infer_egrn(inference_subparsers)
     add_parser_for_aucell(inference_subparsers)
+    add_parser_for_create_scplus_mudata(inference_subparsers)
     # Create dictionary of subparsers in order to be able to print their help messages
     subparser_dict = {
         prepare_data_command: preprocessing_parser,

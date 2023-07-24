@@ -26,6 +26,7 @@ from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships
 from scenicplus.grn_builder.gsea_approach import build_grn
 from scenicplus.grn_builder.modules import eRegulon
 from scenicplus.eregulon_enrichment import score_eRegulons
+from scenicplus.scenicplus_mudata import ScenicPlusMuData
 
 
 # Create logger
@@ -344,3 +345,28 @@ def calculate_auc(
         })
     log.info(f"Writing file to {out_file.__str__()}")
     mdata_AUC.write_h5mu(out_file.__str__())
+
+def create_scplus_mudata(
+        multiome_mudata_fname: pathlib.Path,
+        e_regulon_auc_direct_mudata_fname: pathlib.Path,
+        e_regulon_auc_extended_mudata_fname: pathlib.Path,
+        e_regulon_metadata_direct_fname: pathlib.Path,
+        e_regulon_metadata_extended_fname: pathlib.Path,
+        out_file: pathlib.Path):
+    log.info("Reading multiome MuData.")
+    acc_gex_mdata = mudata.read(multiome_mudata_fname.__str__())
+    log.info("Reading AUC values.")
+    e_regulon_auc_direct = mudata.read(e_regulon_auc_direct_mudata_fname.__str__())
+    e_regulon_auc_extended = mudata.read(e_regulon_auc_extended_mudata_fname.__str__())
+    log.info("Reading eRegulon metadata.")
+    e_regulon_metadata_direct = pd.read_table(e_regulon_metadata_direct_fname)
+    e_regulon_metadata_extended = pd.read_table(e_regulon_metadata_extended_fname)
+    log.info("Generating MuData object.")
+    scplus_mdata = ScenicPlusMuData(
+        acc_gex_mdata=acc_gex_mdata,
+        e_regulon_auc_direct=e_regulon_auc_direct,
+        e_regulon_auc_extended=e_regulon_auc_extended,
+        e_regulon_metadata_direct=e_regulon_metadata_direct,
+        e_regulon_metadata_extended=e_regulon_metadata_extended)
+    log.info(f"Writing file to {out_file.__str__()}")
+    scplus_mdata.write_h5mu(out_file.__str__())
