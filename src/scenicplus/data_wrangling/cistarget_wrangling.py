@@ -133,6 +133,8 @@ def _merge_cistromes(cistromes: List[Cistrome]) -> Iterable[Cistrome]:
 
 def _cistromes_to_adata(cistromes: List[Cistrome]) -> anndata.AnnData:
     tf_names = [cistrome.tf_name for cistrome in cistromes]
+    # join has to be done in order to be able to write the resulting anndata to disk as h5ad
+    motifs = [",".join(cistrome.motifs) for cistrome in cistromes]
     union_target_regions= list(set.union(
             *[cistrome.target_regions for cistrome in cistromes]))
     cistrome_hit_mtx = np.zeros(
@@ -142,10 +144,12 @@ def _cistromes_to_adata(cistromes: List[Cistrome]) -> anndata.AnnData:
         cistrome_hit_mtx[:, i] = [
             region in cistromes[i].target_regions 
             for region in union_target_regions]
-    return anndata.AnnData(
+    cistrome_adata = anndata.AnnData(
         X = sparse.csc_matrix(cistrome_hit_mtx), dtype = bool,
         obs = pd.DataFrame(index = list(union_target_regions)),
         var = pd.DataFrame(index = tf_names))
+    cistrome_adata.var["motifs"] = motifs
+    return cistrome_adata
 
 def get_and_merge_cistromes(
         menr: Dict[str, Union[DEM, Dict[str, cisTarget]]],
