@@ -6,14 +6,13 @@ The TF-to-region score is defined as the maximum motif-score-rank for a certain 
 
 """
 
-from scenicplus.scenicplus_class import SCENICPLUS
-from typing import List
-from pycistarget._io.object_converter import dict_motif_enrichment_results_to_mudata
-from pycistarget.data_transformations import merge, get_max_rank_for_TF_to_region
-import logging
-import sys
 import numba
 import numpy as np
+import mudata
+import pandas as pd
+import pyranges as pr
+from scenicplus.utils import region_names_to_coordinates
+from pycistarget.motif_enrichment_cistarget import cisTargetDatabase
 
 @numba.jit(nopython=True)
 def _calculate_cross_species_rank_ratio_with_order_statistics(motif_id_rank_ratios_for_one_region_or_gene: np.ndarray) -> np.ndarray:
@@ -69,99 +68,68 @@ def _rank_scores_and_assign_random_ranking_in_range_for_ties(
 
         return ranking_with_broken_ties_for_motif_or_track_numpy
 
-def calculate_TF_to_region_score(
-    scplus_obj: SCENICPLUS,
-    ctx_db_fname: str,
-    annotations_to_use: List[str] = ['Orthology_annot', 'Direct_annot'],
-    eRegulon_metadata_key: str = 'eRegulon_metadata',
-    key_added: str = 'TF_to_region_max_rank') -> None:
-    """
-    Calculated TF-to-regions scores based on the maximum motif-rank-position for each TF and each region.
-
-    Parameters
-    ----------
-    scplus_obj: SCENICPLUS
-        A SCENIC+ object.
-    ctx_db_fname: str
-        Path to the cistarget ranking database used for motif enrichment analysis.
-    annotations_to_use: List[str] = ['Orthology_annot', 'Direct_annot']
-        List specifying which motif-to-TF annotations to use.
-    eRegulon_metadata_key: str = 'eRegulon_metadata'
-        Key in .uns under which to find the eRegulon metadata, scores will be stored in this dataframe
-     key_added: str = 'TF_to_region_max_rank'
-        Column name under which to store the TF-to-region scores.
-    """
-    level = logging.INFO
-    format = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-    handlers = [logging.StreamHandler(stream=sys.stdout)]
-    logging.basicConfig(level=level, format=format, handlers=handlers)
-    log = logging.getLogger('Triplet score')
-    log.info("Converting motif enrichment dictionary (scplus_obj.menr) to AnnData ...")
-    mdata_motifs = dict_motif_enrichment_results_to_mudata(scplus_obj.menr)
-    adata_motifs = merge(mdata_motifs)
-    log.info("Getting maximum motif-TF ranking for each TF and region.")
-    adata_max_rank = get_max_rank_for_TF_to_region(
-        adata_motifs, ctx_db_fname, annotations_to_use = annotations_to_use)
-    df_max_rank = adata_max_rank.to_df()
-    TF_region_iter = scplus_obj.uns[eRegulon_metadata_key][['TF', 'Region']].to_numpy()
-    TF_to_region_score = [df_max_rank.loc[region, TF] for TF, region in TF_region_iter]
-    scplus_obj.uns[eRegulon_metadata_key][key_added] = TF_to_region_score
+def get_max_rank_of_motif_for_each_TF(
+        cistromes: mudata.AnnData,
+        ranking_db_fname: str
+) -> pd.DataFrame:
+        # Read database for target regions
+        pr_all_target_regions = pr.PyRanges(
+                region_names_to_coordinates(
+                cistromes.obs_names))
+        ctx_db = cisTargetDatabase(
+                fname=ranking_db_fname, region_sets = pr_all_target_regions)
+        l_motifs = [x.split(",") for x in cistromes.var["motifs"]]
+        l_motifs_idx = [
+             [ctx_db.db_rankings.index.get_loc(x) for x in m] for m in l_motifs]
+        rankings = ctx_db.db_rankings.to_numpy()
+        # Generate dataframe with TFs on columns and regions on rows
+        # values are motif rankings. The best ranking (i.e lowest value)
+        # is used across each motif annotated to the TF
+        max_rank = np.array([rankings[x].min(0) for x in l_motifs_idx]).T
+        # convert regions to cistrome coordinates
+        db_regions_cistrome_regions = ctx_db.regions_to_db.copy() \
+            .groupby("Query")["Target"].apply(lambda x: list(x))
+        df_max_rank = pd.DataFrame(
+              max_rank,
+              index = ctx_db.db_rankings.columns, # db region names
+              columns = cistromes.var_names     # TF names
+        )
+        df_max_rank["cistrome_region_coord"] = db_regions_cistrome_regions.loc[df_max_rank.index].values
+        df_max_rank = df_max_rank.explode("cistrome_region_coord")
+        df_max_rank = df_max_rank.set_index("cistrome_region_coord")
+        df_max_rank = df_max_rank.groupby("cistrome_region_coord").min()
+        return df_max_rank
 
 def calculate_triplet_score(
-    scplus_obj: SCENICPLUS,
-    eRegulon_metadata_key: str = 'eRegulon_metadata',
-    key_added: str = 'triplet_score',
-    TF2G_score_key: str = 'TF2G_importance',
-    R2G_score_key: str = 'R2G_importance',
-    TF2R_score_key: str = 'TF_to_region_max_rank') -> None:
-    """
-    Calculate aggregated ranking score based on TF-to-region, region-to-gene and TF-to-gene score.
-
-    Parameters
-    ----------
-    scplus_obj: SCENICPLUS
-        A SCENIC+ object.
-    eRegulon_metadata_key: str = 'eRegulon_metadata'
-        Key in .uns under which to find the eRegulon metadata, scores will be stored in this dataframe
-    key_added: str = 'triplet_score'
-        Column name under which to store the triplet scores.
-    TF2G_score_key: str = 'TF2G_importance'
-        Columns name containing TF-to-gene scores.
-    R2G_score_key: str = 'R2G_importance'
-        Columns name containing Region-to-gene scores.
-    TF2R_score_key: str = 'TF_to_region_max_rank'
-        Columns name containing TF-to-region scores.
-    
-    Examples
-    --------
-    >>> calculate_TF_to_region_score(scplus_obj, ctx_db_fname = 'cluster_SCREEN.regions_vs_motifs.rankings.v2.feather')
-    >>> calculate_triplet_score(scplus_obj)
-    >>> scplus_obj.uns['eRegulon_metadata'][['TF2G_importance', 'R2G_importance', 'TF_to_region_max_rank', 'triplet_score']].sort_values('triplet_score').head()
-              TF2G_importance  R2G_importance  TF_to_region_max_rank  triplet_score
-        1003         8.689184        0.084093                      0              0
-        1514        62.050138        0.089701                     20              1
-        1514        62.050138        0.089701                     20              2
-        2313        27.908796        0.213620                     17              3
-        2496        27.908796        0.213620                     17              4
-    """
-    TF2G_score = scplus_obj.uns[eRegulon_metadata_key][TF2G_score_key].to_numpy()
-    R2G_score = scplus_obj.uns[eRegulon_metadata_key][R2G_score_key].to_numpy()
-    TF2R_score = scplus_obj.uns[eRegulon_metadata_key][TF2R_score_key].to_numpy()
-    #rank the scores
-    TF2G_rank = _rank_scores_and_assign_random_ranking_in_range_for_ties(TF2G_score)
-    R2G_rank = _rank_scores_and_assign_random_ranking_in_range_for_ties(R2G_score)
-    TF2R_rank = _rank_scores_and_assign_random_ranking_in_range_for_ties(-TF2R_score) #negate because lower score is better
-    #create rank ratios
-    TF2G_rank_ratio = (TF2G_rank.astype(np.float64) + 1) / TF2G_rank.shape[0]
-    R2G_rank_ratio = (R2G_rank.astype(np.float64) + 1) / R2G_rank.shape[0]
-    TF2R_rank_ratio = (TF2R_rank.astype(np.float64) + 1) / TF2R_rank.shape[0]
-    #create aggregated rank
-    rank_ratios = np.array([TF2G_rank_ratio, R2G_rank_ratio, TF2R_rank_ratio])
-    aggregated_rank = np.zeros((rank_ratios.shape[1],), dtype = np.float64)
-    for i in range(rank_ratios.shape[1]):
-            aggregated_rank[i] = _calculate_cross_species_rank_ratio_with_order_statistics(rank_ratios[:, i])
-    scplus_obj.uns[eRegulon_metadata_key][key_added] = aggregated_rank.argsort().argsort()
-
-
-
-
+        cistromes: mudata.AnnData,
+        eRegulon_metadata: pd.DataFrame,
+        ranking_db_fname: str) -> pd.DataFrame:
+        eRegulon_metadata = eRegulon_metadata.copy()
+        df_TF_region_max_rank = get_max_rank_of_motif_for_each_TF(
+              cistromes=cistromes,
+              ranking_db_fname=ranking_db_fname)
+        TF_region_iter = eRegulon_metadata[["TF", "Region"]].to_numpy()
+        TF_to_region_score = np.array([
+              df_TF_region_max_rank.loc[region, TF]
+              for TF, region in TF_region_iter])
+        TF_to_gene_score = eRegulon_metadata["importance_TF2G"].to_numpy()
+        region_to_gene_score = eRegulon_metadata["importance_R2G"].to_numpy()
+        #rank the scores
+        TF_to_region_rank = _rank_scores_and_assign_random_ranking_in_range_for_ties(
+              -TF_to_region_score) #negate because lower score is better
+        TF_to_gene_rank = _rank_scores_and_assign_random_ranking_in_range_for_ties(
+              TF_to_gene_score)
+        region_to_gene_rank = _rank_scores_and_assign_random_ranking_in_range_for_ties(
+              region_to_gene_score)
+        #create rank ratios
+        TF_to_gene_rank_ratio = (TF_to_gene_rank.astype(np.float64) + 1) / TF_to_gene_rank.shape[0]
+        region_to_gene_rank_ratio = (region_to_gene_rank.astype(np.float64) + 1) / region_to_gene_rank.shape[0]
+        TF_to_region_rank_ratio = (TF_to_region_rank.astype(np.float64) + 1) / TF_to_region_rank.shape[0]
+        #create aggregated rank
+        rank_ratios = np.array([
+              TF_to_gene_rank_ratio, region_to_gene_rank_ratio, TF_to_region_rank_ratio])
+        aggregated_rank = np.zeros((rank_ratios.shape[1],), dtype = np.float64)
+        for i in range(rank_ratios.shape[1]):
+                aggregated_rank[i] = _calculate_cross_species_rank_ratio_with_order_statistics(rank_ratios[:, i])
+        eRegulon_metadata["triplet_rank"] = aggregated_rank.argsort().argsort()
+        return eRegulon_metadata
