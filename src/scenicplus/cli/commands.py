@@ -249,7 +249,7 @@ def _format_egrns(
         region_to_gene['Region_signature_name'] = region_signature_name
         eRegulons_formatted.append(region_to_gene)
     eRegulon_metadata = pd.concat(eRegulons_formatted)
-    eRegulon_metadata.merge(
+    eRegulon_metadata = eRegulon_metadata.merge(
         right=tf_to_gene.rename({'target': 'Gene'}, axis = 1), #TODO: rename col beforehand!
         how='left',
         on= ['TF', 'Gene'],
