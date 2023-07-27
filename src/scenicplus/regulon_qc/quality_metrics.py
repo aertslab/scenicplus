@@ -1,84 +1,43 @@
-# -*- coding: utf-8 -*-
-"""Merging, scoring and assessing TF correlations of cistromes
-
-"""
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from random import sample
-import seaborn as sns
-from scipy.stats import pearsonr
-from typing import List
-from scenicplus.utils import p_adjust_bh
-from scenicplus.scenicplus_class import SCENICPLUS
+from mudata import MuData
+from scenicplus.scenicplus_mudata import ScenicPlusMuData
+from typing import Union
 import numpy as np
 import pandas as pd
 
-
-# Create pseudobulks
-#TODO: fix this function, bug with nr of cells
-def generate_pseudobulks(scplus_obj: SCENICPLUS,
-                         variable: str,
-                         normalize_expression: bool = True,
-                         auc_key: str = 'Cistromes_AUC',
-                         signature_key: str = 'Unfiltered',
-                         nr_cells: int = 10,
-                         nr_pseudobulks: int = 100,
-                         seed: int = 555):
-    """
-    Generate pseudobulks based on the cistrome AUC matrix and gene expression
-
-    Parameters
-    ---------
-    scplus_obj: :class:`SCENICPLUS`
-        A :class:`SCENICPLUS` object with scored cistromes (`scplus_obj.uns['Cistromes_AUC'][cistromes_key]`)
-    variable: str, optional
-        Variable to create pseudobulks by. It must ve a column in `scplus_obj.metadata_cell`
-    cistromes_key: str, optional
-        Key to store where cistromes AUC values are stored. Cistromes AUC will retrieved from 
-        `scplus_obj.uns['Cistromes_AUC'][cistromes_key]` and the pseudobulk matrix will be stored
-        at `scplus_obj.uns['Pseudobulk']['Cistromes_AUC'][variable][cistromes_key]` and `scplus_obj.uns['Pseudobulk'][variable]['Expression']`
-    nr_cells : int, optional
-        Number of cells to include per pseudobulk.
-    nr_pseudobulks: int, optional
-        Number of pseudobulks to generate per class
-    seed: int
-        Seed to ensure that pseudobulk are reproducible.
-    """
-    cell_data = scplus_obj.metadata_cell
-    cistromes_auc = scplus_obj.uns[auc_key][signature_key]
-    cell_data = cell_data.loc[cistromes_auc.index, :]
-    dgem = pd.DataFrame(
-        scplus_obj.X_EXP, index=scplus_obj.cell_names, columns=scplus_obj.gene_names).copy()
-    categories = list(set(cell_data.loc[:, variable]))
-    cistrome_auc_agg_list = list()
-    dgem_agg_list = list()
-    cell_names = list()
-    if normalize_expression:
-        dgem = dgem.T / dgem.T.sum(0) * 10**6
-        dgem = np.log1p(dgem).T
-    for category in categories:
-        cells = cell_data[cell_data.loc[:, variable]
-                          == category].index.tolist()
-        for x in range(nr_pseudobulks):
-            random.seed(x)
-            sample_cells = sample(cells, nr_cells) #here is the bug
-            sub_dgem = dgem.loc[sample_cells, :].mean(axis=0)
-            sub_auc = cistromes_auc.loc[sample_cells, :].mean(axis=0)
-            cistrome_auc_agg_list.append(sub_auc)
-            dgem_agg_list.append(sub_dgem)
-            cell_names.append(category + '_' + str(x))
-    cistrome_auc_agg = pd.concat(cistrome_auc_agg_list, axis=1)
-    cistrome_auc_agg.columns = cell_names
-    dgem_agg = pd.concat(dgem_agg_list, axis=1)
-    dgem_agg.columns = cell_names
-    if not 'Pseudobulk' in scplus_obj.uns.keys():
-        scplus_obj.uns['Pseudobulk'] = {}
-    if not variable in scplus_obj.uns['Pseudobulk'].keys():
-        scplus_obj.uns['Pseudobulk'][variable] = {}
-    scplus_obj.uns['Pseudobulk'][variable]['Expression'] = dgem_agg
-    if not auc_key in scplus_obj.uns['Pseudobulk'][variable].keys():
-        scplus_obj.uns['Pseudobulk'][variable][auc_key] = {}
-    scplus_obj.uns['Pseudobulk'][variable][auc_key][signature_key] = cistrome_auc_agg
+def generate_pseudobulks(
+        scplus_mudata: Union[MuData, ScenicPlusMuData],
+        variable: str,
+        modality: str,
+        nr_cells_to_sample: int,
+        nr_pseudobulks_to_generate: int,
+        seed: int,
+        normalize_data: bool = False):
+    # Input validation
+    if variable not in scplus_mudata.obs.columns:
+        raise ValueError(f"variable: {variable} not found in scplus_mudata.obs.columns")
+    if modality not in scplus_mudata.mod.keys():
+        raise ValueError(f"modality: {modality} not found in scplus_mudata.mod.keys()")
+    np.random.seed(seed)
+    data_matrix = scplus_mudata[modality].to_df()
+    if normalize_data:
+        data_matrix = np.log1p(data_matrix.T / data_matrix.T.sum(0) * 10**6).T.sum(1)
+    variable_to_cells = scplus_mudata.obs \
+        .groupby(variable).apply(lambda x: list(x.index)).to_dict()
+    variable_to_mean_data = {}
+    for x in variable_to_cells.keys():
+            cells = variable_to_cells[x]
+            if nr_cells_to_sample > len(cells):
+                print(f"Number of cells to sample is greater than the number of cells annotated to {variable}, sampling {len(cells)} cells instead.")
+                num_to_sample = len(cells)
+            else:
+                num_to_sample = nr_cells_to_sample
+            for i in range(nr_pseudobulks_to_generate):
+                sampled_cells = np.random.choice(
+                    a = cells,
+                    size = num_to_sample,
+                    replace = False)
+                variable_to_mean_data[f"{x}_{i}"] = data_matrix.loc[sampled_cells].mean(0)
+    return pd.DataFrame(variable_to_mean_data).T
 
 #TODO: fix multiple uses of pandas concat (generates a lot of warning)
 def TF_cistrome_correlation(scplus_obj: SCENICPLUS,
