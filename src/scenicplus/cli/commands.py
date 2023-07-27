@@ -27,6 +27,7 @@ from scenicplus.grn_builder.gsea_approach import build_grn
 from scenicplus.grn_builder.modules import eRegulon
 from scenicplus.eregulon_enrichment import score_eRegulons
 from scenicplus.scenicplus_mudata import ScenicPlusMuData
+from scenicplus.triplet_score import calculate_triplet_score
 
 
 # Create logger
@@ -261,6 +262,7 @@ def infer_grn(
         region_to_gene_adj_fname: pathlib.Path,
         cistromes_fname: pathlib.Path,
         eRegulon_out_fname: pathlib.Path,
+        ranking_db_fname: str,
         is_extended: bool,
         temp_dir: pathlib.Path,
         order_regions_to_genes_by: str,
@@ -317,12 +319,17 @@ def infer_grn(
     eRegulon_metadata = _format_egrns(
         eRegulons=eRegulons,
         tf_to_gene=tf_to_gene)
+    
+    log.info("Calculating triplet ranking.")
+    eRegulon_metadata = calculate_triplet_score(
+        cistromes=cistromes,
+        eRegulon_metadata=eRegulon_metadata,
+        ranking_db_fname=ranking_db_fname)
+    
     log.info(f"Saving network to {eRegulon_out_fname.__str__()}")
     eRegulon_metadata.to_csv(
         eRegulon_out_fname,
         sep='\t', header=True, index=False)
-
-# TODO: add command for triplet score
 
 def calculate_auc(
         eRegulons_fname: pathlib.Path,

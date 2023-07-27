@@ -368,6 +368,7 @@ def add_parser_for_infer_egrn(subparser:argparse._SubParsersAction):
             TF_to_gene_adj_fname=arg.TF_to_gene_adj_fname,
             region_to_gene_adj_fname=arg.region_to_gene_adj_fname,
             cistromes_fname=arg.cistromes_fname,
+            ranking_db_fname=arg.ranking_db_fname,
             eRegulon_out_fname=arg.eRegulon_out_fname,
             is_extended=arg.is_extended,
             temp_dir=arg.temp_dir,
@@ -401,6 +402,11 @@ def add_parser_for_infer_egrn(subparser:argparse._SubParsersAction):
         "--cistromes_fname", dest="cistromes_fname",
         action="store", type=pathlib.Path, required=True,
         help="Path to either direct or extended cistromes (.h5ad) from scenicplus prepare_menr.")
+    parser.add_argument(
+        "--ranking_db_fname", dest="ranking_db_fname",
+        action="store", type=str, required=True,
+        help="Path to cistarget ranking database, this should be the same database as used for motif enrichment analysis using pyCistarget (.feather)"
+    )
     parser.add_argument(
         "--eRegulon_out_fname", dest="eRegulon_out_fname",
         action="store", type=pathlib.Path, required=True,
