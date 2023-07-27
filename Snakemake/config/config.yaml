@@ -2,6 +2,7 @@ input_data:
   cisTopic_obj_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/cistopic_obj.pkl"
   GEX_anndata_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/adata.h5ad"
   menr_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/menr.pkl"
+  ranking_db_fname: "/data/users/sdewin/PhD/python_modules/scenicplus/tests/test_cli/cluster_SCREEN.regions_vs_motifs.rankings.v2.feather"
 
 output_data:
   # output for prepare_GEX_ACC

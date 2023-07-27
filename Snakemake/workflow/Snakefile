@@ -159,7 +159,8 @@ rule eGRN_direct:
     input:
         tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"],
         region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"],
-        cistromes_direct=config["output_data"]["cistromes_direct"]
+        cistromes_direct=config["output_data"]["cistromes_direct"],
+        ranking_db_fname=config["input_data"]["ranking_db_fname"]
     output:
         eRegulons_direct=config["output_data"]["eRegulons_direct"]
     params:
@@ -180,6 +181,7 @@ rule eGRN_direct:
             --TF_to_gene_adj_fname {input.tf_to_gene_adjacencies}\
             --region_to_gene_adj_fname {input.region_to_gene_adjacencies} \
             --cistromes_fname {input.cistromes_direct}\
+            --ranking_db_fname {input.ranking_db_fname} \
             --eRegulon_out_fname {output.eRegulons_direct} \
             --temp_dir {params.temp_dir} \
             --order_regions_to_genes_by {params.order_regions_to_genes_by} \
@@ -198,7 +200,8 @@ rule eGRN_extended:
     input:
         tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"],
         region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"],
-        cistromes_extended=config["output_data"]["cistromes_extended"]
+        cistromes_extended=config["output_data"]["cistromes_extended"],
+        ranking_db_fname=config["input_data"]["ranking_db_fname"]
     output:
         eRegulons_extended=config["output_data"]["eRegulons_extended"]
     params:
@@ -219,7 +222,8 @@ rule eGRN_extended:
             --is_extended \
             --TF_to_gene_adj_fname {input.tf_to_gene_adjacencies}\
             --region_to_gene_adj_fname {input.region_to_gene_adjacencies} \
-            --cistromes_fname {input.cistromes_extended}\
+            --cistromes_fname {input.cistromes_extended} \
+            --ranking_db_fname {input.ranking_db_fname} \
             --eRegulon_out_fname {output.eRegulons_extended} \
             --temp_dir {params.temp_dir} \
             --order_regions_to_genes_by {params.order_regions_to_genes_by} \
