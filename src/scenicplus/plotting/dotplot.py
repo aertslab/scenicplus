@@ -3,13 +3,14 @@
 """
 
 import pandas as pd
-import numpy as np
 from plotnine import (
     ggplot, geom_point, aes, scale_fill_distiller, 
     geom_tile, theme, element_text, element_blank)
 from plotnine.facets import facet_grid
 import plotnine
-from typing import List
+from typing import List, Union, Optional, Tuple
+from mudata import MuData
+from scenicplus.scenicplus_mudata import ScenicPlusMuData
 
 def _scale(X: pd.DataFrame) -> pd.DataFrame:
     return (X - X.min()) / (X.max() - X.min())
@@ -64,90 +65,112 @@ def generate_dotplot_df(
     return dotplot_df
 
 def heatmap_dotplot(
-    scplus_obj: SCENICPLUS,
-    size_matrix: pd.DataFrame,
-    color_matrix: pd.DataFrame,
+    scplus_mudata: Union[MuData, ScenicPlusMuData],
+    size_modality: str,
+    color_modality: str,
+    group_variable: str,
+    eRegulon_metadata_key: str,
+    size_feature_key: str,
+    color_feature_key: str,
+    feature_name_key: str,
+    sort_data_by: str,
+    subset_feature_names: Optional[List[str]] = None,
     scale_size_matrix: bool = True,
     scale_color_matrix: bool = True,
-    group_variable: str = None,
-    subset_eRegulons: list = None,
-    sort_by: str = 'color_val',
-    index_order: list = None,
-    save: str = None,
-    figsize: tuple = (5, 8),
+    group_variable_order: Optional[List[str]] = None,
+    save: Optional[str] = None,
+    figsize: Tuple[float, float] = (5, 8),
     split_repressor_activator: bool = True,
     orientation: str = 'vertical'):
-   
+    # Generate dataframe for plotting
+    size_matrix = scplus_mudata[size_modality].to_df()
+    color_matrix = scplus_mudata[color_modality].to_df()
+    group_by = scplus_mudata.obs[group_variable].tolist()
+    if subset_feature_names is None:
+        size_features, color_features, feature_names = scplus_mudata.uns[eRegulon_metadata_key][
+            [size_feature_key, color_feature_key, feature_name_key]] \
+            .drop_duplicates().values.T
+    else:
+        size_features, color_features, feature_names = scplus_mudata.uns[eRegulon_metadata_key][
+            [size_feature_key, color_feature_key, feature_name_key]] \
+            .drop_duplicates().query(f"{feature_name_key} in @subset_feature_names").values.T
     plotting_df = generate_dotplot_df(
-        scplus_obj = scplus_obj,
-        size_matrix = size_matrix,
-        color_matrix = color_matrix,
-        scale_size_matrix = scale_size_matrix,
-        scale_color_matrix = scale_color_matrix,
-        group_variable = group_variable,
-        subset_eRegulons = subset_eRegulons)
-    if index_order is not None:
-        if len(set(index_order) & set(plotting_df['index'])) != len(set(plotting_df['index'])):
+        size_matrix=size_matrix,
+        color_matrix=color_matrix,
+        group_by=group_by,
+        size_features=size_features,
+        color_features=color_features,
+        feature_names=feature_names,
+        scale_size_matrix=scale_size_matrix,    
+        scale_color_matrix=scale_color_matrix,
+        group_name=group_variable,
+        size_name=size_modality,
+        color_name=color_modality,
+        feature_name=feature_name_key)
+    # Order data
+    if group_variable_order is not None:
+        if len(set(group_variable_order) & set(plotting_df[group_variable])) != len(set(plotting_df[group_variable])):
             Warning('not all indices are provided in index_order, order will not be changed!')
         else:
-            plotting_df['index'] = pd.Categorical(plotting_df['index'], categories = index_order)
-    #sort values
-    tmp = plotting_df[['index', 'eRegulon_name', sort_by]
-        ].pivot_table(index = 'index', columns = 'eRegulon_name'
-        ).fillna(0)['color_val']
-    if index_order is not None:
-        tmp = tmp.loc[index_order]
+            plotting_df[group_variable] = pd.Categorical(plotting_df[group_variable], categories=group_variable_order)
+    tmp = plotting_df[[group_variable, feature_name_key, sort_data_by]] \
+            .pivot_table(index=group_variable, columns=feature_name_key) \
+            .fillna(0)[sort_data_by]
+    if group_variable_order is not None:
+        tmp = tmp.loc[group_variable_order]
     idx_max = tmp.idxmax(axis = 0)
     order = pd.concat([idx_max[idx_max == x] for x in tmp.index.tolist() if len(plotting_df[plotting_df == x]) > 0]).index.tolist()
-    plotting_df['eRegulon_name'] = pd.Categorical(plotting_df['eRegulon_name'], categories = order)
+    plotting_df[feature_name_key] = pd.Categorical(plotting_df[feature_name_key], categories=order)
+    # Plotting
     plotnine.options.figure_size = figsize
-    if split_repressor_activator:
-        plotting_df['repressor_activator'] = ['activator' if '+' in n.split('_')[1] and 'extended' not in n or '+' in n.split('_')[2] and 'extended' in n  else 'repressor' for n in plotting_df['eRegulon_name']]
+    plotting_df["repressor_activator"] = [
+            "activator" if "+" in n.split("_")[2] else "repressor" for n in plotting_df[feature_name_key]]
+    if split_repressor_activator and len(set(plotting_df["repressor_activator"])) == 2:
         if orientation == 'vertical':
             plot = (
-                ggplot(plotting_df, aes('index', 'eRegulon_name'))
+                ggplot(plotting_df, aes(group_variable, feature_name_key))
                 + facet_grid(
                     'repressor_activator ~ .', 
                     scales = "free", 
                     space = {'x': [1], 'y': [sum(plotting_df['repressor_activator'] == 'activator'), sum(plotting_df['repressor_activator'] == 'repressor')]})
-                + geom_tile(mapping = aes(fill = 'color_val'))
+                + geom_tile(mapping = aes(fill = color_modality))
                 + scale_fill_distiller(type = 'div', palette = 'RdYlBu')
                 + geom_point(
-                        mapping = aes(size = 'size_val'),
+                        mapping = aes(size = size_modality),
                         colour = "black")
                 + theme(axis_text_x=element_text(rotation=90, hjust=1))
                 + theme(axis_title_x = element_blank(), axis_title_y = element_blank()))
         elif orientation == 'horizontal':
             plot = (
-                ggplot(plotting_df, aes('eRegulon_name', 'index'))
+                ggplot(plotting_df, aes(feature_name_key, group_variable))
                 + facet_grid(
                     '. ~ repressor_activator', 
                     scales = "free", 
                     space = {'y': [1], 'x': [sum(plotting_df['repressor_activator'] == 'activator'), sum(plotting_df['repressor_activator'] == 'repressor')]})
-                + geom_tile(mapping = aes(fill = 'color_val'))
+                + geom_tile(mapping = aes(fill = color_modality))
                 + scale_fill_distiller(type = 'div', palette = 'RdYlBu')
                 + geom_point(
-                        mapping = aes(size = 'size_val'),
+                        mapping = aes(size = size_modality),
                         colour = "black")
                 + theme(axis_text_x=element_text(rotation=90, hjust=1))
                 + theme(axis_title_x = element_blank(), axis_title_y = element_blank()))
     else:
         if orientation == 'vertical':
             plot = (
-                ggplot(plotting_df, aes('index', 'eRegulon_name'))
-                + geom_tile(mapping = aes(fill = 'color_val'))
+                ggplot(plotting_df, aes(group_variable, feature_name_key))
+                + geom_tile(mapping = aes(fill = color_modality))
                 + scale_fill_distiller(type = 'div', palette = 'RdYlBu')
                 + geom_point(
-                        mapping = aes(size = 'size_val'),
+                        mapping = aes(size = size_modality),
                         colour = "black")
                 + theme(axis_title_x = element_blank(), axis_title_y = element_blank()))
         elif orientation == 'horizontal':
             plot = (
-                ggplot(plotting_df, aes('eRegulon_name', 'index'))
-                + geom_tile(mapping = aes(fill = 'color_val'))
+                ggplot(plotting_df, aes(feature_name_key, group_variable))
+                + geom_tile(mapping = aes(fill = color_modality))
                 + scale_fill_distiller(type = 'div', palette = 'RdYlBu')
                 + geom_point(
-                        mapping = aes(size = 'size_val'),
+                        mapping = aes(size = size_modality),
                         colour = "black")
                 + theme(axis_title_x = element_blank(), axis_title_y = element_blank()))
     if save is not None:
