@@ -5,7 +5,7 @@
 import logging
 import sys
 from typing import Union
-from scenicplus_mudata import ScenicPlusMuData
+from scenicplus.scenicplus_mudata import ScenicPlusMuData
 from mudata import MuData
 import pandas as pd
 
