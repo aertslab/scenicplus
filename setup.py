@@ -2,7 +2,6 @@ import setuptools
 import glob
 import os
 
-
 fname = 'requirements.txt'
 with open(fname, 'r', encoding='utf-8') as f:
 	requirements =  f.read().splitlines()
@@ -30,8 +29,7 @@ for line in requirements:
 
 setuptools.setup(
      name='scenicplus',
-     use_scm_version=True,
-     setup_requires=['setuptools_scm'],
+     version="1.0a1",
      packages=setuptools.find_packages(where='src'),
      package_dir={'': 'src'},
      py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob.glob('src/*.py')],

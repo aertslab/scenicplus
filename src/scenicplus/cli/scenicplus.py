@@ -2,7 +2,8 @@ import sys
 import argparse 
 import pathlib
 from scenicplus.cli import gfx
-
+import scenicplus
+VERSION = scenicplus.__version__
 _DESCRIPTION = "Single-Cell Enhancer-driven gene regulatory Network Inference and Clustering"
 
 def _function(arg: str):
@@ -620,6 +621,7 @@ def main(argv=None) -> int:
     
     if not hasattr(args, "func"):
         print(gfx.logo)
+        print(f"scenicplus verions: {VERSION}")
         if not hasattr(args, "_subparser_name"):
             # No subparser was called, print main help message
             parser.print_help()
