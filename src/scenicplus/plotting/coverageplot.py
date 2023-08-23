@@ -299,9 +299,6 @@ def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
             _exon_height = (((exon_height / n_genes_in_window) / 2) - _gene_height) + \
                 _gene_height + \
                 (((exon_height / n_genes_in_window) / 2) - _gene_height)
-            # don't plot non-protein coding transcripts (e.g. nonsense_mediated_decay)
-            if not all(gtf_region_intersect.df.loc[gtf_region_intersect.df['gene_name'] == _gene, 'transcript_type'].dropna() == 'protein_coding'):
-                continue
             # plot the gene parts (gene body and gene exon)
             # iterate over all parts to plot them
             for _, part in gtf_region_intersect.df.loc[gtf_region_intersect.df['gene_name'] == _gene].iterrows():
