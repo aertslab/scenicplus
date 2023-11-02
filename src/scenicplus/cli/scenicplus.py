@@ -11,6 +11,23 @@ def _function(arg: str):
         raise ValueError("Argument has to be a lambda function definition!")
     return eval(arg)
 
+
+"""
+Functions to create snakemake inti parser.
+"""
+
+def add_parser_for_init_snakemake(parser: argparse.ArgumentParser):
+    def init_snakemake(arg):
+        from scenicplus.cli.commands import init_snakemake_folder
+        init_snakemake_folder(
+            out_dir=arg.out_dir)
+    parser.set_defaults(func=init_snakemake)
+    # Required arguments
+    parser.add_argument(
+        "--out_dir", dest="out_dir",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to out dir.")
+
 """
 Functions to create data preparation parsers.
 """
@@ -98,7 +115,7 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
             raise ValueError("Please provide path for --extended_annotation!")
         from scenicplus.cli.commands import prepare_motif_enrichment_results
         prepare_motif_enrichment_results(
-            menr_fname=arg.menr_fname,
+            paths_to_motif_enrichment_results=arg.paths_to_motif_enrichment_results,
             multiome_mudata_fname=arg.multiome_mudata_fname,
             out_file_direct_annotation=arg.out_file_direct_annotation,
             out_file_extended_annotation=arg.out_file_extended_annotation,
@@ -108,9 +125,9 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
     parser.set_defaults(func=prepare_menr_data)
     # Required arguments
     parser.add_argument(
-        "--menr_fname", dest="menr_fname",
-        action="store", type=pathlib.Path, required=True,
-        help="Path to motif enrichment result pickle file (from pycistarget).")
+        "--paths_to_motif_enrichment_results", dest="paths_to_motif_enrichment_results",
+        action="store", type=str, required=True, nargs='+',
+        help="Paths to motif enrichment result hdf5 files (from pycistarget).")
     parser.add_argument(
         "--multiome_mudata_fname", dest="multiome_mudata_fname",
         action="store", type=pathlib.Path, required=True,
@@ -1050,6 +1067,17 @@ def create_argument_parser():
         description=_DESCRIPTION)
     subparsers = parser.add_subparsers()
 
+    """
+    Init snakemake parser
+    """
+    init_snakemake_command="init_snakemake"
+    init_snakemake_parser = subparsers.add_parser(
+        name = init_snakemake_command,
+        add_help = True,
+        description="""
+        Initialize snakemake pipeline""")
+    add_parser_for_init_snakemake(init_snakemake_parser)
+    
     """
     Data preparation parsers
     """

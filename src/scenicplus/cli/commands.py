@@ -1,7 +1,3 @@
-# TODO: split these commands over multiple files. 
-#       this will limit the amount of import time required.
-#       Or, put the imports inside the function calls.
-
 # General imports
 import os
 import pathlib
@@ -15,29 +11,13 @@ import logging
 import sys
 import pandas as pd
 import joblib
+import shutil
+from importlib_resources import files
 
 # pycistarget import 
-from pycistarget.motif_enrichment_cistarget import (
-    cisTargetDatabase, cisTarget)
-from pycistarget.motif_enrichment_dem import (
-    DEMDatabase, DEM, get_foreground_and_background_regions
-)
-
-# SCENIC+ imports
-from scenicplus.data_wrangling.adata_cistopic_wrangling import (
-    process_multiome_data, 
-    process_non_multiome_data)
-from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
-from scenicplus.data_wrangling.gene_search_space import (
-    download_gene_annotation_and_chromsizes, 
-    get_search_space)
-from scenicplus.TF_to_gene import calculate_TFs_to_genes_relationships
-from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships
-from scenicplus.grn_builder.gsea_approach import build_grn
+from pycistarget.motif_enrichment_cistarget import cisTarget
+from pycistarget.motif_enrichment_dem import DEM
 from scenicplus.grn_builder.modules import eRegulon
-from scenicplus.eregulon_enrichment import score_eRegulons
-from scenicplus.scenicplus_mudata import ScenicPlusMuData
-from scenicplus.triplet_score import calculate_triplet_score
 
 
 # Create logger
@@ -46,6 +26,19 @@ format = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
 handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('SCENIC+')
+
+def init_snakemake_folder(
+        out_dir: pathlib.Path):
+    log.info(f"Creating snakemake folder in: {out_dir.__str__()}")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    os.makedirs(os.path.join(out_dir, "Snakemake"))
+    os.makedirs(os.path.join(out_dir, "Snakemake", "config"))
+    os.makedirs(os.path.join(out_dir, "Snakemake", "workflow"))
+    config_file = str(files("scenicplus.snakemake").joinpath("config.yaml"))
+    snakefile = str(files("scenicplus.snakemake").joinpath("Snakefile"))
+    shutil.copy(config_file, os.path.join(out_dir, "Snakemake", "config", "config.yaml"))
+    shutil.copy(snakefile, os.path.join(out_dir, "Snakemake", "workflow", "Snakefile"))
 
 def prepare_GEX_ACC(
         cisTopic_obj_fname: pathlib.Path,
@@ -57,6 +50,9 @@ def prepare_GEX_ACC(
         key_to_group_by: Union[None, str],
         nr_metacells: Union[int, Dict[str, int], None],
         nr_cells_per_metacells: Union[int, Dict[str, int]]) -> None:
+    from scenicplus.data_wrangling.adata_cistopic_wrangling import (
+        process_multiome_data, 
+        process_non_multiome_data)
     log.info("Reading cisTopic object.")
     cisTopic_obj = pickle.load(open(cisTopic_obj_fname, "rb"))
     log.info("Reading gene expression AnnData.")
@@ -91,6 +87,7 @@ def _run_cistarget_single_region_set(
         annotations_to_use,
         motif_similarity_fdr,
         orthologous_identity_threshold) -> cisTarget:
+    from pycistarget.motif_enrichment_cistarget import cisTargetDatabase
     ctx_db = cisTargetDatabase(
         fname=cistarget_db_fname,
         region_sets=region_set,
@@ -219,6 +216,8 @@ def _run_dem_single_region_set(
         annotations_to_use,
         motif_similarity_fdr,
         orthologous_identity_threshold) -> DEM:
+    from pycistarget.motif_enrichment_dem import (
+        DEMDatabase, get_foreground_and_background_regions)
     # Get foreground and background regions for DEM analysis
     foreground_regions, background_regions = get_foreground_and_background_regions(
         foreground_region_sets = foreground_region_sets,
@@ -289,6 +288,8 @@ def run_motif_enrichment_dem(
         orthologous_identity_threshold: float = 0.0,
         seed: int = 555,
         write_html: bool = True):
+    from pycistarget.motif_enrichment_dem import (
+        DEMDatabase, DEM, get_foreground_and_background_regions)
     region_set_dict: Dict[str, pr.PyRanges] = {}
     log.info(f"Reading region sets from: {region_set_folder}")
     for region_set_subfolder in os.listdir(region_set_folder):
@@ -364,20 +365,19 @@ def run_motif_enrichment_dem(
             )
 
 def prepare_motif_enrichment_results(
-        menr_fname: pathlib.Path,
+        paths_to_motif_enrichment_results: List[str],
         multiome_mudata_fname: pathlib.Path,
         out_file_direct_annotation: pathlib.Path,
         out_file_extended_annotation: pathlib.Path,
         out_file_tf_names: pathlib.Path,
         direct_annotation: List[str],
         extended_annotation: List[str]) -> None:
-    log.info("Reading motif enrichment results.")
-    menr = pickle.load(open(menr_fname, 'rb'))
+    from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
     log.info("Reading multiome MuData.")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     log.info("Getting cistromes.")
     adata_direct_cistromes, adata_extended_cistromes = get_and_merge_cistromes(
-        menr=menr,
+        paths_to_motif_enrichment_results=paths_to_motif_enrichment_results,
         scplus_regions=set(mdata['scATAC'].var_names),
         direct_annotation=direct_annotation,
         extended_annotation=extended_annotation)
@@ -407,6 +407,8 @@ def download_gene_annotation_chromsizes(
         use_ucsc_chromosome_style: bool,
         genome_annotation_out_fname: pathlib.Path,
         chromsizes_out_fname: pathlib.Path):
+    from scenicplus.data_wrangling.gene_search_space import (
+        download_gene_annotation_and_chromsizes)
     result = download_gene_annotation_and_chromsizes(
             species=species,
             biomart_host=biomart_host,
@@ -436,6 +438,7 @@ def get_search_space_command(
         downstream: Tuple[int, int],
         extend_tss: Tuple[int, int],
         remove_promoters: bool):
+    from scenicplus.data_wrangling.gene_search_space import get_search_space
     log.info("Reading data")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     gene_annotation=pd.read_table(gene_annotation_fname)
@@ -463,6 +466,7 @@ def infer_TF_to_gene(
         method: Literal['GBM', 'RF'],
         n_cpu: int,
         seed: int):
+    from scenicplus.TF_to_gene import calculate_TFs_to_genes_relationships
     log.info("Reading multiome MuData.")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     with open(tf_names_fname, "r") as f:
@@ -489,6 +493,7 @@ def infer_region_to_gene(
         correlation_scoring_method: Literal['PR', 'SR'],
         mask_expr_dropout: bool,
         n_cpu: int):
+    from scenicplus.enhancer_to_gene import calculate_regions_to_genes_relationships
     log.info("Reading multiome MuData.")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     log.info("Reading search space")
@@ -576,6 +581,9 @@ def infer_grn(
         rho_threshold: float,
         min_target_genes: int,
         n_cpu: int):
+    from scenicplus.grn_builder.gsea_approach import build_grn
+    from scenicplus.grn_builder.modules import eRegulon
+    from scenicplus.triplet_score import calculate_triplet_score
     log.info("Loading TF to gene adjacencies.")
     tf_to_gene = pd.read_table(TF_to_gene_adj_fname)
 
@@ -632,6 +640,7 @@ def calculate_auc(
         multiome_mudata_fname: pathlib.Path,
         out_file: pathlib.Path,
         n_cpu: int = 1):
+    from scenicplus.eregulon_enrichment import score_eRegulons
     log.info("Reading data.")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     eRegulons = pd.read_table(eRegulons_fname)
@@ -656,6 +665,7 @@ def create_scplus_mudata(
         e_regulon_metadata_direct_fname: pathlib.Path,
         e_regulon_metadata_extended_fname: pathlib.Path,
         out_file: pathlib.Path):
+    from scenicplus.scenicplus_mudata import ScenicPlusMuData
     log.info("Reading multiome MuData.")
     acc_gex_mdata = mudata.read(multiome_mudata_fname.__str__())
     log.info("Reading AUC values.")

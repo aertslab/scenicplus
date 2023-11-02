@@ -47,9 +47,157 @@ else:
                 --nr_cells_per_metacells {params.nr_cells_per_metacells}
             """
 
+rule motif_enrichment_cistarget:
+    input:
+        region_set_folder=config["input_data"]["region_set_folder"],
+        ctx_db_fname=config["input_data"]["ctx_db_fname"],
+        path_to_motif_annotations=config["input_data"]["path_to_motif_annotations"]
+    output:
+        ctx_result_fname=config["output_data"]["ctx_result_fname"],
+        output_fname_ctx_html=config["output_data"]["output_fname_ctx_html"]
+    params:
+        temp_dir=lambda wildcards: config["params_general"]["temp_dir"],
+        species=lambda wildcards: config["params_motif_enrichment"]["species"],
+        fraction_overlap_w_ctx_database=lambda wildcards: config["params_motif_enrichment"]["fraction_overlap_w_ctx_database"],
+        auc_threshold=lambda wildcards: config["params_motif_enrichment"]["ctx_auc_threshold"],
+        nes_threshold=lambda wildcards: config["params_motif_enrichment"]["ctx_nes_threshold"],
+        rank_threshold=lambda wildcards: config["params_motif_enrichment"]["ctx_rank_threshold"],
+        annotation_version=lambda wildcards: config["params_motif_enrichment"]["annotation_version"],
+        motif_similarity_fdr=lambda wildcards: config["params_motif_enrichment"]["motif_similarity_fdr"],
+        orthologous_identity_threshold=lambda wildcards: config["params_motif_enrichment"]["orthologous_identity_threshold"],
+        annotations_to_use=lambda wildcards: config["params_motif_enrichment"]["annotations_to_use"]
+    threads: config["params_general"]["n_cpu"]
+    shell:
+        """
+            scenicplus grn_inference motif_enrichment_cistarget \
+                --region_set_folder {input.region_set_folder} \
+                --cistarget_db_fname {input.ctx_db_fname} \
+                --output_fname_cistarget_result {output.ctx_result_fname} \
+                --temp_dir {params.temp_dir} \
+                --species {params.species} \
+                --fr_overlap_w_ctx_db {params.fraction_overlap_w_ctx_database} \
+                --auc_threshold {params.auc_threshold} \
+                --nes_threshold {params.nes_threshold} \
+                --rank_threshold {params.rank_threshold} \
+                --path_to_motif_annotations {input.path_to_motif_annotations} \
+                --annotation_version {params.annotation_version} \
+                --motif_similarity_fdr {params.motif_similarity_fdr} \
+                --orthologous_identity_threshold {params.orthologous_identity_threshold} \
+                --annotations_to_use {params.annotations_to_use} \
+                --write_html \
+                --output_fname_cistarget_html {output.output_fname_ctx_html} \
+                --n_cpu {threads}
+        """
+
+if config["params_motif_enrichment"]["dem_balance_number_of_promoters"]:
+    rule motif_enrichment_dem:
+        input:
+            region_set_folder=config["input_data"]["region_set_folder"],
+            dem_db_fname=config["input_data"]["dem_db_fname"],
+            genome_annotation_fname=config["output_data"]["genome_annotation"],
+            path_to_motif_annotations=config["input_data"]["path_to_motif_annotations"]
+        output:
+            dem_result_fname=config["output_data"]["dem_result_fname"],
+            output_fname_dem_html=config["output_data"]["output_fname_dem_html"]
+        params:
+            temp_dir=lambda wildcards: config["params_general"]["temp_dir"],
+            species=lambda wildcards: config["params_motif_enrichment"]["species"],
+            fraction_overlap_w_dem_database=lambda wildcards: config["params_motif_enrichment"]["fraction_overlap_w_dem_database"],
+            max_bg_regions=lambda wildcards: config["params_motif_enrichment"]["dem_max_bg_regions"],
+            promoter_space=lambda wildcards: config["params_motif_enrichment"]["dem_promoter_space"],
+            adj_pval_thr=lambda wildcards: config["params_motif_enrichment"]["dem_adj_pval_thr"],
+            log2fc_thr=lambda wildcards: config["params_motif_enrichment"]["dem_log2fc_thr"],
+            mean_fg_thr=lambda wildcards: config["params_motif_enrichment"]["dem_mean_fg_thr"],
+            motif_hit_thr=lambda wildcards: config["params_motif_enrichment"]["dem_motif_hit_thr"],
+            annotation_version=lambda wildcards: config["params_motif_enrichment"]["annotation_version"],
+            motif_similarity_fdr=lambda wildcards: config["params_motif_enrichment"]["motif_similarity_fdr"],
+            orthologous_identity_threshold=lambda wildcards: config["params_motif_enrichment"]["orthologous_identity_threshold"],
+            annotations_to_use=lambda wildcards: config["params_motif_enrichment"]["annotations_to_use"],
+            seed=lambda wildcards: config["params_general"]["seed"],
+            n_cpu=lambda wildcards: config["params_general"]["n_cpu"]
+        threads: config["params_general"]["n_cpu"]
+        shell:
+            """
+                scenicplus grn_inference motif_enrichment_dem \
+                    --region_set_folder {input.region_set_folder} \
+                    --dem_db_fname {input.dem_db_fname} \
+                    --output_fname_dem_result {output.dem_result_fname} \
+                    --temp_dir {params.temp_dir} \
+                    --species {params.species} \
+                    --fraction_overlap_w_dem_database {params.fraction_overlap_w_dem_database} \
+                    --max_bg_regions {params.max_bg_regions} \
+                    --genome_annotation {input.genome_annotation_fname} \
+                    --balance_number_of_promoters \
+                    --promoter_space {params.promoter_space} \
+                    --adj_pval_thr {params.adj_pval_thr} \
+                    --log2fc_thr {params.log2fc_thr} \
+                    --mean_fg_thr {params.mean_fg_thr} \
+                    --motif_hit_thr {params.motif_hit_thr} \
+                    --path_to_motif_annotations {input.path_to_motif_annotations} \
+                    --annotation_version {params.annotation_version} \
+                    --motif_similarity_fdr {params.motif_similarity_fdr} \
+                    --orthologous_identity_threshold {params.orthologous_identity_threshold} \
+                    --annotations_to_use {params.annotations_to_use} \
+                    --write_html \
+                    --output_fname_dem_html {output.output_fname_dem_html} \
+                    --seed {params.seed} \
+                    --n_cpu {threads}
+            """
+else:
+    rule motif_enrichment_dem:
+        input:
+            region_set_folder=config["input_data"]["region_set_folder"],
+            dem_db_fname=config["input_data"]["dem_db_fname"],
+            path_to_motif_annotations=config["input_data"]["path_to_motif_annotations"]
+        output:
+            dem_result_fname=config["output_data"]["dem_result_fname"],
+            output_fname_dem_html=config["output_data"]["output_fname_dem_html"]
+        params:
+            temp_dir=lambda wildcards: config["params_general"]["temp_dir"],
+            species=lambda wildcards: config["params_motif_enrichment"]["species"],
+            fraction_overlap_w_dem_database=lambda wildcards: config["params_motif_enrichment"]["fraction_overlap_w_dem_database"],
+            max_bg_regions=lambda wildcards: config["params_motif_enrichment"]["dem_max_bg_regions"],
+            promoter_space=lambda wildcards: config["params_motif_enrichment"]["dem_promoter_space"],
+            adj_pval_thr=lambda wildcards: config["params_motif_enrichment"]["dem_adj_pval_thr"],
+            log2fc_thr=lambda wildcards: config["params_motif_enrichment"]["dem_log2fc_thr"],
+            mean_fg_thr=lambda wildcards: config["params_motif_enrichment"]["dem_mean_fg_thr"],
+            motif_hit_thr=lambda wildcards: config["params_motif_enrichment"]["dem_motif_hit_thr"],
+            annotation_version=lambda wildcards: config["params_motif_enrichment"]["annotation_version"],
+            motif_similarity_fdr=lambda wildcards: config["params_motif_enrichment"]["motif_similarity_fdr"],
+            orthologous_identity_threshold=lambda wildcards: config["params_motif_enrichment"]["orthologous_identity_threshold"],
+            annotations_to_use=lambda wildcards: config["params_motif_enrichment"]["annotations_to_use"],
+            seed=lambda wildcards: config["params_general"]["seed"],
+            n_cpu=lambda wildcards: config["params_general"]["n_cpu"]
+        threads: config["params_general"]["n_cpu"]
+        shell:
+            """
+                scenicplus grn_inference motif_enrichment_dem \
+                    --region_set_folder {input.region_set_folder} \
+                    --dem_db_fname {input.dem_db_fname} \
+                    --output_fname_dem_result {output.dem_result_fname} \
+                    --temp_dir {params.temp_dir} \
+                    --species {params.species} \
+                    --fraction_overlap_w_dem_database {params.fraction_overlap_w_dem_database} \
+                    --max_bg_regions {params.max_bg_regions} \
+                    --adj_pval_thr {params.adj_pval_thr} \
+                    --log2fc_thr {params.log2fc_thr} \
+                    --mean_fg_thr {params.mean_fg_thr} \
+                    --motif_hit_thr {params.motif_hit_thr} \
+                    --path_to_motif_annotations {input.path_to_motif_annotations} \
+                    --annotation_version {params.annotation_version} \
+                    --motif_similarity_fdr {params.motif_similarity_fdr} \
+                    --orthologous_identity_threshold {params.orthologous_identity_threshold} \
+                    --annotations_to_use {params.annotations_to_use} \
+                    --write_html \
+                    --output_fname_dem_html {output.output_fname_dem_html} \
+                    --seed {params.seed} \
+                    --n_cpu {threads}
+            """
+
 rule prepare_menr:
     input:
-        menr_fname=config["input_data"]["menr_fname"],
+        dem_result_fname=config["output_data"]["dem_result_fname"],
+        ctx_result_fname=config["output_data"]["ctx_result_fname"],
         multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"]
     output:
         tf_names=config["output_data"]["tf_names"],
@@ -61,7 +209,7 @@ rule prepare_menr:
     shell:
         """
         scenicplus prepare_data prepare_menr \
-            --menr_fname {input.menr_fname} \
+            --paths_to_motif_enrichment_results {input.dem_result_fname} {input.ctx_result_fname} \
             --multiome_mudata_fname {input.multiome_mudata_fname} \
             --out_file_tf_names {output.tf_names} \
             --out_file_direct_annotation {output.cistromes_direct} \
@@ -160,7 +308,7 @@ rule eGRN_direct:
         tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"],
         region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"],
         cistromes_direct=config["output_data"]["cistromes_direct"],
-        ranking_db_fname=config["input_data"]["ranking_db_fname"]
+        ranking_db_fname=config["input_data"]["ctx_db_fname"]
     output:
         eRegulons_direct=config["output_data"]["eRegulons_direct"]
     params:
@@ -181,7 +329,7 @@ rule eGRN_direct:
             --TF_to_gene_adj_fname {input.tf_to_gene_adjacencies}\
             --region_to_gene_adj_fname {input.region_to_gene_adjacencies} \
             --cistromes_fname {input.cistromes_direct}\
-            --ranking_db_fname {input.ranking_db_fname} \
+            --ranking_db_fname {input.ctx_db_fname} \
             --eRegulon_out_fname {output.eRegulons_direct} \
             --temp_dir {params.temp_dir} \
             --order_regions_to_genes_by {params.order_regions_to_genes_by} \
@@ -201,7 +349,7 @@ rule eGRN_extended:
         tf_to_gene_adjacencies=config["output_data"]["tf_to_gene_adjacencies"],
         region_to_gene_adjacencies=config["output_data"]["region_to_gene_adjacencies"],
         cistromes_extended=config["output_data"]["cistromes_extended"],
-        ranking_db_fname=config["input_data"]["ranking_db_fname"]
+        ranking_db_fname=config["input_data"]["ctx_db_fname"]
     output:
         eRegulons_extended=config["output_data"]["eRegulons_extended"]
     params:
@@ -223,7 +371,7 @@ rule eGRN_extended:
             --TF_to_gene_adj_fname {input.tf_to_gene_adjacencies}\
             --region_to_gene_adj_fname {input.region_to_gene_adjacencies} \
             --cistromes_fname {input.cistromes_extended} \
-            --ranking_db_fname {input.ranking_db_fname} \
+            --ranking_db_fname {input.ctx_db_fname} \
             --eRegulon_out_fname {output.eRegulons_extended} \
             --temp_dir {params.temp_dir} \
             --order_regions_to_genes_by {params.order_regions_to_genes_by} \
