@@ -129,7 +129,7 @@ if config["params_motif_enrichment"]["dem_balance_number_of_promoters"]:
                     --genome_annotation {input.genome_annotation_fname} \
                     --balance_number_of_promoters \
                     --promoter_space {params.promoter_space} \
-                    --adj_pval_thr {params.adj_pval_thr} \
+                    --adjpval_thr {params.adj_pval_thr} \
                     --log2fc_thr {params.log2fc_thr} \
                     --mean_fg_thr {params.mean_fg_thr} \
                     --motif_hit_thr {params.motif_hit_thr} \
@@ -179,7 +179,7 @@ else:
                     --species {params.species} \
                     --fraction_overlap_w_dem_database {params.fraction_overlap_w_dem_database} \
                     --max_bg_regions {params.max_bg_regions} \
-                    --adj_pval_thr {params.adj_pval_thr} \
+                    --adjpval_thr {params.adj_pval_thr} \
                     --log2fc_thr {params.log2fc_thr} \
                     --mean_fg_thr {params.mean_fg_thr} \
                     --motif_hit_thr {params.motif_hit_thr} \
