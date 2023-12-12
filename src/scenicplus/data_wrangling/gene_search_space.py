@@ -74,7 +74,7 @@ def download_gene_annotation_and_chromsizes(
     annot['Strand'] = ['+' if strand == 1 else '-' for strand in annot['Strand']]
     # get assembly information
     try:
-        _regex_display_name = re.search(r'\((.*?)\)',dataset.display_name)
+        _regex_display_name = re.search(r'genes \((.*?)\)',dataset.display_name)
         if _regex_display_name is None:
             raise ValueError("Could not find assembly from biomart query display name.")
         ncbi_search_term = _regex_display_name.group(1)
