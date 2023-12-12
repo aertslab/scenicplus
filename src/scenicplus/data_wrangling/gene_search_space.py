@@ -93,9 +93,24 @@ def download_gene_annotation_and_chromsizes(
         _IdList_element = xml_tree.fromstring(ncbi_search_genome_id_response.content) \
             .find('IdList')
         if _IdList_element is None:
-            raise NCBISearchNotFound(
-                search_term = "IdList",
-                url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
+            # Try again
+            ncbi_tries = 0
+            ncbi_search_term = ncbi_search_term.split(".")[0]
+            ncbi_search_genome_id_response = requests.get(
+                f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
+            while not ncbi_search_genome_id_response.ok and ncbi_tries < _NCBI_MAX_RETRIES:
+                time.sleep(0.5) #sleep to not get blocked by NCBI (max 3 requests per second)
+                ncbi_search_genome_id_response = requests.get(
+                    f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
+                ncbi_tries = ncbi_tries + 1
+            if (ncbi_tries == _NCBI_MAX_RETRIES) and not ncbi_search_genome_id_response.ok:
+                raise MaxNCBIRetriesReached
+            _IdList_element = xml_tree.fromstring(ncbi_search_genome_id_response.content) \
+                .find('IdList')
+            if _IdList_element is None:
+                raise NCBISearchNotFound(
+                    search_term = "IdList",
+                    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
         _Id_element = _IdList_element.find('Id')
         if _Id_element is None:
             raise NCBISearchNotFound(
