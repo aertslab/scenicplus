@@ -74,16 +74,19 @@ def download_gene_annotation_and_chromsizes(
     annot['Strand'] = ['+' if strand == 1 else '-' for strand in annot['Strand']]
     # get assembly information
     try:
-        ncbi_search_term = dataset.display_name.split("(")[0].replace(" genes ", "").strip()
+        _regex_display_name = re.search(r'\((.*?)\)',dataset.display_name)
+        if _regex_display_name is None:
+            raise ValueError("Could not find assembly from biomart query display name.")
+        ncbi_search_term = _regex_display_name.group(1)
         log.info(f"Using genome: {ncbi_search_term}")
         # Look for genome id
         ncbi_tries = 0
         ncbi_search_genome_id_response = requests.get(
-            f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}[Organism]")
+            f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
         while not ncbi_search_genome_id_response.ok and ncbi_tries < _NCBI_MAX_RETRIES:
             time.sleep(0.5) #sleep to not get blocked by NCBI (max 3 requests per second)
             ncbi_search_genome_id_response = requests.get(
-                f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}[Organism]")
+                f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
             ncbi_tries = ncbi_tries + 1
         if (ncbi_tries == _NCBI_MAX_RETRIES) and not ncbi_search_genome_id_response.ok:
             raise MaxNCBIRetriesReached
@@ -92,12 +95,12 @@ def download_gene_annotation_and_chromsizes(
         if _IdList_element is None:
             raise NCBISearchNotFound(
                 search_term = "IdList",
-                url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}[Organism]")
+                url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
         _Id_element = _IdList_element.find('Id')
         if _Id_element is None:
             raise NCBISearchNotFound(
                 search_term = "Id",
-                url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}[Organism]")
+                url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
         ncbi_genome_id = _Id_element.text
         log.info(f"Found corresponding genome Id {ncbi_genome_id} on NCBI")
         ncbi_tries = 0
