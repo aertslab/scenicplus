@@ -96,6 +96,7 @@ def download_gene_annotation_and_chromsizes(
             # Try again
             ncbi_tries = 0
             ncbi_search_term = ncbi_search_term.split(".")[0]
+            log.info(f"Genome id not found!\nTrying again using genome: {ncbi_search_term}")
             ncbi_search_genome_id_response = requests.get(
                 f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=genome&term={ncbi_search_term}")
             while not ncbi_search_genome_id_response.ok and ncbi_tries < _NCBI_MAX_RETRIES:
