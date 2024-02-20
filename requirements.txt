@@ -11,15 +11,12 @@ pyranges==0.0.111
 scipy
 pybiomart
 requests
-arboreto
 gseapy==0.10.8
 networkx
-ctxcore
 seaborn
 pyBigWig
 plotly
 adjustText
-MACS2
 lxml
 tspex
 plotly
