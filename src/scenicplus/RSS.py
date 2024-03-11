@@ -156,8 +156,7 @@ def plot_rss(data_matrix: pd.DataFrame,
             t.set_fontsize(fontsize)
         ax.set_ylabel('')
         ax.set_xlabel('')
-        adjust_text(ax.texts, ha='right', va='bottom', arrowprops=dict(
-            arrowstyle='-', color='lightgrey'), precision=0.001)
+        adjust_text(ax.texts)
         if num_columns == 1:
             fig.text(0.5, 0.0, 'eRegulon rank', ha='center',
                      va='center', size='x-large')
