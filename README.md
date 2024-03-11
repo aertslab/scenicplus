@@ -4,6 +4,8 @@
 
 # SCENIC+ single-cell eGRN inference
 
+**Announcement:** We will do a live webinar on the 26th of March at 5 p.m. CET, click [here](https://forms.gle/z6fVAwaHMPtrGPuA6) to sign up!
+
 `SCENIC+` is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
 
 ## Documentation 
