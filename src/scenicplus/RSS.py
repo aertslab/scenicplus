@@ -24,7 +24,7 @@ def rss(aucs, labels):
 
 def regulon_specificity_scores_df(
                                data_matrix: pd.DataFrame,
-                               variable_matrix: pd.DataFrame):
+                               variable_matrix: pd.Series):
 
     """
     Calculate the Regulon Specificty Scores (RSS). [doi: 10.1016/j.celrep.2018.10.045]
@@ -33,8 +33,8 @@ def regulon_specificity_scores_df(
     ---------
     data_matrix: 'class::pd.DataFrame`
         A pandas dataframe containing regulon scores per cell.
-    variable_matrix: 'class::pd.DataFrame'
-        A pandas dataframe with an annotation per cell.
+    variable_matrix: 'class::pd.Series'
+        A pandas series with an annotation per cell.
     """
 
     cell_types = list(variable_matrix.unique())
