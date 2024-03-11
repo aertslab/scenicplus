@@ -132,8 +132,7 @@ def plot_rss(data_matrix: pd.DataFrame,
 
     if num_columns > 1:
         num_rows = int(np.ceil(len(cats) / num_columns))
-        if figsize == (6.4, 4.8):
-            figsize = (6.4 * num_columns, 4.8 * num_rows)
+        figsize = (figsize[0] * num_columns, figsize[1] * num_rows)
         i = 1
         fig = plt.figure(figsize=figsize)
 
