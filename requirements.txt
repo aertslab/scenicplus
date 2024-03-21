@@ -16,7 +16,7 @@ networkx
 seaborn
 pyBigWig
 plotly
-adjustText==0.2
+adjustText
 lxml
 tspex
 kaleido
@@ -27,7 +27,7 @@ cython
 plotnine
 mudata
 importlib_resources
-git+https://github.com/aertslab/pycisTopic@master#egg=pycisTopic
+git+https://github.com/aertslab/pycisTopic@polars#egg=pycisTopic
 git+https://github.com/aertslab/pycistarget@development#egg=pycistarget
 git+https://github.com/aertslab/pySCENIC@master#egg=pyscenic
 git+https://github.com/aertslab/LoomXpy@main#egg=loomxpy
