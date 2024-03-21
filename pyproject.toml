@@ -1,0 +1,145 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scenicplus"
+authors = [
+  { name = "Seppe De Winter", email = "seppe.dewinter@kuleuven.be" },
+  { name = "Carmen Bravo", email = "carmen.bravogonzalezblas@kuleuven.be" },
+]
+description = "SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data."
+readme = "README.md"
+version = "1.0a1"
+requires-python = ">=3.8"
+keywords = ["scATAC", "GRN inference", "eGRN inference"]
+licence = { file = "LICENCE.txt" }
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "pandas==1.5",
+    "numpy",
+    "tqdm",
+    "ray",
+    "attr",
+    "typing",
+    "matplotlib<3.7",
+    "scikit-learn",
+    "statistics",
+    "pyranges==0.0.111",
+    "scipy",
+    "pybiomart",
+    "requests",
+    "gseapy==0.10.8",
+    "networkx",
+    "seaborn",
+    "pyBigWig",
+    "plotly",
+    "adjustText",
+    "lxml",
+    "tspex",
+    "kaleido",
+    "pyvis",
+    "pygam",
+    "scanpy==1.8.2",
+    "cython",
+    "plotnine",
+    "mudata",
+    "importlib_resources",
+    "pycistarget@git+https://github.com/aertslab/pycistarget#egg=development",
+    "pyscenic@git+https://github.com/aertslab/pySCENIC#egg=master",
+    "loomxpy@git+https://github.com/aertslab/LoomXpy#egg=main",
+    "pycisTopic@git+https://github.com/aertslab/pycisTopic#egg=polars",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx_rtd_theme",
+    "nbsphinx",
+    "nbsphinx_link",
+    "numpydoc",
+    "sphinx_book_theme"
+]
+development = [
+    "ruff",
+    "mypy"
+]
+
+[project.urls]
+Homepage = "https://github.com/aertslab/scenicplus"
+Documentation = "https://scenicplus.readthedocs.io"
+Repository = "https://github.com/aertslab/scenicplus"
+Changelog = "https://github.com/aertslab/scenicplus/releases"
+
+[project.scripts]
+scenicplus = "scenicplus.cli.scenicplus:main"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+fix = true
+
+lint.select = [
+  "E", # pycodestyle
+  "W", # pycodestyle
+  "F", # Pyflakes
+  "B", # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "D", # flake8-docstrings
+  "I", # isort
+  "SIM", # flake8-simplify
+  "TCH", # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  "Q", # flake8-quotes
+  "UP", # pyupgrade
+  "PT", # flake8-pytest-style
+  "RUF", # Ruff-specific rules
+]
+
+lint.ignore = [
+  # Line length regulated by black
+  "E501",
+  # pydocstyle: http://www.pydocstyle.org/en/stable/error_codes.html
+  # numpy convention with a few additional lints
+  "D107",
+  "D203",
+  "D212",
+  "D401",
+  "D402",
+  "D415",
+  "D416",
+  # flake8-pytest-style:
+  "PT011", # pytest.raises({exception}) is too broad, set the match parameter or use a more specific exception
+  # flake8-simplify
+  "SIM102", # Use a single `if` statement instead of nested `if` statements
+  # ruff
+  "RUF005", # unpack-instead-of-concatenating-to-collection-literal
+  # pycodestyle
+  # TODO: Remove errors below to further improve docstring linting
+  # Ordered from most common to least common errors.
+  "D105",
+  "D100",
+  "D103",
+  "D102",
+  "D104",
+  "D101",
+]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
