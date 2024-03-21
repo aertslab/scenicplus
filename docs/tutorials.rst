@@ -4,101 +4,57 @@
 Tutorials
 **********
 
-In this section we present several tutorials on using SCENIC+.
+In this section we present tutorials on how to run SCENIC+.
 
-Basic SCENIC+ analysis
-======================
+Basic SCENIC+ tutorial on human brain multiome data
+===================================================
 
-**From count matrix and fragments file to enhancer driven gene regulatory network (eGRN)**
+SCENIC+ involves several steps, these are detailed below.
+For all the tutorials we will make use of a small dataset (3k cells) freely available
+on the `website of 10X genomics <https://www.10xgenomics.com/datasets/frozen-human-healthy-brain-tissue-3-k-1-standard-1-0-0>`_.
+This is a multiome dataset on human healthy brain tissues.
 
-For getting started with SCENIC+, we recommend this tutorial covering the entire SCENIC+ workflow 
-including preprocessing steps. For this tutorial we make use of the 3k PBMCs multiome dataset publicly 
-available from 10x Genomics. We'll cover scRNA-seq and scATAC-seq preprocessing, topic modelling, motif enrichment 
-analysis, running SCENIC+ and basic downstream analysis.
+**Step 1: preprocess scATAC-seq data using pycisTopic**
 
-Get started by clicking :ref:`here <Tutorial: 10x multiome pbmc>` 👈
+The first step is to preprocess the scATAC-seq side of the data using pycisTopic.
 
-.. image:: images/B_cell_network.png
-    :width: 500
+Get started with this tutorial by clicking `here <https://pycistopic.readthedocs.io/en/polars/notebooks/human_cerebellum.html>`_ 👈
 
-**Running SCENIC+ step by step**
+**Step 2: preprocess scRNA-seq data using Scanpy**
 
-In the PBMC tutorial (above) we used a wrapper function to run the complete SCENIC+ workflow.
-This workflow actually contains many individual steps. If you're curious for these steps
-or you want to alter the workflow then this tutorial is for you. 
-Here, we will showcase SCENIC+ on multiome data from the human cerebellum. We don't show the
-preprocessing steps but we really focus on the individual steps of SCENIC+
+Next we have a very small tutorial on how to preprocess the scRNA-seq side of the data.
+This tutorial highligths the bare minimum preprocessing steps. For more information 
+we refer the reader to the `Scanpy tutorials <https://scanpy.readthedocs.io/en/stable/tutorials.html>`_.
 
-Get started by clicking :ref:`here <Tutorial: SCENIC+ step-by-step in the human cerebellum>` 👈
+Get started with this tutorial by clicking :ref:`here <Preprocessing the scRNA-seq data>` 👈
 
-.. image:: images/cerebellum_network.png
-    :width: 500
+**Step 3: (Optional but recommended) generate a custom cisTarget database**
 
-**SCENIC+ analysis on non-multiome data: separate scATAC-seq and scRNA-seq on different cells of the same sample**
+Optionally, a custom cisTarget database can be generated on consensus peaks.
+We provide precomputed cisTarget databases for `human <https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg38/screen/mc_v10_clust/region_based/>`_, 
+`mouse <https://resources.aertslab.org/cistarget/databases/mus_musculus/mm10/screen/mc_v10_clust/region_based/>`_ and `fly <https://resources.aertslab.org/cistarget/databases/drosophila_melanogaster/dm6/flybase_r6.02/mc_v10_clust/region_based/>`_ on our resources website. However, using a custom database could produce better results (i.e. 
+potentially, more target regions will be discovered).
 
-It is possible to run the SCENIC+ workflow on samples for which you have separate scATAC-seq and scRNA-seq
-on different cells of the same samples. Here, we will generate pseudo-multiome data by sampling cells from
-the scRNA-seq and scATAC-seq experiment and combining them into *metacells*. This sampling happens within 
-the same celltype. So one prerequisite to be able to run the analysis is a good annotation of the scATAC-seq
-data which matches the scRNA-seq annotation, this can be quite challenging. In this example we will analyze 
-a mix melanoma cell lines (probably one of the few examples were the annotation is easy).
+Get started with this tutorial by clicking :ref:`here <Creating custom cistarget database>` 👈
 
-Get started by clicking :ref:`here <Tutorial: Mix of melanoma cell lines>` 👈
+**Step 4: Run SCENIC+ using SnakeMake**
 
-.. image:: images/mm_lines_dotplot.png
-    :width: 500
+Finally, we will run the SCENIC+ workflow using SnakeMake.
 
-.. toctree::
-    :hidden:
-    :maxdepth: 3
-    
-    pbmc_multiome_tutorial.ipynb
-    Scenicplus_step_by_step-RTD.ipynb
-    mix_melanoma_cell_lines.ipynb
+Get started with this tutorial by clicking :ref:`here <Running SCENIC+>` 👈
 
 Advanced downstream analysis
 ============================
 
-**Transcription factor perturbation simulation**
+Comming soon!
 
-The predicitons of SCENIC+ can be used to simulate the effect of transcription factor perturbations.
-We will illustrate this in the melanoma cell line analysis.
-
-Get started by clicking :ref:`here <Tutorial: Perturbation simulation>` 👈
-
-
-.. image:: images/mm_SOX10_kd_sim.png
-    :width: 500
-
-**Unbranched GRN velocity**
-
-The predictions of SCENIC+ can be used to predict in which differentiation "direction" a certain TF will drive a certain cell.
-This is term which we call *GRN velocity* (inspired by RNA velocity). These predictions make use between the lag in the sequence of
-events between TF expression, region accessibility and target gene expression. In this tutorial this principle is showcased
-along an unbranched differentiation trajectory, that of oligodendrocyte differentiation.
-
-Get started by clicking :ref:`here <Tutorial: Unbranched GRN velocity along oligodendrocytes differentiation>` 👈
-
-.. image:: images/unbranched_velocity.png
-    :width: 500
-
-**Branched GRN velocity**
-
-The predictions of SCENIC+ can be used to predict in which differentiation "direction" a certain TF will drive a certain cell.
-This is term which we call *GRN velocity* (inspired by RNA velocity). These predictions make use between the lag in the sequence of
-events between TF expression, region accessibility and target gene expression. In this tutorial this principle is showcased
-along a branched differentiation trajectory, that of the eye-antennal disk development in fly.
-
-Get started by clicking :ref:`here <Tutorial: Branched differentiation trajectory of fly eye entennal disk>` 👈
-
-.. image:: images/branched_velocity.png
-    :width: 500
-
-
-.. toctree::
+   .. toctree::
     :hidden:
     :maxdepth: 3
     
-    Perturbation_simulation.ipynb
-    Differentiation_tutorial_unbranched_RTD.ipynb
-    Differentiation_tutorial-branched_RTD.ipynb
+    human_cerebellum_scRNA_pp.ipynb
+    human_cerebellum_ctx_db.ipynb
+    human_cerebellum.ipynb
+
+
+

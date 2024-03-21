@@ -19,9 +19,9 @@ copyright = '2021, Seppe De Winter, Carmen Bravo Gonzalez Blas'
 author = 'Seppe De Winter, Carmen Bravo Gonzalez Blas'
 
 # The short X.Y version
-version = ''
+version = '1.0a1'
 # The full version, including alpha/beta/rc tags
-release = '0.1.dev132+g26f1691'
+release = '1.0a1'
 
 
 # -- General configuration ---------------------------------------------------
