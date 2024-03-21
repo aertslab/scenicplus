@@ -1,3 +1,0 @@
-{
-    "path":"../notebooks/Scenicplus_single_sample.ipynb"
-}
