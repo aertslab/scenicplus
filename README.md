@@ -1,5 +1,5 @@
 ![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
-[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/en/latest/?badge=development)
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/en/development/?badge=development)
 
 
 # SCENIC+ single-cell eGRN inference
@@ -8,7 +8,7 @@
 
 ## Documentation 
 
-Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/development).
+Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/en/development/).
 
 ## Installing
 
