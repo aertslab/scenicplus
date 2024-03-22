@@ -1,5 +1,5 @@
 ![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
-[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=latest)](https://scenicplus.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/en/latest/?badge=development)
 
 
 # SCENIC+ single-cell eGRN inference
@@ -8,55 +8,23 @@
 
 ## Documentation 
 
-
-Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io).
+Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/development).
 
 ## Installing
 
 To install SCENIC+ (in a Linux environment):
 
-```bash
-git clone https://github.com/aertslab/scenicplus
-cd scenicplus
-pip install -e .
-```
-
-
-## Creating a Docker/Singularity Image
-
-To build a Docker image, and then create a Singularity image from this:
+We highly recommend to install SCENIC+ in a new conda environment.
 
 ```bash
-# Clone repositories 
-git clone https://github.com/aertslab/pySCENIC.git
-git clone https://github.com/aertslab/LoomXpy.git
-git clone https://github.com/aertslab/pycisTopic.git
-git clone https://github.com/aertslab/pycistarget.git
-git clone https://github.com/aertslab/scenicplus.git
 
-# Login
-podman login docker.io
+$ conda create --name scenicplus python=3.11 -y
+$ conda activate scenicplus
+$ git clone https://github.com/aertslab/scenicplus
+$ cd scenicplus
+$ git checkout development
+$ pip install .
 
-# Build image
-podman build -t aertslab/scenicplus:latest . -f scenicplus/Dockerfile
-
-# Export to oci 
-podman save --format oci-archive --output scenicplus_img.tar localhost/aertslab/scenicplus
-
-# Build to singularity
-singularity build scenicplus.sif oci-archive://scenicplus_img.tar
-
-# Add all binding paths where you would need to access
-singularity exec -B /lustre1,/staging,/data,/vsc-hard-mounts,/scratch scenicplus.sif ipython3
-```
-
-## Check version
-
-To check your SCENIC+ version:
-
-```bash
-import scenicplus
-scenicplus.__version__
 ```
 
 ## Questions?
