@@ -18,7 +18,7 @@ This is a multiome dataset on human healthy brain tissues.
 
 The first step is to preprocess the scATAC-seq side of the data using pycisTopic.
 
-Get started with this tutorial by clicking `here <https://pycistopic.readthedocs.io/en/polars/notebooks/human_cerebellum.html>`_ 👈
+Get started with this tutorial by clicking `here <https://pycistopic.readthedocs.io/en/latest/notebooks/human_cerebellum.html>`_ 👈
 
 **Step 2: preprocess scRNA-seq data using Scanpy**
 
