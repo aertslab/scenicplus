@@ -22,6 +22,7 @@ Install SCENIC+ in environment:
 
    $ conda activate scenicplus
    $ git clone https://github.com/aertslab/scenicplus
+   $ cd scenicplus
    $ git checkout development
    $ pip install .
 
