@@ -29,41 +29,10 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-dependencies = [
-    "pandas==1.5",
-    "numpy",
-    "tqdm",
-    "ray",
-    "attr",
-    "typing",
-    "matplotlib<3.7",
-    "scikit-learn",
-    "statistics",
-    "pyranges==0.0.111",
-    "scipy",
-    "pybiomart",
-    "requests",
-    "gseapy==0.10.8",
-    "networkx",
-    "seaborn",
-    "pyBigWig",
-    "plotly",
-    "adjustText",
-    "lxml",
-    "tspex",
-    "kaleido",
-    "pyvis",
-    "pygam",
-    "scanpy==1.8.2",
-    "cython",
-    "plotnine",
-    "mudata",
-    "importlib_resources",
-    "pycistarget@git+https://github.com/aertslab/pycistarget#egg=development",
-    "pyscenic",
-    "loomxpy",
-    "pycisTopic@git+https://github.com/aertslab/pycisTopic#egg=polars",
-]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [project.optional-dependencies]
 docs = [
