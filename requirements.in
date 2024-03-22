@@ -1,5 +1,5 @@
 pycistarget @ git+https://github.com/aertslab/pycistarget@development
-pycisTopic @ git+https://github.com/aertslab/pycisTopic@polars
+pycisTopic @ git+https://github.com/aertslab/pycisTopic
 loomxpy @ git+https://github.com/aertslab/LoomXpy@main
 pyscenic @ git+https://github.com/aertslab/pySCENIC@master
 adjustText==1.0.4
