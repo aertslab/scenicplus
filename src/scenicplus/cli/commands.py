@@ -366,19 +366,38 @@ def run_motif_enrichment_dem(
 
 def prepare_motif_enrichment_results(
         paths_to_motif_enrichment_results: List[str],
+        
         multiome_mudata_fname: pathlib.Path,
         out_file_direct_annotation: pathlib.Path,
         out_file_extended_annotation: pathlib.Path,
         out_file_tf_names: pathlib.Path,
+        
         direct_annotation: List[str],
-        extended_annotation: List[str]) -> None:
+        extended_annotation: List[str],
+        path_to_regions_to_subset: Optional[str] = None) -> None:
     from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
+    from scenicplus.utils import target_to_overlapping_query, coord_to_region_names
+    from scenicplus.utils import region_names_to_coordinates
     log.info("Reading multiome MuData.")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     log.info("Getting cistromes.")
+    regions = set(mdata['scATAC'].var_names)
+    regions_to_overlap = set(mdata['scATAC'].var_names)
+    #pr_regions = pr.PyRanges(region_names_to_coordinates(regions))
+    if path_to_regions_to_subset is not None:
+        log.info("Subsetting regions from cistromes.")
+        if path_to_regions_to_subset.endswith(".bed"):
+            subset = pr.read_bed(path_to_regions_to_subset, 
+                                as_df=False)
+            pr_regions = pr.PyRanges(region_names_to_coordinates(regions))
+            regions_to_overlap = target_to_overlapping_query(pr_regions, subset) #regions_to_overlap will be a pyranges df
+            # transform regions to overlap to set of regions
+            regions_to_overlap = set(coord_to_region_names(regions_to_overlap))                   
+    
     adata_direct_cistromes, adata_extended_cistromes = get_and_merge_cistromes(
         paths_to_motif_enrichment_results=paths_to_motif_enrichment_results,
-        scplus_regions=set(mdata['scATAC'].var_names),
+        scplus_regions=regions,
+        subset_regions = regions_to_overlap, #could be the set of all ATAC regions or a subset if subset is not None
         direct_annotation=direct_annotation,
         extended_annotation=extended_annotation)
     # Get transcription factor names from cistromes
