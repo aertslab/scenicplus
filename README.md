@@ -8,7 +8,7 @@
 > The code of SCENIC+ has been extensively optmized. We strongly recommend to use the development version of SCENIC+. [click here](https://github.com/aertslab/scenicplus/tree/development) to switch branch!
 
 > [!TIP]
-> We did a live webinar on using the SCENIC+ workflow. You can rewatch it on [YouTube](https://www.youtube.com/watch?v=QW63LLd1XC8&ab_channel=LabofComputationalBiology)
+> We did a live webinar on using the SCENIC+ workflow. You can rewatch it on [YouTube](https://www.youtube.com/watch?v=QW63LLd1XC8)
 
 
 `SCENIC+` is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
