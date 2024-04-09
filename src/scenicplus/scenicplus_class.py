@@ -14,7 +14,7 @@ from numpy.lib.function_base import iterable
 import scipy.sparse as sparse
 import pandas as pd
 import numpy as np
-from typing import Mapping, Any, Callable, Union
+from typing import Mapping, Any, Callable, Union, Optional
 from pycisTopic.diff_features import CistopicImputedFeatures, impute_accessibility, normalize_scores
 from pycisTopic.cistopic_class import CistopicObject
 from scanpy import AnnData
@@ -24,6 +24,7 @@ import sys
 from anndata import AnnData
 from mudata import MuData
 from scenicplus.utils import Groupby
+from pycistarget.input_output import read_hdf5 as ctx_read_hdf5
 
 # hardcoded variables
 TOPIC_FACTOR_NAME = 'topic'
@@ -712,3 +713,121 @@ def create_SCENICPLUS_object(
         SCENICPLUS_obj.add_cell_data(cell_metadata)
 
     return SCENICPLUS_obj
+
+def mudata_to_scenicplus(
+    mdata: MuData,
+    path_to_cistarget_h5: Optional[str] = None,
+    path_to_dem_h5: Optional[str] = None,
+    ) -> SCENICPLUS:
+    """
+    Convert a MuData object to a SCENICPLUS object.
+
+    Parameters
+    ----------
+    mdata: MuData
+        An instance of :class:`~mudata.MuData` created after running the `scenicplus` workflow.
+    path_to_cistarget_h5: str
+        Path to the h5 file containing cistarget results.
+        default: None
+    path_to_dem_h5: str
+        Path to the h5 file containing dem results.
+        default: None
+    
+    Returns
+    -------
+    SCENICPLUS
+        An instance of :class:`~scenicplus_class.SCENICPLUS`
+    """
+
+    # read motif enrichment results
+    menr = {}
+    if path_to_cistarget_h5 is not None:
+        ctx_result = ctx_read_hdf5(path_to_cistarget_h5)
+        for key in ctx_result.keys():
+            menr[f"cistar_{key}"] = ctx_result[key]
+    if path_to_dem_h5 is not None:
+        dem_result = ctx_read_hdf5(path_to_dem_h5)
+        for key in dem_result.keys():
+            menr[f"dem_{key}"] = dem_result[key]
+    
+    # Get eRegulon metadata
+    l_eRegulon_metadata = []
+    if "direct_e_regulon_metadata" in mdata.uns:
+        l_eRegulon_metadata.append(mdata.uns["direct_e_regulon_metadata"])
+    if "extended_e_regulon_metadata" in mdata.uns:
+        l_eRegulon_metadata.append(mdata.uns["extended_e_regulon_metadata"])
+    
+    if len(l_eRegulon_metadata) == 2:
+        eRegulon_metadata = pd.concat(l_eRegulon_metadata, axis=0) \
+            .reset_index(drop=True)
+    elif len(l_eRegulon_metadata) == 1:
+        eRegulon_metadata = l_eRegulon_metadata[0]
+    else:
+        Warning("No eRegulon metadata found.")
+        eRegulon_medadata = pd.DataFrame()
+
+    # Get gene based AUC
+    l_gene_based_auc = []
+    if "direct_gene_based_AUC" in mdata.mod:
+        l_gene_based_auc.append(mdata["direct_gene_based_AUC"].to_df())
+    if "extended_gene_based_AUC" in mdata.mod:
+        l_gene_based_auc.append(mdata["extended_gene_based_AUC"].to_df())
+   
+    if len(l_gene_based_auc) == 2:
+        gene_based_auc = pd.concat(l_gene_based_auc, axis=1)
+    elif len(l_gene_based_auc) == 1:
+        gene_based_auc = l_gene_based_auc[0]
+    else:
+        Warning("No gene based AUC found.")
+        gene_based_auc = pd.DataFrame()
+    
+    # Get region based AUC
+    l_region_based_auc = []
+    if "direct_region_based_AUC" in mdata.mod:
+        l_region_based_auc.append(mdata["direct_region_based_AUC"].to_df())
+    if "extended_region_based_AUC" in mdata.mod:
+        l_region_based_auc.append(mdata["extended_region_based_AUC"].to_df())
+    
+    if len(l_region_based_auc) == 2:
+        region_based_auc = pd.concat(l_region_based_auc, axis=1)
+    elif len(l_region_based_auc) == 1:
+        region_based_auc = l_region_based_auc[0]
+    else:
+        Warning("No region based AUC found.")
+        region_based_auc = pd.DataFrame()
+    
+    # Construct uns
+    uns = {}
+    uns["eRegulon_metadata"] = eRegulon_metadata
+    uns["eRegulon_AUC"] = {
+        "Gene_based": gene_based_auc,
+        "Region_based": region_based_auc
+    }
+
+    # Construct dr_cell
+    dr_cell = {}
+    for key in mdata["scRNA_counts"].obsm.keys():
+        dr_cell[f"rna_{key}"] = pd.DataFrame(
+            mdata["scRNA_counts"].obsm[key][:, :2],
+            index = mdata["scRNA_counts"].obs_names,
+            columns = [f"rna_{key}_1", f"rna_{key}_2"]
+        )
+    for key in mdata["scATAC_counts"].obsm.keys():
+        dr_cell[f"atac_{key}"] = pd.DataFrame(
+            mdata["scATAC_counts"].obsm[key][:, :2],
+            index = mdata["scATAC_counts"].obs_names,
+            columns = [f"atac_{key}_1", f"atac_{key}_2"]
+        )
+
+    # initialize and return scenicplus object
+    return SCENICPLUS(
+        X_ACC = mdata["scATAC_counts"].to_df().T,
+        X_EXP = mdata["scRNA_counts"].to_df(),
+        metadata_regions = mdata["scATAC_counts"].var.copy(),
+        metadata_genes = mdata["scRNA_counts"].var.copy(),
+        metadata_cell = mdata["scRNA_counts"].obs.copy(),
+        menr = menr,
+        dr_cell = dr_cell,
+        dr_region = {},
+        uns = uns,
+    )
