@@ -117,12 +117,12 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         prepare_motif_enrichment_results(
             paths_to_motif_enrichment_results=arg.paths_to_motif_enrichment_results,
             multiome_mudata_fname=arg.multiome_mudata_fname,
-            path_to_regions_to_subset=arg.path_to_regions_to_subset,
             out_file_direct_annotation=arg.out_file_direct_annotation,
             out_file_extended_annotation=arg.out_file_extended_annotation,
             out_file_tf_names=arg.out_file_tf_names,
             direct_annotation=arg.direct_annotation,
-            extended_annotation=arg.extended_annotation)
+            extended_annotation=arg.extended_annotation,
+            path_to_regions_to_subset=arg.path_to_regions_to_subset)
     parser.set_defaults(func=prepare_menr_data)
     # Required arguments
     parser.add_argument(
@@ -133,10 +133,6 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         "--multiome_mudata_fname", dest="multiome_mudata_fname",
         action="store", type=pathlib.Path, required=True,
         help="Path to multiome MuData object (from scenicplus prepare_GEX_ACC).")
-    parser.add_argument(
-        "--path_to_regions_to_subset", dest="path_to_regions_to_subset",
-        action="store", type=str, required=False,default ="",
-        help="Path to bed file for regions to subset when merging cistromes (MACS called peaks).")
     parser.add_argument(
         "--out_file_tf_names", dest="out_file_tf_names",
         action="store", type=pathlib.Path, required=True,
@@ -160,6 +156,10 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         action="store", type=str, required=False, nargs='+',
         default=['Orthology_annot'],
         help="Annotations to use as extended. Default is 'Orthology_annot'")
+    parser.add_argument(
+        "--path_to_regions_to_subset", dest="path_to_regions_to_subset",
+        action="store", type=pathlib.Path, required=False,default=None,
+        help="Path to bed file for regions to subset when merging cistromes.")
 
 def add_parser_for_download_genome_annotations(subparser:argparse._SubParsersAction):
     parser:argparse.ArgumentParser = subparser.add_parser(
