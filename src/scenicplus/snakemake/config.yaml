@@ -6,6 +6,7 @@ input_data:
   dem_db_fname: ""
   path_to_motif_annotations: ""
 
+ 
 output_data:
   # output for prepare_GEX_ACC .h5mu
   combined_GEX_ACC_mudata: "ACC_GEX.h5mu"
@@ -50,6 +51,7 @@ params_data_preparation:
   key_to_group_by: ""
   nr_cells_per_metacells: 10
   # Params for prepare_menr
+  path_to_regions_to_subset: ""
   direct_annotation: "Direct_annot"
   extended_annotation: "Orthology_annot"
   # Params for download_genome_annotations

@@ -10,7 +10,7 @@ from scipy import sparse
 from pycistarget.utils import get_TF_list, get_motifs_per_TF
 from typing import Set, Dict, List, Iterable, Tuple
 from dataclasses import dataclass
-
+from scenicplus.utils import region_names_to_coordinates
 
 @dataclass
 class Cistrome:
@@ -102,6 +102,7 @@ def _get_cistromes(
                 target_regions_motif_direct.update(motif_hits[motif])
             else:
                 raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
+    
         cistromes.append(
             Cistrome(
                 tf_name = tf_name,
@@ -120,14 +121,15 @@ def _get_cistromes(
                 target_regions_motif_extended.update(motif_hits[motif])
             else:
                 raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
+
         cistromes.append(
             Cistrome(
                 tf_name = tf_name,
                 motifs = set(motifs_annotated_to_tf),
-                target_regions = target_regions_motif_extended & scplus_regions,
+                target_regions =  target_regions_motif_extended & scplus_regions,
                 extended = True))
     return cistromes
-
+      
 def _merge_cistromes(cistromes: List[Cistrome]) -> Iterable[Cistrome]:
     a_cistromes = np.array(cistromes, dtype = 'object')
     tf_names = np.array([cistrome.tf_name for cistrome in a_cistromes])

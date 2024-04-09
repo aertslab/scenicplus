@@ -204,6 +204,7 @@ rule prepare_menr:
         cistromes_direct=config["output_data"]["cistromes_direct"],
         cistromes_extended=config["output_data"]["cistromes_extended"]
     params:
+        path_to_regions_to_subset=lambda wildcards: config["params_data_preparation"]["path_to_regions_to_subset"] if 'path_to_regions_to_subset' in config["params_data_preparation"] and config["params_data_preparation"]["path_to_regions_to_subset"] != "" else None,
         direct_annotation=lambda wildcards: config["params_data_preparation"]["direct_annotation"],
         extended_annotation=lambda wildcards: config["params_data_preparation"]["extended_annotation"]
     shell:
@@ -215,7 +216,8 @@ rule prepare_menr:
             --out_file_direct_annotation {output.cistromes_direct} \
             --out_file_extended_annotation {output.cistromes_extended} \
             --direct_annotation {params.direct_annotation} \
-            --extended_annotation {params.extended_annotation}
+            --extended_annotation {params.extended_annotation} \
+            --path_to_regions_to_subset {params.path_to_regions_to_subset}
         """
 
 rule download_genome_annotations:
