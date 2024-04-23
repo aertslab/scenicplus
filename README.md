@@ -4,10 +4,6 @@
 
 # SCENIC+ single-cell eGRN inference
 
-> [!WARNING]
-> The code of SCENIC+ has been extensively optmized. This version is currently located in the [development bracnh](https://github.com/aertslab/scenicplus/tree/development).
-> The main branch code is no longer maintained and on Monday 22nd of April the development branch will become the default branch!
-
 > [!TIP]
 > We did a live webinar on using the SCENIC+ workflow. You can rewatch it on [YouTube](https://www.youtube.com/watch?v=QW63LLd1XC8)
 
