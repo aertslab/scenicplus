@@ -25,7 +25,6 @@ $ conda create --name scenicplus python=3.11 -y
 $ conda activate scenicplus
 $ git clone https://github.com/aertslab/scenicplus
 $ cd scenicplus
-$ git checkout development
 $ pip install .
 
 ```
