@@ -1,5 +1,5 @@
 ![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
-[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/en/development/?badge=development)
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/?badge=main)
 
 
 # SCENIC+ single-cell eGRN inference
