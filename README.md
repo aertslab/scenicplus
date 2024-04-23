@@ -11,7 +11,7 @@
 
 ## Documentation 
 
-Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/en/development/).
+Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/).
 
 ## Installing
 
