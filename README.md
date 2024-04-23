@@ -1,5 +1,5 @@
 ![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
-[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/en/development/?badge=development)
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/?badge=main)
 
 
 # SCENIC+ single-cell eGRN inference
@@ -11,7 +11,7 @@
 
 ## Documentation 
 
-Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/en/development/).
+Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/).
 
 ## Installing
 
@@ -25,7 +25,6 @@ $ conda create --name scenicplus python=3.11 -y
 $ conda activate scenicplus
 $ git clone https://github.com/aertslab/scenicplus
 $ cd scenicplus
-$ git checkout development
 $ pip install .
 
 ```
