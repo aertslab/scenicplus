@@ -744,7 +744,7 @@ def mudata_to_scenicplus(
     if path_to_cistarget_h5 is not None:
         ctx_result = ctx_read_hdf5(path_to_cistarget_h5)
         for key in ctx_result.keys():
-            menr[f"cistar_{key}"] = ctx_result[key]
+            menr[f"cistarget_{key}"] = ctx_result[key]
     if path_to_dem_h5 is not None:
         dem_result = ctx_read_hdf5(path_to_dem_h5)
         for key in dem_result.keys():
