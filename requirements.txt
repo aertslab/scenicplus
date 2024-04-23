@@ -590,7 +590,7 @@ pybiomart==0.2.0
     # via
     #   pycistopic
     #   scenicplus (pyproject.toml)
-pycistarget @ git+https://github.com/aertslab/pycistarget@development
+pycistarget @ git+https://github.com/aertslab/pycistarget
     # via scenicplus (pyproject.toml)
 pycistopic @ git+https://github.com/aertslab/pycisTopic
     # via scenicplus (pyproject.toml)
