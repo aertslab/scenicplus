@@ -130,7 +130,7 @@ cytoolz==0.12.3
     #   ctxcore
     #   pyscenic
     #   scenicplus (pyproject.toml)
-dask[array,complete,dataframe,diagnostics,distributed]==2024.2.1
+dask[array,complete,dataframe,diagnostics,distributed]==2024.5.0
     # via
     #   arboreto
     #   distributed
