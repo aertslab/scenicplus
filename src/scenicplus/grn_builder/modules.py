@@ -255,7 +255,7 @@ def _quantile_thr(
             vector=passing,
             broadcast=True,
             temp_dir=temp_dir,
-            nn_cpu=n_cpu).astype(bool)
+            n_cpu=n_cpu).astype(bool)
 
     if sum(passing) > 0:
         df = adjacencies.loc[passing]
