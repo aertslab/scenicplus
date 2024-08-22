@@ -124,7 +124,7 @@ def heatmap_dotplot(
     # Plotting
     plotnine.options.figure_size = figsize
     plotting_df["repressor_activator"] = [
-            "activator" if "+" in n.split("_")[2] else "repressor" for n in plotting_df[feature_name_key]]
+            "activator" if n.split("_")[2].split("/")[0] == "+" else "repressor" for n in plotting_df[feature_name_key]]
     if split_repressor_activator and len(set(plotting_df["repressor_activator"])) == 2:
         if orientation == 'vertical':
             plot = (
