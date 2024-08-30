@@ -126,9 +126,11 @@ def train_gene_expression_models(
         )
 
     # train regressors in parallel
-    _ = joblib.Parallel(
-        n_jobs = n_cpu, verbose = 10)(
-            joblib.delayed(_fit)(gene) for gene in genes
+    _ = joblib.Parallel(n_jobs = n_cpu)(
+            joblib.delayed(_fit)(gene) for gene in tqdm(
+                genes, total = len(genes), unit="gene",
+                desc = "Fitting"
+            )
         )
 
     return regressors
