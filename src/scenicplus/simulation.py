@@ -286,7 +286,7 @@ def plot_perturbation_effect_in_embedding(
     perturbed_matrix: pd.DataFrame,
     original_matrix: pd.DataFrame,
     embedding: np.ndarray,
-    AUC_kwargs: dict[str, Any],
+    AUC_kwargs: dict[str, Any] = {},
     ax: matplotlib.axes | None = None,
     grid_offset_frac: float = 0.005,
     grid_n_cols: int = 25,
