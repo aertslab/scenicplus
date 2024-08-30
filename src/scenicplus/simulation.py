@@ -5,6 +5,7 @@ import logging
 import sys
 from typing import TYPE_CHECKING, Any, Literal
 
+import joblib
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,6 +61,7 @@ def _do_one_round_of_simulation(
 def train_gene_expression_models(
     df_EXP: pd.DataFrame,
     gene_to_TF: dict[str, list[str]],
+    n_cpu: int = 1,
     genes: list[str] | None = None,
     regressor_type: Literal["GBM", "RF"] = "GBM",
     regressor_kwargs: dict[str, Any] = GBM_KWARGS
@@ -73,6 +75,8 @@ def train_gene_expression_models(
         pandas DataFrame containing expression matrix (cell x gene).
     gene_to_TF: dict[str, list[str]]
         mapping between gene and the TFs that are predicted to regulate that gene
+    n_cpu: int 
+        Number of parallel cores. Default 1.
     genes: list[str] | None
         list of genes for which to predict expression. Default (None) is all genes.
     regressor_type: Literal["GBM", "RF"]
@@ -93,8 +97,13 @@ def train_gene_expression_models(
         genes = list(gene_to_TF.keys())
     if not all(g in df_EXP.columns for g in genes):
         raise ValueError("Some genes are not in the expression matrix, please check input!")
+
+    # prepare data
     regressors: dict[str, tuple[list[str], RegressorMixin]] = {}
-    for gene in tqdm(genes, total = len(genes)):
+    gene_to_X: dict[str, np.ndarray] = {}
+    gene_to_Y: dict[str, np.ndarray] = {}
+
+    for gene in genes:
         regressor: RegressorMixin = SKLEARN_REGRESSOR_FACTORY[regressor_type](**regressor_kwargs)
         predictor_TF = gene_to_TF[gene].copy()
         #remove gene itself as predictor
@@ -106,8 +115,22 @@ def train_gene_expression_models(
         if len(predictor_TF_exp_v.shape) == 1:
             predictor_TF_exp_v = predictor_TF_exp_v.reshape(-1, 1)
         predictand_target_gene_exp_v = df_EXP[gene].to_numpy()
-        regressor.fit(predictor_TF_exp_v, predictand_target_gene_exp_v)
         regressors[gene] = (predictor_TF, regressor)
+        gene_to_X[gene] = predictor_TF_exp_v
+        gene_to_Y[gene] = predictand_target_gene_exp_v
+
+    def _fit(gene):
+        regressors[gene][1].fit(
+            gene_to_X[gene],
+            gene_to_Y[gene]
+        )
+
+    # train regressors in parallel
+    _ = joblib.Parallel(
+        n_jobs = n_cpu, verbose = 10)(
+            joblib.delayed(_fit)(gene) for gene in genes
+        )
+
     return regressors
 
 def simulate_perturbation(
