@@ -913,16 +913,28 @@ def infer_grn(
         disable_tqdm=False,
         seed=seed)
 
-    log.info("Formatting eGRN as table.")
-    eRegulon_metadata = _format_egrns(
-        eRegulons=eRegulons,
-        tf_to_gene=tf_to_gene)
-
-    log.info("Calculating triplet ranking.")
-    eRegulon_metadata = calculate_triplet_score(
-        cistromes=cistromes,
-        eRegulon_metadata=eRegulon_metadata,
-        ranking_db_fname=ranking_db_fname)
+    if eRegulons:
+        log.info("Formatting eGRN as table.")
+        eRegulon_metadata = _format_egrns(
+            eRegulons=eRegulons,
+            tf_to_gene=tf_to_gene
+        )
+        log.info("Calculating triplet ranking.")
+        eRegulon_metadata = calculate_triplet_score(
+            cistromes=cistromes,
+            eRegulon_metadata=eRegulon_metadata,
+            ranking_db_fname=ranking_db_fname
+        )
+    else:
+        Warning(
+            'No eRegulons were identified. Consider adjusting the thresholds to be less stringent, such as reducing the values for min_target_genes, rho_threshold, or min_regions_per_gene.'
+        )
+        cols = [
+            'Region', 'Gene', 'importance_R2G', 'rho_R2G importance_x_rho', 'importance_x_abs_rho', 'TF',
+            'is_extended', 'eRegulon_name', 'Gene_signature_name', 'Region_signature_name', 'importance_TF2G',
+            'regulation', 'rho_TF2G', 'triplet_rank'
+        ]
+        eRegulon_metadata = pd.DataFrame(columns=cols)
 
     log.info(f"Saving network to {eRegulon_out_fname.__str__()}")
     eRegulon_metadata.to_csv(
