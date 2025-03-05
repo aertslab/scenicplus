@@ -26,7 +26,7 @@ We highly recommend to install SCENIC+ in a new conda environment.
 
 ```bash
 
-$ conda create --name scenicplus python=3.11 -y
+$ conda create --name scenicplus python=3.11.8 gxx zlib -y
 $ conda activate scenicplus
 $ git clone https://github.com/aertslab/scenicplus
 $ cd scenicplus
