@@ -43,3 +43,7 @@ $ pip install .
 ## References
 
 [Bravo Gonzalez-Blas, C. & De Winter, S. *et al.* (2022). SCENIC+: single-cell multiomic inference of enhancers and gene regulatory networks](https://www.biorxiv.org/content/10.1101/2022.08.19.504505v1)
+
+## license
+
+The SCENIC+ [license](https://github.com/aertslab/scenicplus/blob/main/LICENCE.txt) covers [SCENIC+](https://github.com/aertslab/scenicplus), [pycisTarget](https://github.com/aertslab/pycistarget), [pycisTopic](https://github.com/aertslab/pycisTopic) and the [cisTarget dabases](https://resources.aertslab.org/cistarget/).
