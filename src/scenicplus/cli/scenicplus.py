@@ -1,8 +1,10 @@
-import sys
-import argparse 
+import argparse
 import pathlib
-from scenicplus.cli import gfx
+import sys
+
 import scenicplus
+from scenicplus.cli import gfx
+
 VERSION = scenicplus.__version__
 _DESCRIPTION = "Single-Cell Enhancer-driven gene regulatory Network Inference and Clustering"
 
@@ -83,7 +85,7 @@ def add_parser_for_prepare_GEX_and_ACC_data(subparser:argparse._SubParsersAction
         "--key_to_group_by", dest="key_to_group_by",
         action="store", type=str,
         default=None,
-        help="""For non multi_ome_mode, use this cell metadata key to generate metacells from scRNA-seq and scATAC-seq. 
+        help="""For non multi_ome_mode, use this cell metadata key to generate metacells from scRNA-seq and scATAC-seq.
         Key should be common in scRNA-seq and scATAC-seq side.""")
     parser.add_argument(
         "--nr_metacells", dest="nr_metacells",
@@ -127,7 +129,7 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
     # Required arguments
     parser.add_argument(
         "--paths_to_motif_enrichment_results", dest="paths_to_motif_enrichment_results",
-        action="store", type=str, required=True, nargs='+',
+        action="store", type=str, required=True, nargs="+",
         help="Paths to motif enrichment result hdf5 files (from pycistarget).")
     parser.add_argument(
         "--multiome_mudata_fname", dest="multiome_mudata_fname",
@@ -148,13 +150,13 @@ def add_parser_for_prepare_menr_data(subparser:argparse._SubParsersAction):
         help="Out file name for extended cistromes (AnnData h5ad file).")
     parser.add_argument(
         "--direct_annotation", dest="direct_annotation",
-        action="store", type=str, required=False, nargs='+',
-        default=['Direct_annot'],
+        action="store", type=str, required=False, nargs="+",
+        default=["Direct_annot"],
         help="Annotations to use as direct. Default is 'Direct_annot'")
     parser.add_argument(
         "--extended_annotation", dest="extended_annotation",
-        action="store", type=str, required=False, nargs='+',
-        default=['Orthology_annot'],
+        action="store", type=str, required=False, nargs="+",
+        default=["Orthology_annot"],
         help="Annotations to use as extended. Default is 'Orthology_annot'")
     parser.add_argument(
         "--path_to_regions_to_subset", dest="path_to_regions_to_subset",
@@ -304,7 +306,7 @@ def add_parser_for_infer_TF_to_gene(subparser:argparse._SubParsersAction):
         "--out_tf_to_gene_adjacencies", dest="out_tf_to_gene_adjacencies",
         action="store", type=pathlib.Path, required=True,
         help="Out file name to store TF to gene adjacencies (tsv)")
-    
+
     # Optional arguments
     parser.add_argument(
         "--method", dest="method",
@@ -361,12 +363,12 @@ def add_parser_for_infer_region_to_gene(subparser:argparse._SubParsersAction):
     # Optional arguments
     parser.add_argument(
         "--importance_scoring_method", dest="importance_scoring_method",
-        action="store", choices = ['RF', 'ET', 'GBM'], required=False,
+        action="store", choices = ["RF", "ET", "GBM"], required=False,
         default = "GBM",
         help="Regression method to use, either GBM (Gradient Boosting Machine), RF (Random Forrest) or ET (Extra Trees). Default is GBM.")
     parser.add_argument(
         "--correlation_scoring_method", dest="correlation_scoring_method",
-        action="store", choices = ['PR', 'SR'], required=False,
+        action="store", choices = ["PR", "SR"], required=False,
         default = "SR",
         help="Correlation method to use, either PR (Pearson correlation) or SR (Spearman Rank correlation). Default is SR.")
     parser.add_argument(
@@ -551,7 +553,7 @@ def add_parser_for_motif_enrichment_cistarget(subparser:argparse._SubParsersActi
         nargs="*",
         help="""
             Which annotations to use for annotation motifs to TFs.
-            Defaults to: """ + ' '.join(CISTARGET_DEFAULTS["annotations_to_use"]),
+            Defaults to: """ + ' '.join(CISTARGET_DEFAULTS["annotations_to_use"]),  # noqa: Q000
         default=CISTARGET_DEFAULTS["annotations_to_use"],
     )
     parser.add_argument(
@@ -688,7 +690,7 @@ def add_parser_for_motif_enrichment_dem(subparser: argparse._SubParsersAction):
         type=str,
         required=False,
         help="""
-        Path to genome annotation. 
+        Path to genome annotation.
         This parameter is required whe balance_number_of_promoters is set.
         Defaults to None.
         """,
@@ -700,7 +702,7 @@ def add_parser_for_motif_enrichment_dem(subparser: argparse._SubParsersAction):
         action="store_true",
         help="""
         Set this flag to balance the number of promoter regions in fore- and background.
-        When this is set a genome annotation must be provided using the 
+        When this is set a genome annotation must be provided using the
         --genome_annotation parameter.
         """
     )
@@ -759,7 +761,7 @@ def add_parser_for_motif_enrichment_dem(subparser: argparse._SubParsersAction):
         type=float,
         required=False,
         help="""
-        Minimal CRM score to consider a region enriched for a motif. 
+        Minimal CRM score to consider a region enriched for a motif.
         Default: None (It will be automatically calculated based on precision-recall).
         """,
         default=None
@@ -818,7 +820,7 @@ def add_parser_for_motif_enrichment_dem(subparser: argparse._SubParsersAction):
         nargs="*",
         help="""
             Which annotations to use for annotation motifs to TFs.
-            Defaults to: """ + ' '.join(DEM_DEFAULTS["annotations_to_use"]),
+            Defaults to: """ + ' '.join(DEM_DEFAULTS["annotations_to_use"]),  # noqa: Q000
         default=DEM_DEFAULTS["annotations_to_use"],
     )
     parser.add_argument(
@@ -883,8 +885,9 @@ def add_parser_for_infer_egrn(subparser:argparse._SubParsersAction):
             keep_only_activating=arg.keep_only_activating_eRegulons,
             rho_threshold=arg.rho_threshold,
             min_target_genes=arg.min_target_genes,
-            n_cpu=arg.n_cpu)
-            
+            n_cpu=arg.n_cpu,
+            seed=arg.seed)
+
     parser.set_defaults(func=eGRN)
     # Required arguments
     parser.add_argument(
@@ -987,6 +990,11 @@ def add_parser_for_infer_egrn(subparser:argparse._SubParsersAction):
         action="store", type=int, required=False,
         default=1,
         help="Number of cores to use. Default is 1.")
+    parser.add_argument(
+        "--seed", dest="seed",
+        action="store", type=int, required=False,
+        default=666,
+        help="Seed to use. Default is 666.")
 
 def add_parser_for_aucell(subparser:argparse._SubParsersAction):
     parser:argparse.ArgumentParser = subparser.add_parser(
@@ -1064,8 +1072,6 @@ def add_parser_for_create_scplus_mudata(subparser:argparse._SubParsersAction):
         "--out_file", dest="out_file",
         action="store", type=pathlib.Path, required=True,
         help="Path to store resulting MuData (.h5mu)")
-    
-
 
 def create_argument_parser():
     parser = argparse.ArgumentParser(
@@ -1082,15 +1088,15 @@ def create_argument_parser():
         description="""
         Initialize snakemake pipeline""")
     add_parser_for_init_snakemake(init_snakemake_parser)
-    
+
     """
     Data preparation parsers
     """
     prepare_data_command="prepare_data"
     preprocessing_parser = subparsers.add_parser(
-        prepare_data_command, 
+        prepare_data_command,
         description="Prepare gene expression, chromatin accessibility and motif enrichment data.")
-    # set defaults so we can later check which subparser was called, to print help message
+    # set defaults so we can later check which subparser was called.
     preprocessing_parser.set_defaults(_subparser_name=prepare_data_command)
     preprocessing_subparsers = preprocessing_parser.add_subparsers()
     # Create data preparation parsers
@@ -1106,7 +1112,7 @@ def create_argument_parser():
     inference_parser = subparsers.add_parser(
         grn_inference_command,
         description="Infer Enhancer driven Gene Regulatory Networks.")
-    # set defaults so we can later check which subparser was called, to print help message
+    # set defaults so we can later check which subparser was called.
     inference_parser.set_defaults(_subparser_name=grn_inference_command)
     inference_subparsers = inference_parser.add_subparsers()
     # Create inference parsers
@@ -1127,7 +1133,7 @@ def main(argv=None) -> int:
     #parse command line arguments
     parser, subparsers = create_argument_parser()
     args = parser.parse_args(args=argv)
-    
+
     if not hasattr(args, "func"):
         print(gfx.logo)
         print(f"scenicplus verions: {VERSION}")
@@ -1142,5 +1148,5 @@ def main(argv=None) -> int:
         args.func(args)
     return 0
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

@@ -22,10 +22,9 @@ from itertools import repeat, chain, islice
 import loompy as lp
 import re
 
-from .scenicplus_class import SCENICPLUS
 
 
-def export_to_loom(scplus_obj: SCENICPLUS,
+def export_to_loom(scplus_obj,
                    signature_key: str,
                    out_fname: str,
                    eRegulon_metadata_key: Optional[str] = 'eRegulon_metadata',

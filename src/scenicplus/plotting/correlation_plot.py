@@ -14,11 +14,10 @@ import sklearn
 import matplotlib.pyplot as plt
 from itertools import combinations
 
-from ..scenicplus_class import SCENICPLUS
 from ..utils import p_adjust_bh, flatten_list
 
 
-def correlation_heatmap(scplus_obj: SCENICPLUS,
+def correlation_heatmap(scplus_obj,
                         auc_key: Optional[str] = 'eRegulon_AUC',
                         signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],
                         scale: Optional[bool] = False,
@@ -149,7 +148,7 @@ def _fisher_exact_sign(signature1, signature2, total):
     return fisher_exact(contingency_table, alternative = 'greater')
 
 
-def jaccard_heatmap(scplus_obj: SCENICPLUS,
+def jaccard_heatmap(scplus_obj,
                     method: str = 'jaccard',
                     gene_or_region_based: str = 'Gene_based',
                     signature_key: Optional[str] = 'eRegulon_signatures',

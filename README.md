@@ -1,17 +1,22 @@
 ![alt text](docs/images/SCENIC+_Logo_v5.png "SCENIC+")
-[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/en/development/?badge=development)
+[![Documentation Status](https://readthedocs.org/projects/scenicplus/badge/?version=development)](https://scenicplus.readthedocs.io/?badge=main)
 
 
 # SCENIC+ single-cell eGRN inference
 
 `SCENIC+` is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data.
 
+> [!NOTE]  
+> **Updates:**
+> 
+> August 30th 2024: Perturbation simulation got updated, please find tutorial [here](https://scenicplus.readthedocs.io/en/latest/Perturbation_simulation.html#Tutorial:-Perturbation-simulation)
+
 > [!TIP]
 > We did a live webinar on using the SCENIC+ workflow. You can rewatch it on [YouTube](https://www.youtube.com/watch?v=QW63LLd1XC8)
 
 ## Documentation 
 
-Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/en/development/).
+Extensive documentation and tutorials are available at [read the docs](https://scenicplus.readthedocs.io/).
 
 ## Installing
 
@@ -25,7 +30,6 @@ $ conda create --name scenicplus python=3.11 -y
 $ conda activate scenicplus
 $ git clone https://github.com/aertslab/scenicplus
 $ cd scenicplus
-$ git checkout development
 $ pip install .
 
 ```

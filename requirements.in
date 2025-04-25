@@ -1,4 +1,4 @@
-pycistarget @ git+https://github.com/aertslab/pycistarget@development
+pycistarget @ git+https://github.com/aertslab/pycistarget
 pycisTopic @ git+https://github.com/aertslab/pycisTopic
 loomxpy @ git+https://github.com/aertslab/LoomXpy@main
 pyscenic @ git+https://github.com/aertslab/pySCENIC@master

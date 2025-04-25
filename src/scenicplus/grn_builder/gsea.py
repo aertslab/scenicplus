@@ -1,18 +1,14 @@
 from gseapy.algorithm import enrichment_score
 from gseapy.algorithm import gsea_compute
-from gseapy.plot import GSEAPlot
 import numpy as np
 import pandas as pd
-
-seed = 666
-
 
 def run_gsea(ranked_gene_list: pd.Series,
              gene_set: list,
              n_perm: int = 1000,
              ascending: bool = False,
-             return_res: bool = False,
-             name: str = 'gene_set'):
+             name: str = 'gene_set',
+             seed: int = 555):
     """
     Calculates gene set enrichment score (and estimates its significance) and leading edge for the gene set in the ranked gene list using gseapy prerank.
 
@@ -39,7 +35,7 @@ def run_gsea(ranked_gene_list: pd.Series,
     gmt = {name: list(gene_set)}
     gsea_results, ind, rank_ES, gs = gsea_compute(data=ranked_gene_list, n=n_perm, gmt=gmt,
                                                   weighted_score_type=1, permutation_type='gene_set', method=None,
-                                                  pheno_pos='Pos', pheno_neg='Neg', classes=None, ascending=ascending)
+                                                  pheno_pos='Pos', pheno_neg='Neg', classes=None, ascending=ascending, seed = seed)
 
     # extract enrichment scores
     gseale = list(gsea_results)[0]
@@ -62,13 +58,7 @@ def run_gsea(ranked_gene_list: pd.Series,
     pval = gseale[2]
     fdr = gseale[3]
     LE = list(map(str, ranked_gene_list.iloc[ldg_pos].index))
-    if return_res:
-        res = GSEAPlot(ranked_gene_list, name, ind, nes, pval, fdr, RES,
-                       pheno_pos='', pheno_neg='', figsize=(6, 5.5),
-                       cmap='seismic', ofname=None)
-        return nes, pval, LE, res
-    else:
-        return nes, pval, LE
+    return nes, pval, LE
 
 
 def run_enrichr(ranked_gene_list: np.array,

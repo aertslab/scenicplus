@@ -46,7 +46,12 @@ Get started with this tutorial by clicking :ref:`here <Running SCENIC+>` 👈
 Advanced downstream analysis
 ============================
 
-Comming soon!
+**Perturbation simulation**
+
+The output of SCENIC+ can be used to simulate TF knockouts.
+
+To see how, click :ref:`here <Tutorial: Perturbation simulation>` 👈
+
 
    .. toctree::
     :hidden:
@@ -55,6 +60,7 @@ Comming soon!
     human_cerebellum_scRNA_pp.ipynb
     human_cerebellum_ctx_db.ipynb
     human_cerebellum.ipynb
+    Perturbation_simulation.ipynb
 
 
 

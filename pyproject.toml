@@ -10,8 +10,8 @@ authors = [
 ]
 description = "SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data."
 readme = "README.md"
-version = "1.0a1"
-requires-python = ">=3.8"
+version = "1.0a2"
+requires-python = ">=3.8,<=3.11.8"
 keywords = ["scATAC", "GRN inference", "eGRN inference"]
 license = { file = "LICENCE.txt" }
 classifiers = [

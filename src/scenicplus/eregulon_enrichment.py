@@ -8,7 +8,7 @@ from typing import Literal, Dict, List, Optional
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from scenicplus.scenicplus_class import SCENICPLUS
+
 
 # Temporary class so old code from pycisTopic works.
 # This class replaces the "CistopicImputedFeatures" from pycisTopic,
@@ -108,7 +108,7 @@ def score_eRegulons(
         n_cpu=n_cpu)
     return {"Gene_based": gex_AUC, "Region_based": acc_AUC}
 
-def binarize_AUC(scplus_obj: SCENICPLUS,
+def binarize_AUC(scplus_obj,
                  auc_key: Optional[str] = 'eRegulon_AUC',
                  out_key: Optional[str] = 'eRegulon_AUC_thresholds',
                  signature_keys: Optional[List[str]] = ['Gene_based', 'Region_based'],

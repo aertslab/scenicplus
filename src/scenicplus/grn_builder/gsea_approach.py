@@ -62,11 +62,13 @@ handlers = [logging.StreamHandler(stream=sys.stdout)]
 logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('GSEA')
 
+
 def _run_gsea_for_e_module(
         e_module:eRegulon, 
         rnk:pd.Series, 
         gsea_n_perm:int, 
-        context: frozenset):
+        context: frozenset,
+        seed: int):
     """
     Helper function to run gsea for single e_module
 
@@ -92,11 +94,12 @@ def _run_gsea_for_e_module(
             NES, pval, LE_genes = run_gsea(
                 ranked_gene_list=rnk,
                 gene_set=gene_set,
-                n_perm=gsea_n_perm)
+                n_perm=gsea_n_perm,
+                seed=seed)
         except:
             NES = np.nan
             pval = np.nan
-            LE_genes = np.nan
+            LE_genes = [np.nan]
         return eRegulon(
             transcription_factor=TF,
             cistrome_name=e_module.cistrome_name,
@@ -134,6 +137,7 @@ def build_grn(
         n_cpu=1,
         merge_eRegulons=True,
         disable_tqdm=False,
+        seed=555,
         **kwargs) -> List[eRegulon]:
     log.info('Thresholding region to gene relationships')
     # some tfs are missing from tf_to_gene because they are not 
@@ -185,9 +189,10 @@ def build_grn(
                 e_module=e_module,
                 rnk=TF_to_ranking_pos[e_module.transcription_factor],
                 gsea_n_perm=gsea_n_perm,
-                context=frozenset(['positive tf2g']))
+                context=frozenset(['positive tf2g']),
+                seed=seed)
             for e_module in tqdm(
-                e_modules, 
+                e_modules,
                 total = len(e_modules),
                 desc="Running for Positive TF to gene")
             if e_module.transcription_factor in pos_TFs)
@@ -198,7 +203,8 @@ def build_grn(
                 e_module=e_module,
                 rnk=TF_to_ranking_neg[e_module.transcription_factor],
                 gsea_n_perm=gsea_n_perm,
-                context=frozenset(['negative tf2g']))
+                context=frozenset(['negative tf2g']),
+                seed=seed)
             for e_module in tqdm(
                 e_modules, 
                 total = len(e_modules),

@@ -2,3 +2,6 @@
 __pycahe__/
 *.py[cod]
 scplus_rtd
+.python-version
+build/*
+*.egg*
