@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 overrides = [
     { name = "ray", specifier = ">=2.51.0" },
+    { name = "session-info" },
     { name = "tables", specifier = ">=3.10" },
 ]
 
@@ -3213,7 +3214,7 @@ dependencies = [
     { name = "scipy" },
     { name = "scrublet" },
     { name = "seaborn" },
-    { name = "sinfo" },
+    { name = "session-info" },
     { name = "six" },
     { name = "smart-open" },
     { name = "smmap" },
@@ -3461,7 +3462,7 @@ requires-dist = [
     { name = "scipy", specifier = "==1.12.0" },
     { name = "scrublet", specifier = "==0.2.3" },
     { name = "seaborn", specifier = "==0.13.2" },
-    { name = "sinfo", specifier = "==0.3.4" },
+    { name = "session-info" },
     { name = "six", specifier = "==1.16.0" },
     { name = "smart-open", specifier = "==6.4.0" },
     { name = "smmap", specifier = "==5.0.1" },
@@ -3625,6 +3626,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/86/59/a451d7420a77ab0b98f7affa3a1d78a313d2f7281a57afb1a34bae8ab412/seaborn-0.13.2.tar.gz", hash = "sha256:93e60a40988f4d65e9f4885df477e2fdaff6b73a9ded434c1ab356dd57eefff7", size = 1457696, upload-time = "2024-01-25T13:21:52.551Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/11/00d3c3dfc25ad54e731d91449895a79e4bf2384dc3ac01809010ba88f6d5/seaborn-0.13.2-py3-none-any.whl", hash = "sha256:636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987", size = 294914, upload-time = "2024-01-25T13:21:49.598Z" },
+]
+
+[[package]]
+name = "session-info"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "stdlib-list" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/dc/4a0c85aee2034be368d3ca293a563128122dde6db6e1bc9ca9ef3472c731/session_info-1.0.1.tar.gz", hash = "sha256:d71950d5a8ce7f7f7d5e86aa208c148c4e50b5440b77d5544d422b48e4f3ed41", size = 24663, upload-time = "2025-04-11T16:08:43.504Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/c4/f6b7c0ec5241a2bde90c7ba1eca6ba44f8488bcedafe9072c79593015ec0/session_info-1.0.1-py3-none-any.whl", hash = "sha256:451d191e51816070b9f21a6ff3f6eb5d6015ae2738e8db63ac4e6398260a5838", size = 9119, upload-time = "2025-04-11T16:08:42.612Z" },
 ]
 
 [[package]]

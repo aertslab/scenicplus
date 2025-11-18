@@ -97,3 +97,4 @@ The project uses:
 - Dependency overrides in `pyproject.toml` for compatibility:
   - `tables>=3.10` (fixes macOS compilation issues)
   - `ray>=2.51.0` (adds Python 3.12 wheel support)
+  - `session-info` (replaces `sinfo` for Python 3.12 compatibility)

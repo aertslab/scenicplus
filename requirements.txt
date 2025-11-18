@@ -748,7 +748,7 @@ seaborn==0.13.2
     #   pycistopic
     #   scanpy
     #   scenicplus (pyproject.toml)
-sinfo==0.3.4
+session-info  # replaces sinfo==0.3.4 (Python 3.12 compatibility)
     # via scanpy
 six==1.16.0
     # via

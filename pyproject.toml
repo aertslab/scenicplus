@@ -34,7 +34,8 @@ dependencies = {file = ["requirements.txt"]}
 [tool.uv]
 override-dependencies = [
     "tables>=3.10",
-    "ray>=2.51.0"
+    "ray>=2.51.0",
+    "session-info"  # replaces sinfo (not Python 3.12 compatible)
 ]
 
 [project.optional-dependencies]
