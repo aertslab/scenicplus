@@ -4,7 +4,9 @@ This project is now configured to use `uv`, a fast Python package installer and 
 
 ## Prerequisites
 
-1. Install HDF5 (required for tables package):
+1. **Python Version**: This project requires Python 3.11 or 3.12. If you're on Linux with Python 3.12, uv will handle version overrides automatically.
+
+2. Install HDF5 (required for tables package):
    
    **macOS:**
    ```bash
@@ -89,7 +91,9 @@ You should see version 3.10.2 or later.
 ## Development
 
 The project uses:
-- Python 3.11+
+- Python 3.11 or 3.12
 - uv for package management and virtual environment
 - All dependencies specified in `requirements.txt`
-- Dependency overrides in `pyproject.toml` for macOS compatibility
+- Dependency overrides in `pyproject.toml` for compatibility:
+  - `tables>=3.10` (fixes macOS compilation issues)
+  - `ray>=2.51.0` (adds Python 3.12 wheel support)
