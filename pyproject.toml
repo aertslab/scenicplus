@@ -11,7 +11,7 @@ authors = [
 description = "SCENIC+ is a python package to build gene regulatory networks (GRNs) using combined or separate single-cell gene expression (scRNA-seq) and single-cell chromatin accessibility (scATAC-seq) data."
 readme = "README.md"
 version = "1.0a2"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.12"
 keywords = ["scATAC", "GRN inference", "eGRN inference"]
 license = { file = "LICENCE.txt" }
 classifiers = [
@@ -34,8 +34,7 @@ dependencies = {file = ["requirements.txt"]}
 [tool.uv]
 override-dependencies = [
     "tables>=3.10",
-    "ray>=2.51.0",
-    "session-info"  # replaces sinfo (not Python 3.12 compatible)
+    "ray>=2.51.0"
 ]
 
 [project.optional-dependencies]

@@ -25,7 +25,7 @@ Extensive documentation and tutorials are available at [read the docs](https://s
 [uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver. It's the recommended way to install SCENIC+ as it handles dependencies efficiently and works on macOS, Linux, and Windows.
 
 **Requirements:**
-- Python 3.11 or 3.12
+- Python 3.11 (Python 3.12 not yet supported due to dependency incompatibilities)
 - HDF5 library (see platform-specific instructions in [UV_SETUP.md](UV_SETUP.md))
 
 **Quick Start:**

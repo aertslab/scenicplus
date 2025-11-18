@@ -4,7 +4,7 @@ This project is now configured to use `uv`, a fast Python package installer and 
 
 ## Prerequisites
 
-1. **Python Version**: This project requires Python 3.11 or 3.12. If you're on Linux with Python 3.12, uv will handle version overrides automatically.
+1. **Python Version**: This project currently requires **Python 3.11**. Python 3.12 is not yet supported due to the `sinfo` package incompatibility (used by `scanpy`).
 
 2. Install HDF5 (required for tables package):
    
@@ -91,10 +91,13 @@ You should see version 3.10.2 or later.
 ## Development
 
 The project uses:
-- Python 3.11 or 3.12
+- Python 3.11 (3.12 support blocked by `sinfo` package used by `scanpy`)
 - uv for package management and virtual environment
 - All dependencies specified in `requirements.txt`
 - Dependency overrides in `pyproject.toml` for compatibility:
   - `tables>=3.10` (fixes macOS compilation issues)
-  - `ray>=2.51.0` (adds Python 3.12 wheel support)
-  - `session-info` (replaces `sinfo` for Python 3.12 compatibility)
+  - `ray>=2.51.0` (adds Python 3.12 wheel support, ready for when Python 3.12 is supported)
+
+### Python 3.12 Status
+
+Python 3.12 support is currently blocked by the `sinfo` package (v0.3.4), which uses `configparser.SafeConfigParser` (removed in Python 3.12). This package is a dependency of `scanpy` v1.8.2 and is only used for the optional `sc.logging.print_versions()` function. Once `scanpy` updates or removes this dependency, Python 3.12 will be supported.
