@@ -391,13 +391,18 @@ rule AUCell_direct:
         multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
     output:
         aucell_direct_out_fname=config["output_data"]["AUCell_direct"]
+    params:
+        temp_dir=lambda wildcards: config["params_general"]["temp_dir"]
     threads: config["params_general"]["n_cpu"]
     shell:
         """
+        echo "Snakemake is passing sample: {params.temp_dir}"
+
         scenicplus grn_inference AUCell \
             --eRegulon_fname {input.eRegulons_direct} \
             --multiome_mudata_fname {input.multiome_mudata_fname} \
             --aucell_out_fname {output.aucell_direct_out_fname} \
+            --temp_dir {params.temp_dir} \
             --n_cpu {threads}
         """
 
@@ -407,6 +412,8 @@ rule AUCell_extended:
         multiome_mudata_fname=config["output_data"]["combined_GEX_ACC_mudata"],
     output:
         aucell_extended_out_fname=config["output_data"]["AUCell_extended"]
+    params:
+        temp_dir=lambda wildcards: config["params_general"]["temp_dir"]
     threads: config["params_general"]["n_cpu"]
     shell:
         """
@@ -414,6 +421,7 @@ rule AUCell_extended:
             --eRegulon_fname {input.eRegulons_extended} \
             --multiome_mudata_fname {input.multiome_mudata_fname} \
             --aucell_out_fname {output.aucell_extended_out_fname} \
+            --temp_dir {params.temp_dir} \
             --n_cpu {threads}
         """
 
