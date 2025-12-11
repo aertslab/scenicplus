@@ -7,6 +7,9 @@ from pyscenic.binarization import binarize
 from typing import Literal, Dict, List, Optional
 import numpy as np
 import pandas as pd
+import anndata as ad
+import joblib
+import pathlib
 from dataclasses import dataclass
 from scenicplus.scenicplus_class import SCENICPLUS
 
@@ -79,38 +82,9 @@ def get_eRegulons_as_signatures(
         lambda x: list(set(x))).to_dict()
     return {"Gene_based": gene_signatures, "Region_based": region_signatures}
 
-def score_eRegulons(
-        eRegulons: pd.DataFrame,
-        gex_mtx: pd.DataFrame,
-        acc_mtx: pd.DataFrame,
-        auc_threshold: float = 0.05,
-        normalize: bool = False,
-        n_cpu: int = 1
-) -> Dict[str, pd.DataFrame]:
-    """
-    """
-    eRegulon_signatures = get_eRegulons_as_signatures(eRegulons=eRegulons)
-    gex_ranking = rank_data(gex_mtx)
-    acc_ranking = rank_data(acc_mtx)
-    gex_AUC = signature_enrichment(
-        gex_ranking,
-        eRegulon_signatures["Gene_based"],
-        enrichment_type='gene',
-        auc_threshold=auc_threshold,
-        normalize=normalize,
-        n_cpu=n_cpu)
-    acc_AUC = signature_enrichment(
-        acc_ranking,
-        eRegulon_signatures["Region_based"],
-        enrichment_type='gene',
-        auc_threshold=auc_threshold,
-        normalize=normalize,
-        n_cpu=n_cpu)
-    return {"Gene_based": gex_AUC, "Region_based": acc_AUC}
-
 def _rank_and_enrich(
-    cell_df,
-    signatures,
+    cell_df: pd.DataFrame,
+    signatures: Dict[str, List[str]],
     auc_threshold: float = 0.05,
     normalize: bool = False,
     n_cpu: int = 1) -> pd.DataFrame:
@@ -133,7 +107,8 @@ def _rank_and_enrich(
 
 def _chunk_scoring(
     adata: ad.AnnData,
-    signatures,
+    signatures: Dict[str, List[str]],
+    temp_dir: pathlib.Path,
     chunk_size: int = 1000,
     auc_threshold: float = 0.05,
     normalize: bool = False,
@@ -170,10 +145,11 @@ def _chunk_scoring(
 
     return AUC_scores
 
-def score_eRegulons2(
+def score_eRegulons(
         eRegulons: pd.DataFrame,
         gex_mtx: ad.AnnData,
         acc_mtx: ad.AnnData,
+        temp_dir: pathlib.Path,
         auc_threshold: float = 0.05,
         normalize: bool = False,
         chunk_size: int = 1000,
@@ -186,6 +162,7 @@ def score_eRegulons2(
     gex_AUC = _chunk_scoring(
         adata = gex_mtx,
         signatures = eRegulon_signatures["Gene_based"],
+        temp_dir = temp_dir,
         chunk_size = chunk_size,
         auc_threshold = auc_threshold,
         normalize = normalize,
@@ -196,6 +173,7 @@ def score_eRegulons2(
     acc_AUC = _chunk_scoring(
         adata = acc_mtx,
         signatures = eRegulon_signatures["Region_based"],
+        temp_dir = temp_dir,
         chunk_size = chunk_size,
         auc_threshold = auc_threshold,
         normalize = normalize,
