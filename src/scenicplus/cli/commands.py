@@ -933,6 +933,7 @@ def calculate_auc(
         eRegulons_fname: pathlib.Path,
         multiome_mudata_fname: pathlib.Path,
         out_file: pathlib.Path,
+        temp_dir: pathlib.Path,
         n_cpu: int = 1):
     """
     Calculate eRegulon enrichment scores.
@@ -945,19 +946,30 @@ def calculate_auc(
         Path to multiome MuData file.
     out_file : pathlib.Path
         Path to store output.
+    temp_dir: pathlib.Path
+        Temporary directory for parallel processing.
     n_cpu : int
         Number of parallel processes to run.
 
     """
     from scenicplus.eregulon_enrichment import score_eRegulons
+
+    if temp_dir is not None:
+        if type(temp_dir) == str:
+            temp_dir = pathlib.Path(temp_dir)
+        if not temp_dir.exists():
+            Warning(f"{temp_dir} does not exist, creating it.")
+            os.makedirs(temp_dir)
     log.info("Reading data.")
-    mdata = mudata.read(multiome_mudata_fname.__str__())
+    mdata = mudata.read(multiome_mudata_fname.__str__(), backed=True)
     eRegulons = pd.read_table(eRegulons_fname)
+    
     log.info("Calculating enrichment scores.")
     gene_region_AUC = score_eRegulons(
         eRegulons=eRegulons,
-        gex_mtx=mdata["scRNA"].to_df(),
-        acc_mtx=mdata["scATAC"].to_df(),
+        gex_mtx=mdata["scRNA"],
+        acc_mtx=mdata["scATAC"],
+        temp_dir=temp_dir.__str__(),
         n_cpu=n_cpu)
     mdata_AUC = mudata.MuData(
         {

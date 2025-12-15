@@ -7,6 +7,9 @@ from pyscenic.binarization import binarize
 from typing import Literal, Dict, List, Optional
 import numpy as np
 import pandas as pd
+import anndata as ad
+import joblib
+import pathlib
 from dataclasses import dataclass
 
 
@@ -79,34 +82,108 @@ def get_eRegulons_as_signatures(
         lambda x: list(set(x))).to_dict()
     return {"Gene_based": gene_signatures, "Region_based": region_signatures}
 
+def _rank_and_enrich(
+    cell_df: pd.DataFrame,
+    signatures: Dict[str, List[str]],
+    auc_threshold: float = 0.05,
+    normalize: bool = False,
+    n_cpu: int = 1) -> pd.DataFrame:
+    """
+    Compute enrichment AUC scores for signatures in a cell x feature dataframe  
+    Nb. expects a dataframe to maintain pycistopic compatibility in signature_enrichment().
+    """
+
+    ranking = rank_data(cell_df)
+    auc = signature_enrichment(
+        ranking,
+        signatures,
+        enrichment_type='gene',
+        auc_threshold=auc_threshold,
+        normalize=normalize,
+        n_cpu=1  # force single-threaded inside worker
+    )
+    
+    return auc
+
+def _chunk_scoring(
+    adata: ad.AnnData,
+    signatures: Dict[str, List[str]],
+    temp_dir: pathlib.Path,
+    chunk_size: int = 1000,
+    auc_threshold: float = 0.05,
+    normalize: bool = False,
+    n_cpu: int = 1) -> pd.DataFrame:
+    """
+    Helper function that splits AnnData into chunks of cells to score in parallel.
+    N.b. that the chunks are turned into a dense dataframe
+    Increasing the chunk_size increases speed but also memory usage.
+    """
+    # loop over sets of chunk_size cells - to avoid unsparsing the full 
+    # cell x feature matrix when creating ranks during _rank_and_enrich()
+    all_cells = adata.obs_names
+    cell_chunks = [all_cells[i:i + chunk_size] for i in range(0, len(all_cells), chunk_size)]
+    
+    # get signature enrichment scores in parallel
+    # concatenate in dataframe
+    AUC_list: List[auc] = joblib.Parallel(
+        n_jobs=n_cpu,
+        temp_folder=temp_dir
+    )(
+        joblib.delayed(
+            _rank_and_enrich
+        )(
+            adata[cell_chunk].to_df().copy(),
+            signatures,
+            auc_threshold=auc_threshold,
+            normalize=normalize  
+        )
+        for cell_chunk in cell_chunks
+    )
+    AUC_scores = pd.concat(AUC_list)
+    # match order of indices
+    AUC_scores = AUC_scores.loc[adata.obs_names]
+
+    return AUC_scores
+
 def score_eRegulons(
         eRegulons: pd.DataFrame,
-        gex_mtx: pd.DataFrame,
-        acc_mtx: pd.DataFrame,
+        gex_mtx: ad.AnnData,
+        acc_mtx: ad.AnnData,
+        temp_dir: pathlib.Path,
         auc_threshold: float = 0.05,
         normalize: bool = False,
-        n_cpu: int = 1
-) -> Dict[str, pd.DataFrame]:
+        chunk_size: int = 1000,
+        n_cpu: int = 1) -> Dict[str, pd.DataFrame]:
     """
     """
     eRegulon_signatures = get_eRegulons_as_signatures(eRegulons=eRegulons)
-    gex_ranking = rank_data(gex_mtx)
-    acc_ranking = rank_data(acc_mtx)
-    gex_AUC = signature_enrichment(
-        gex_ranking,
-        eRegulon_signatures["Gene_based"],
-        enrichment_type='gene',
-        auc_threshold=auc_threshold,
-        normalize=normalize,
-        n_cpu=n_cpu)
-    acc_AUC = signature_enrichment(
-        acc_ranking,
-        eRegulon_signatures["Region_based"],
-        enrichment_type='gene',
-        auc_threshold=auc_threshold,
-        normalize=normalize,
-        n_cpu=n_cpu)
-    return {"Gene_based": gex_AUC, "Region_based": acc_AUC}
+
+    # get eRegulon enrichment scores for gene expression
+    gex_AUC = _chunk_scoring(
+        adata = gex_mtx,
+        signatures = eRegulon_signatures["Gene_based"],
+        temp_dir = temp_dir,
+        chunk_size = chunk_size,
+        auc_threshold = auc_threshold,
+        normalize = normalize,
+        n_cpu = n_cpu
+    )
+
+    # get eRegulon enrichment scores for accessibility
+    acc_AUC = _chunk_scoring(
+        adata = acc_mtx,
+        signatures = eRegulon_signatures["Region_based"],
+        temp_dir = temp_dir,
+        chunk_size = chunk_size,
+        auc_threshold = auc_threshold,
+        normalize = normalize,
+        n_cpu = n_cpu
+    )
+
+    return {
+        "Gene_based": gex_AUC, 
+        "Region_based": acc_AUC
+    }
 
 def binarize_AUC(scplus_obj,
                  auc_key: Optional[str] = 'eRegulon_AUC',

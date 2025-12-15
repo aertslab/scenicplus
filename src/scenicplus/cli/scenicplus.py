@@ -1003,6 +1003,7 @@ def add_parser_for_aucell(subparser:argparse._SubParsersAction):
             eRegulons_fname=arg.eRegulon_fname,
             multiome_mudata_fname=arg.multiome_mudata_fname,
             out_file=arg.aucell_out_fname,
+            temp_dir=arg.temp_dir,
             n_cpu=arg.n_cpu)
     parser.set_defaults(func=aucell)
     # Required arguments
@@ -1018,6 +1019,10 @@ def add_parser_for_aucell(subparser:argparse._SubParsersAction):
         "--aucell_out_fname", dest="aucell_out_fname",
         action="store", type=pathlib.Path, required=True,
         help="Path to store enrichment scores (.h5mu).")
+    parser.add_argument(
+        "--temp_dir", dest="temp_dir",
+        action="store", type=pathlib.Path, required=True,
+        help="Path to temp dir.")
     # Optional arguments
     parser.add_argument(
         "--n_cpu", dest="n_cpu",
