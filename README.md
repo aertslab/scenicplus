@@ -20,18 +20,43 @@ Extensive documentation and tutorials are available at [read the docs](https://s
 
 ## Installing
 
-To install SCENIC+ (in a Linux environment):
+### Recommended: Install with uv (Fast & Cross-Platform)
 
-We highly recommend to install SCENIC+ in a new conda environment.
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver. It's the recommended way to install SCENIC+ as it handles dependencies efficiently and works on macOS, Linux, and Windows.
+
+**Requirements:**
+- Python 3.11 (Python 3.12 not yet supported due to dependency incompatibilities)
+- HDF5 library (see platform-specific instructions in [UV_SETUP.md](UV_SETUP.md))
+
+**Quick Start:**
 
 ```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-$ conda create --name scenicplus python=3.11 -y
-$ conda activate scenicplus
-$ git clone https://github.com/aertslab/scenicplus
-$ cd scenicplus
-$ pip install .
+# Clone the repository
+git clone https://github.com/aertslab/scenicplus
+cd scenicplus
 
+# Install dependencies and SCENIC+
+uv sync
+
+# Run Python with uv
+uv run python your_script.py
+```
+
+For detailed setup instructions, troubleshooting, and platform-specific requirements, see [UV_SETUP.md](UV_SETUP.md).
+
+### Alternative: Install with conda/pip
+
+If you prefer conda, you can install SCENIC+ in a new conda environment:
+
+```bash
+conda create --name scenicplus python=3.11 -y
+conda activate scenicplus
+git clone https://github.com/aertslab/scenicplus
+cd scenicplus
+pip install .
 ```
 
 ## Questions?

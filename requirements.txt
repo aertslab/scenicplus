@@ -748,7 +748,8 @@ seaborn==0.13.2
     #   pycistopic
     #   scanpy
     #   scenicplus (pyproject.toml)
-sinfo==0.3.4
+# sinfo==0.3.4 removed - not compatible with Python 3.12
+# scanpy will work without it (only used for session_info.show() function)
     # via scanpy
 six==1.16.0
     # via
