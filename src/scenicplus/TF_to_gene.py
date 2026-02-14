@@ -18,7 +18,6 @@ from arboreto.algo import _prepare_input
 from arboreto.core import (EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS,
                            infer_partial_network, to_tf_matrix)
 from tqdm import tqdm
-from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import _create_idx_pairs, masked_rho4pairs
 from typing import Literal, List, Union
 import pathlib
@@ -40,7 +39,7 @@ logging.basicConfig(level=level, format=format, handlers=handlers)
 log = logging.getLogger('TF2G')
 
 def _inject_TF_as_its_own_target(
-    scplus_obj: SCENICPLUS = None,
+    scplus_obj = None,
     TF2G_adj: pd.DataFrame = None, 
     ex_mtx: pd.DataFrame = None,
     rho_threshold = RHO_THRESHOLD, 
@@ -79,7 +78,7 @@ def _inject_TF_as_its_own_target(
         return new_TF2G_adj
 
 
-def load_TF2G_adj_from_file(SCENICPLUS_obj: SCENICPLUS,
+def load_TF2G_adj_from_file(SCENICPLUS_obj,
                             f_adj: str,
                             inplace=True,
                             key='TF2G_adj',

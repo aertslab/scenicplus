@@ -5,7 +5,7 @@ import pathlib
 import pickle
 import shutil
 import sys
-from typing import Callable, Dict, Iterator, List, Literal, Optional, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Literal, Optional, Tuple, Union, TYPE_CHECKING
 
 import joblib
 import mudata
@@ -15,7 +15,8 @@ from importlib_resources import files
 from pycistarget.motif_enrichment_cistarget import cisTarget
 from pycistarget.motif_enrichment_dem import DEM
 
-from scenicplus.grn_builder.modules import eRegulon
+if TYPE_CHECKING:
+    from scenicplus.grn_builder.modules import eRegulon
 
 # Create logger
 level = logging.INFO
@@ -518,7 +519,8 @@ def prepare_motif_enrichment_results(
         out_file_extended_annotation: pathlib.Path,
         out_file_tf_names: pathlib.Path,
         direct_annotation: List[str],
-        extended_annotation: List[str]) -> None:
+        extended_annotation: List[str],
+        path_to_regions_to_subset: Optional[pathlib.Path] = None) -> None:
     """
     Prepare motif enrichment results for SCENIC+ analysis.
 
@@ -538,13 +540,41 @@ def prepare_motif_enrichment_results(
         List of annotations to use for direct annotation.
     extended_annotation : List[str]
         List of annotations to use for extended annotation.
+    path_to_regions_to_subset: Optional[pathlib.Path]
+        Path for regions to subset and keep in cistromes, optional.
 
     """
+
     from scenicplus.data_wrangling.cistarget_wrangling import get_and_merge_cistromes
+    from scenicplus.utils import target_to_overlapping_query, coord_to_region_names
+    from scenicplus.utils import region_names_to_coordinates
     log.info("Reading multiome MuData.")
     mdata = mudata.read(multiome_mudata_fname.__str__())
     log.info("Getting cistromes.")
-    adata_direct_cistromes, adata_extended_cistromes = get_and_merge_cistromes(
+    if path_to_regions_to_subset is not None and path_to_regions_to_subset.__str__() != "None" and path_to_regions_to_subset.__str__() != "":
+        log.info("Subsetting regions from cistromes.")
+        regions = set(mdata['scATAC'].var_names)
+        if path_to_regions_to_subset.__str__().endswith(".bed"):
+            subset = pr.read_bed(path_to_regions_to_subset.__str__(), 
+                                as_df=False)
+            pr_regions = pr.PyRanges(region_names_to_coordinates(regions))
+            regions_to_overlap = target_to_overlapping_query(pr_regions, subset) #regions_to_overlap will be a pyranges df
+            # transform regions to overlap to set of regions
+            regions_to_overlap = set(coord_to_region_names(regions_to_overlap))                   
+            adata_direct_cistromes, adata_extended_cistromes = get_and_merge_cistromes(
+            paths_to_motif_enrichment_results=paths_to_motif_enrichment_results,
+            scplus_regions=regions_to_overlap,
+            direct_annotation=direct_annotation,
+            extended_annotation=extended_annotation)
+        else:
+            log.info('Please provide a bed file for regions to subset, no regions will be subsetted.')
+            adata_direct_cistromes, adata_extended_cistromes = get_and_merge_cistromes(
+            paths_to_motif_enrichment_results=paths_to_motif_enrichment_results,
+            scplus_regions=set(mdata['scATAC'].var_names),
+            direct_annotation=direct_annotation,
+            extended_annotation=extended_annotation)
+    else:
+        adata_direct_cistromes, adata_extended_cistromes = get_and_merge_cistromes(
         paths_to_motif_enrichment_results=paths_to_motif_enrichment_results,
         scplus_regions=set(mdata["scATAC"].var_names),
         direct_annotation=direct_annotation,
@@ -751,7 +781,7 @@ def infer_region_to_gene(
         sep="\t", header = True, index = False)
 
 def _format_egrns(
-        eRegulons: List[eRegulon],
+        eRegulons: List,
         tf_to_gene: pd.DataFrame):
     """Helper function to format eRegulons to a pandas dataframe."""
     REGION_TO_GENE_COLUMNS = [

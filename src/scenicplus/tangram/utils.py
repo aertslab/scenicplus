@@ -6,11 +6,10 @@ import loompy as lp
 import json
 import re
 import anndata as ann
-from scenicplus.scenicplus_class import SCENICPLUS
 
 
 def get_auc_anndata_from_scenicplus(
-        scplus_obj: SCENICPLUS,
+        scplus_obj,
         regulon_entity: str = 'Gene_based'
         ):
 

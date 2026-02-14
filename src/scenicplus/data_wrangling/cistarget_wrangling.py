@@ -1,6 +1,7 @@
 """Wrangle output from pycistarget into a format compatible with SCENIC+."""
 
 from dataclasses import dataclass
+from scenicplus.utils import region_names_to_coordinates
 from typing import Dict, Iterable, List, Set, Tuple
 
 import anndata
@@ -9,6 +10,7 @@ import numpy as np
 import pandas as pd
 from pycistarget.utils import get_motifs_per_TF, get_TF_list
 from scipy import sparse
+
 
 
 @dataclass
@@ -107,6 +109,7 @@ def _get_cistromes(
                 target_regions_motif_direct.update(motif_hits[motif])
             else:
                 raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
+    
         cistromes.append(
             Cistrome(
                 tf_name = tf_name,
@@ -125,14 +128,15 @@ def _get_cistromes(
                 target_regions_motif_extended.update(motif_hits[motif])
             else:
                 raise ValueError(f"Motif enrichment table and motif hits don't match for the TF: {tf_name}")
+
         cistromes.append(
             Cistrome(
                 tf_name = tf_name,
                 motifs = set(motifs_annotated_to_tf),
-                target_regions = target_regions_motif_extended & scplus_regions,
+                target_regions =  target_regions_motif_extended & scplus_regions,
                 extended = True))
     return cistromes
-
+      
 def _merge_cistromes(cistromes: List[Cistrome]) -> Iterable[Cistrome]:
     """Helper function to merge cistromes with the same TF name."""
     a_cistromes = np.array(cistromes, dtype = "object")

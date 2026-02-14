@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import anndata
 
-from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import Groupby, flatten_list
 
 # HARDCODED VARIABLES
@@ -709,7 +708,7 @@ def _split_direct_indirect(l_e_modules):
         yield e_modules
 
 
-def merge_emodules(SCENICPLUS_obj: SCENICPLUS = None,
+def merge_emodules(SCENICPLUS_obj = None,
                    e_modules: list = None,
                    e_modules_key: str = 'eRegulons',
                    rho_dichotomize: bool = True,

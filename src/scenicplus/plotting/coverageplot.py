@@ -13,7 +13,6 @@ import matplotlib.patches as mpatches
 import matplotlib
 from typing import Union, List
 
-from ..scenicplus_class import SCENICPLUS
 
 
 def _region_to_chrom_start_end(x): return [x.replace(':', '-').split('-')[0],
@@ -22,7 +21,7 @@ def _region_to_chrom_start_end(x): return [x.replace(':', '-').split('-')[0],
                                           int(x.replace(':', '-').split('-')[2])]
 
 
-def coverage_plot(SCENICPLUS_obj: SCENICPLUS,
+def coverage_plot(SCENICPLUS_obj,
                   bw_dict: Mapping[str, str],
                   region: str,
                   genes_violin_plot: Union[str, List] = None,

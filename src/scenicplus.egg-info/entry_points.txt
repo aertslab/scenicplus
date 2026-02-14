@@ -1,0 +1,2 @@
+[console_scripts]
+scenicplus = scenicplus.cli.scenicplus:main

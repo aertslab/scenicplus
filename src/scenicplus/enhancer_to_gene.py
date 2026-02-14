@@ -23,7 +23,6 @@ from sklearn.ensemble import (ExtraTreesRegressor, GradientBoostingRegressor,
                               RandomForestRegressor)
 from tqdm import tqdm
 
-from scenicplus.scenicplus_class import SCENICPLUS
 from scenicplus.utils import ( Groupby, flatten_list,
                               region_names_to_coordinates)
 import pathlib
@@ -305,7 +304,7 @@ def calculate_regions_to_genes_relationships(
     return result_df
 
 
-def export_to_UCSC_interact(scplus_obj: SCENICPLUS,
+def export_to_UCSC_interact(scplus_obj,
                             species: str,
                             outfile: str,
                             region_to_gene_key: str =' region_to_gene',
