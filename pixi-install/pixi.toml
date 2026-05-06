@@ -1,0 +1,19 @@
+[workspace]
+authors = ["Aishwarya Chander <aishwarya.chander@alleninstitute.org>"]
+channels = ["conda-forge", "bioconda"]
+name = "scenicplus-env"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+setup = "pip install --no-build-isolation pybedtools==0.9.1 && pip install git+https://github.com/aertslab/scenicplus.git@main && pip install ipykernel"
+kernel = "python -m ipykernel install --user --name scenicplus --display-name 'Python (SCENIC+)'"
+
+[dependencies]
+python = "3.11.8.*"
+pip = ">=26.1.1,<27"
+setuptools = "<70"
+cython = ">=3.2.4,<4"
+bedtools = ">=2.31.1,<3"
+htslib = ">=1.23.1,<2"
+pysam = ">=0.24.0,<0.25"
