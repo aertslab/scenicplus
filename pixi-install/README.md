@@ -8,7 +8,8 @@ curl -fsSL https://pixi.sh/install.sh | bash
 ```
 
 ## Install 
-Currently, the setup task is defined to pull the `main` branch of the Aerts Lab Scenic + github (https://github.com/aertslab/scenicplus.git)
+Currently, the setup task is defined to pull the `main` branch of the [Aerts Lab Scenic+ github](https://github.com/aertslab/scenicplus.git).
+
 ```bash
 git clone https://github.com/aichander/scenicplus.git
 cd scenicplus
